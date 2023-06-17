@@ -11,7 +11,7 @@ Merge schemas combined using allOf into a more readable composed schema free fro
 - Correctly merge additionalProperties, patternProperties and properties taking into account common validations
 - Correctly merge items and additionalItems taking into account common validations
 - Supports merging JsonSchemas draft-04 and draft-06
-- Supports rules extension to support other JsonSchema versions
+- Supports rules extension to merge other JsonSchema versions
 - Supports $refs and circular references either (internal references only)
 - Typescript syntax support out of the box
 - No dependencies, can be used in nodejs or browser
