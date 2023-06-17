@@ -5,6 +5,7 @@ Merge schemas combined using allOf into a more readable composed schema free fro
 
 ## Features
 - Safe merging of schemas combined with allOf in whole JsonSchema document
+- Fastest implmentation - up to x4 times faster then other popular libraries
 - Merged schema does not validate more or less than the original schema
 - Removes almost all logical impossibilities
 - Correctly merge additionalProperties, patternProperties and properties taking into account common validations
@@ -19,7 +20,7 @@ Merge schemas combined using allOf into a more readable composed schema free fro
 There are some libraries that can merge schemas combined with allOf. One of the most popular is [mokkabonna/json-schema-merge-allof](https://www.npmjs.com/package/json-schema-merge-allof), but it has some limitatons: Does not support circular $refs and no Typescript syntax out of the box.
 
 ## External $ref
-If one of your schemas contain a external $ref you should bundle them via [api-ref-bundler](https://github.com/udamir/api-ref-bundler) first.
+If schema contains an external $ref, you should bundle it via [api-ref-bundler](https://github.com/udamir/api-ref-bundler) first.
 
 ## Installation
 ```SH
@@ -78,6 +79,19 @@ Reference `allof-merge.min.js` in your HTML and use the global variable `AllOfMe
 ## Documentation
 
 TBD
+
+## Benchmark
+```
+allof-merge x 671 ops/sec ±3.39% (85 runs sampled)
+json-schema-merge-allof x 209 ops/sec ±2.65% (83 runs sampled)
+Fastest is allof-merge
+```
+
+Check yourself:
+```SH
+npm run benchmark
+```
+
 
 ## Contributing
 When contributing, keep in mind that it is an objective of `allof-merge` to have no package dependencies. This may change in the future, but for now, no-dependencies.

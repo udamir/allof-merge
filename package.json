@@ -15,21 +15,29 @@
   "scripts": {
     "build": "tsc && tsc --module commonjs --outDir dist/cjs",
     "test": "jest --verbose",
-    "prepublish": "rm -r dist || true && npm run build && npm run build:web",
+    "prepublish": "rm -r dist || true && yarn build && yarn build:web",
     "test:coverage": "jest --verbose --coverage",
-    "build:web": "vite build"
+    "build:web": "vite build",
+    "benchmark": "yarn build && node benchmark"
   },
   "keywords": [
+    "json",
+    "schema",
+    "json-schema",
     "jsonschema",
     "allof",
-    "merge"
+    "merge",
+    "resolve",
+    "simplify"
   ],
   "author": "Damir Yusipov",
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^26.0.0",
+    "benchmark": "^2.1.4",
     "jest": "^26.0.1",
     "js-yaml": "^4.1.0",
+    "json-schema-merge-allof": "^0.8.1",
     "ts-jest": "^26.1.0",
     "ts-loader": "^8.4.0",
     "ts-node": "^10.7.0",
