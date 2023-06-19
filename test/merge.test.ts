@@ -1640,7 +1640,7 @@ describe("module", function () {
           },
           added: {
             type: "integer",
-            title: "pri3",
+            title: "pri1",
             minimum: 15,
             maximum: 10,
           },
