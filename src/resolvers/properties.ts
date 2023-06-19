@@ -1,6 +1,6 @@
+import { getAllOfItemsMap, jsonSchemaMergeResolver } from "./jsonschema"
 import { JsonSchema, MergeResolver } from "../types"
 import { MapArray } from "../utils"
-import { getAllOfItemsMap } from "./jsonschema"
 
 export const getPropertiesForMerge = (allOfItems: JsonSchema[]) => {
   const properties: any[] = []
@@ -91,4 +91,11 @@ export const propertiesMergeResolver: MergeResolver = (args) => {
   }
 
   return result
+}
+
+export const additionalPropertiesMergeResolver: MergeResolver = (args, ctx) => {
+  if (args.reduce((r, v) => r && (v === true), true)) {
+    return true
+  }
+  return jsonSchemaMergeResolver(args, ctx)
 }

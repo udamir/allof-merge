@@ -38,7 +38,7 @@ export const jsonSchemaMergeRules = (draft: string = "06", mergeResolver = resol
     "/": () => jsonSchemaMergeRules(draft, resolvers.itemsMergeResolver),
     "/*": () => jsonSchemaMergeRules(draft, mergeResolver),
   },
-  "/additionalProperties": () => jsonSchemaMergeRules(draft, mergeResolver),
+  "/additionalProperties": () => jsonSchemaMergeRules(draft, resolvers.additionalPropertiesMergeResolver),
   "/additionalItems": () => jsonSchemaMergeRules(draft, resolvers.additionalItemsMergeResolver),
   "/patternProperties": { 
     "/*": () => jsonSchemaMergeRules(draft, mergeResolver),

@@ -16,6 +16,20 @@ describe('properties', function() {
       })
     })
 
+    it('allows extra properties if additionalProperties are true', function() {
+      const result = merge({
+        allOf: [{
+          additionalProperties: true
+        }, {
+          additionalProperties: true
+        }]
+      })
+
+      expect(result).toMatchObject({
+        additionalProperties: true
+      })
+    })
+
     it('allows only intersecting properties', function() {
       const result = merge({
         allOf: [{
