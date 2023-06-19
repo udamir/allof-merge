@@ -1,5 +1,6 @@
 # allof-merge
-<img alt="npm" src="https://img.shields.io/npm/v/allof-merge"> <img alt="npm" src="https://img.shields.io/npm/dm/allof-merge?label=npm"> <img alt="npm type definitions" src="https://img.shields.io/npm/types/allof-merge"> <img alt="GitHub" src="https://img.shields.io/github/license/udamir/allof-merge">
+<img alt="npm" src="https://img.shields.io/npm/v/allof-merge"> <img alt="npm" src="https://img.shields.io/npm/dm/allof-merge?label=npm"> ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/udamir/allof-merge/ci.yml)
+ <img alt="npm type definitions" src="https://img.shields.io/npm/types/allof-merge"> ![Coveralls branch](https://img.shields.io/coverallsCoverage/github/udamir/allof-merge) <img alt="GitHub" src="https://img.shields.io/github/license/udamir/allof-merge">
 
 Merge schemas combined using allOf into a more readable composed schema free from allOf.
 
