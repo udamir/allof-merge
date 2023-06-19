@@ -13,10 +13,12 @@ export interface RefNode {
   [key: string]: any
 }
 
+export type MergeError = (msg: string, values: any[]) => void
+
 export interface MergeContext {
   allOfItems: JsonSchema[]
   mergeRules: MergeRules
-  mergeError: (msg: string, values: any[]) => void
+  mergeError: MergeError
 }
 
 export type MergeResolver = (args: any[], ctx: MergeContext) => any 
