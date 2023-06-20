@@ -53,10 +53,13 @@ export const jsonSchemaMergeResolver: MergeResolver = (args: any[], ctx) => {
 
     if (merged === undefined) {
       throw new Error('Could not merge values of :"' + key + '". They are probably incompatible. Values: \n' + JSON.stringify(_args))
+          
+      // ctx.mergeError('Could not merge values, they are probably incompatible', _args)
+    } else {
+      result[key] = merged
     }
 
-    result[key] = merged
   }
 
-  return result
+  return Object.keys(result).length ? result : undefined
 }

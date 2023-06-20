@@ -1,9 +1,10 @@
 import { JsonPath, SyncCloneHook, isObject, syncClone } from "json-crawl"
 
-import { buildPointer, findAllOfRule, isRefNode, removeDuplicates, resolveRefNode } from "./utils"
+import { buildPointer, findAllOfMergeRules, isRefNode, removeDuplicates, resolveRefNode } from "./utils"
+import { MergeError, MergeOptions, MergeRules } from "./types"
 import { jsonSchemaMergeResolver } from "./resolvers"
-import { MergeError, MergeOptions } from "./types"
 import { jsonSchemaMergeRules } from "./rules"
+import { ErrorMessage } from "./errors"
 
 export const merge = (value: any, options?: MergeOptions) => {
   return syncClone(value, allOfResolverHook(options), {})
@@ -14,7 +15,7 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
   const resolvedCache = new Map<string, any>() 
   const nodeToDelete: Map<string, number> = new Map()
   let source = options?.source
-  const mergeRules = options?.rules || jsonSchemaMergeRules()
+  const mergeRules: MergeRules = options?.rules || jsonSchemaMergeRules() 
 
   return (value, ctx) => {
     // save root value as source if source is not defined
@@ -22,10 +23,18 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
       source = value
     }
 
-    // check if current node is JsonSchema 
-    const rules = findAllOfRule(ctx.path, mergeRules)
+    const mergeError: MergeError = (values) => {
+      // check if merge error in anyOf/oneOf combination node
+      // const args = findNodeToDelete(ctx.path)
+      // if (args) {
+      //   nodeToDelete.set(...args)
+      // } else {
+      // }
+      options?.onMergeError?.(ErrorMessage.mergeError(), ctx.path, values)
+    }
 
-    // console.log(ctx.path, `JsonSchema: ${!!rules}`)
+    // check if current node is JsonSchema 
+    const rules = findAllOfMergeRules(ctx.path, mergeRules)
 
     const exitHook = () => {
       const { node } = ctx.state
@@ -34,8 +43,9 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
         const key = nodeToDelete.get(strPath)!
         if (Array.isArray(node[ctx.key])) {
           if (node[ctx.key].length < 2) {
-            throw new Error('Could not merge values of :"' + key + '". They are probably incompatible')
-            // options?.onMergeError?.('Could not merge values. They are probably incompatible', ctx.path, (value as any)?.allOf)
+            throw new Error(ErrorMessage.mergeError())
+            // mergeError('Could not merge values. They are probably incompatible', (value as any)?.allOf)
+            
           }
           node[ctx.key].splice(key, 1)
         }
@@ -48,7 +58,7 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
       }
     }
 
-    if (!rules) { return { value, exitHook } }
+    if (!rules || !rules["/allOf"] || !rules["/allOf"].$) { return { value, exitHook } }
 
     // skip if no allOf
     if (!isObject(value) || !value.allOf) { 
@@ -68,9 +78,9 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
     }
 
     const allOfItems = normalizeAllOfItems(value, source)
-    const mergeError: MergeError = (msg, values) => options?.onMergeError?.(msg, ctx.path, values)
     try {
-      const mergedNode = jsonSchemaMergeResolver(allOfItems, { allOfItems, mergeRules,  mergeError })
+      const mergedNode = jsonSchemaMergeResolver(allOfItems, { allOfItems, mergeRules, mergeError })
+
       return { value: mergedNode, exitHook }
     } catch (error) {
       const args = findNodeToDelete(ctx.path)

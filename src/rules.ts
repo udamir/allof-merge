@@ -1,7 +1,7 @@
-import * as resolvers from "./resolvers";
-import { MergeRules } from "./types";
+import * as resolvers from "./resolvers"
+import { MergeRules } from "./types"
 
-export const jsonSchemaMergeRules = (draft: string = "06", mergeResolver = resolvers.jsonSchemaMergeResolver): MergeRules => ({
+export const jsonSchemaMergeRules = (draft: string = "06"): MergeRules => ({
   "/maximum": { $: resolvers.minValue },
   "/exclusiveMaximum": { $: resolvers.alternative },
   "/minimum": { $: resolvers.maxValue },
@@ -18,30 +18,39 @@ export const jsonSchemaMergeRules = (draft: string = "06", mergeResolver = resol
   "/enum": { $: resolvers.mergeEnum },
   "/type": { $: resolvers.mergeTypes },
   "/allOf": {
-    "/*": () => jsonSchemaMergeRules(draft, mergeResolver),
+    "/*": () => jsonSchemaMergeRules(draft),
     $: resolvers.mergeArray,
   },
   "/not": { $: resolvers.mergeNot },
   "/oneOf": {
-    "/*": () => jsonSchemaMergeRules(draft, mergeResolver),
+    "/*": () => jsonSchemaMergeRules(draft),
     $: resolvers.mergeArray,
   },
   "/anyOf": {
-    "/*": () => jsonSchemaMergeRules(draft, mergeResolver),
+    "/*": () => jsonSchemaMergeRules(draft),
     $: resolvers.mergeArray,
   },
   "/properties": {
-    "/*": () => jsonSchemaMergeRules(draft, mergeResolver),
+    "/*": () => jsonSchemaMergeRules(draft),
     $: resolvers.propertiesMergeResolver,
   },
   "/items": {
-    "/": () => jsonSchemaMergeRules(draft, resolvers.itemsMergeResolver),
-    "/*": () => jsonSchemaMergeRules(draft, mergeResolver),
+    "/": () => ({
+      ...jsonSchemaMergeRules(draft),
+      "$": resolvers.itemsMergeResolver,
+    }),
+    "/*": () => jsonSchemaMergeRules(draft),
   },
-  "/additionalProperties": () => jsonSchemaMergeRules(draft, resolvers.additionalPropertiesMergeResolver),
-  "/additionalItems": () => jsonSchemaMergeRules(draft, resolvers.additionalItemsMergeResolver),
+  "/additionalProperties": () => ({ 
+    ...jsonSchemaMergeRules(draft),
+    "$": resolvers.additionalPropertiesMergeResolver 
+  }),
+  "/additionalItems": () => ({ 
+    ...jsonSchemaMergeRules(draft), 
+    "$": resolvers.additionalItemsMergeResolver 
+  }),
   "/patternProperties": { 
-    "/*": () => jsonSchemaMergeRules(draft, mergeResolver),
+    "/*": () => jsonSchemaMergeRules(draft),
     $: resolvers.propertiesMergeResolver,
   },
   "/pattern": { $: resolvers.mergePattern },
@@ -53,17 +62,17 @@ export const jsonSchemaMergeRules = (draft: string = "06", mergeResolver = resol
   "/examples": { $: resolvers.mergeObjects },
   "/deprecated": { $: resolvers.alternative },
   ...draft === "06" ? { 
-    "/propertyNames": () => jsonSchemaMergeRules(draft, mergeResolver),
-    "/contains": () => jsonSchemaMergeRules(draft, mergeResolver),
+    "/propertyNames": () => jsonSchemaMergeRules(draft),
+    "/contains": () => jsonSchemaMergeRules(draft),
     "/dependencies": { 
-      "/*": () => jsonSchemaMergeRules(draft, mergeResolver),
+      "/*": () => jsonSchemaMergeRules(draft),
       $: resolvers.dependenciesMergeResolver
     },
     "/const": { $: resolvers.equal },
     "/exclusiveMaximum": { $: resolvers.minValue },
     "/exclusiveMinimum": { $: resolvers.maxValue },
     "/definitions": {
-      '/*': () => jsonSchemaMergeRules(draft, mergeResolver),
+      '/*': () => jsonSchemaMergeRules(draft),
     },
   } : {},
   "/xml": { $: resolvers.mergeObjects },
@@ -74,7 +83,7 @@ export const jsonSchemaMergeRules = (draft: string = "06", mergeResolver = resol
   // "/default": { $: last },
   "/*": { $: resolvers.last },
   "/defs": {
-    '/*': () => jsonSchemaMergeRules(draft, mergeResolver),
+    '/*': () => jsonSchemaMergeRules(draft),
   },
-  $: mergeResolver,
+  $: resolvers.jsonSchemaMergeResolver,
 })

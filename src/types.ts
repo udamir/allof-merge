@@ -13,7 +13,7 @@ export interface RefNode {
   [key: string]: any
 }
 
-export type MergeError = (msg: string, values: any[]) => void
+export type MergeError = (values: any[]) => void
 
 export interface MergeContext {
   allOfItems: JsonSchema[]
