@@ -1,5 +1,5 @@
-import * as resolvers from "./resolvers"
-import { MergeRules } from "./types"
+import * as resolvers from "../resolvers"
+import { MergeRules } from "../types"
 
 export const jsonSchemaMergeRules = (draft: string = "06"): MergeRules => ({
   "/maximum": { $: resolvers.minValue },
