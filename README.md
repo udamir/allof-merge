@@ -11,7 +11,8 @@ Merge schemas combined using allOf into a more readable composed schema free fro
 - Removes almost all logical impossibilities
 - Correctly merge additionalProperties, patternProperties and properties taking into account common validations
 - Correctly merge items and additionalItems taking into account common validations
-- Supports merging JsonSchemas draft-04 and draft-06
+- Supports merging allOf in OpenApi 3.x
+- Supports merging allOf in JsonSchemas draft-04 and draft-06
 - Supports rules extension to merge other JsonSchema versions
 - Supports $refs and circular references either (internal references only)
 - Typescript syntax support out of the box
