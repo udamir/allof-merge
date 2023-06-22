@@ -1,7 +1,8 @@
 const { Suite } = require("benchmark")
 const merger = require("json-schema-merge-allof")
 const { merge } = require("../dist/cjs")
-const data = require("./data")
+
+const data = require("./data.json")
 
 const suite = new Suite()
 
