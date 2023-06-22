@@ -5,7 +5,7 @@
 Merge schemas combined using allOf into a more readable composed schema free from allOf.
 
 ## Features
-- Safe merging of schemas combined with allOf in whole document based on JsonSchema rules
+- Safe merging of schemas combined with allOf in whole JsonSchema based document
 - Fastest implmentation - up to x5 times faster then other popular libraries
 - Merged schema does not validate more or less than the original schema
 - Removes almost all logical impossibilities
