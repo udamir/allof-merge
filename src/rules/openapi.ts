@@ -8,19 +8,19 @@ export const openApiVersion = {
 
 type OpenApiVersion = keyof typeof openApiVersion
 
-const schemaMergeRules = (version: OpenApiVersion = openApiVersion["3.0.x"]) => {
+const schemaMergeRules = (version: OpenApiVersion) => {
   return version === openApiVersion["3.0.x"]
     ? jsonSchemaMergeRules("04")
     : jsonSchemaMergeRules("06")
 }
 
-const parametersMergeRules = (version: OpenApiVersion = openApiVersion["3.0.x"]): MergeRules => ({
+const parametersMergeRules = (version: OpenApiVersion): MergeRules => ({
   "/*": {
     "/schema": schemaMergeRules(version)
   }
 })
 
-const requestBodyMergeRules = (version: OpenApiVersion = openApiVersion["3.0.x"]): MergeRules => ({
+const requestBodyMergeRules = (version: OpenApiVersion): MergeRules => ({
   "/content": {
     "/*": {
       "/schema": schemaMergeRules(version),
@@ -31,7 +31,7 @@ const requestBodyMergeRules = (version: OpenApiVersion = openApiVersion["3.0.x"]
   }
 })
 
-const responsesMergeRules = (version: OpenApiVersion = openApiVersion["3.0.x"]): MergeRules => ({
+const responsesMergeRules = (version: OpenApiVersion): MergeRules => ({
   "/*": {
     "/headers": parametersMergeRules(version),
     "/content": {

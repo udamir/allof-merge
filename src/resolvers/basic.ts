@@ -19,7 +19,7 @@ export const mergeEnum: MergeResolver = (args, ctx) => {
   const items = args.map((v) => v.map((p: any) => JSON.stringify(p)))
   const result = intersectItems(items, ctx).map((v: string) => JSON.parse(v)).sort()
   if (!result.length) {
-    throw new Error('Could not merge values of enum. They are probably incompatible. Values: \n' + JSON.stringify(args))
+    ctx.mergeError(args)
   }
   return result
 }

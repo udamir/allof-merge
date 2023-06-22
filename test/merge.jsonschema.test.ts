@@ -530,7 +530,7 @@ describe("module", function () {
               type: "text",
             },
           ],
-        })
+        }, { onMergeError: (msg) => { throw new Error(msg) }})
       }).toThrow(/incompatible/)
     })
 
@@ -583,7 +583,7 @@ describe("module", function () {
               type: ["text", "object"],
             },
           ],
-        })
+        }, { onMergeError: (msg) => { throw new Error(msg) }})
       }).toThrow(/incompatible/)
     })
 
@@ -634,7 +634,7 @@ describe("module", function () {
               enum: [[], false],
             },
           ],
-        })
+        }, { onMergeError: (msg) => { throw new Error(msg) }})
       }).toThrow(/incompatible/)
     })
 
@@ -868,7 +868,7 @@ describe("module", function () {
               ],
             },
           ],
-        })
+        }, { onMergeError: (msg) => { throw new Error(msg) }})
       }).toThrow(/incompatible/)
 
       expect(function () {
@@ -889,7 +889,7 @@ describe("module", function () {
               ],
             },
           ],
-        })
+        }, { onMergeError: (msg) => { throw new Error(msg) }})
       }).toThrow(/incompatible/)
     })
 
