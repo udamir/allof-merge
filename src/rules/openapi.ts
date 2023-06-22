@@ -6,12 +6,12 @@ export const openApiVersion = {
   "3.1.x": "3.1.x"
 } as const
 
-type OpenApiVersion = keyof typeof openApiVersion
+export type OpenApiVersion = keyof typeof openApiVersion
 
 const schemaMergeRules = (version: OpenApiVersion) => {
   return version === openApiVersion["3.0.x"]
-    ? jsonSchemaMergeRules("04")
-    : jsonSchemaMergeRules("06")
+    ? jsonSchemaMergeRules("draft-04")
+    : jsonSchemaMergeRules("draft-06")
 }
 
 const parametersMergeRules = (version: OpenApiVersion): MergeRules => ({

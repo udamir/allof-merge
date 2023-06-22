@@ -26,7 +26,7 @@ export const removeDuplicates = <T>(array: T[]): T[] => {
   return uniqueItems;
 }
 
-export const findAllOfMergeRules = (path: JsonPath, rules: any) => {
+export const findMergeRules = (path: JsonPath, rules: any) => {
 
   for (const key of path) {
     let _key = `/${key}`

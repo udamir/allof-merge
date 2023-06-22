@@ -1,6 +1,5 @@
 import { getPatternPropertiesForMerge, getPropertiesForMerge } from "./properties"
 import type { JsonSchema, MergeResolver } from "../types"
-import { jsonSchemaMergeRules } from "../rules"
 import { ErrorMessage } from "../errors"
 
 export const getAllOfItemsMap = (allOfItems: JsonSchema[]): Record<string, any[]> => {
@@ -26,20 +25,15 @@ export const jsonSchemaMergeResolver: MergeResolver = (args: any[], ctx) => {
 
   if ("properties" in keys) {
     keys.properties = getPropertiesForMerge(args)
-    if (!keys.properties.length) {
-      delete keys.properties
-    }
   }
 
   if ("patternProperties" in keys) {
     keys.patternProperties = getPatternPropertiesForMerge(args)
-    if (!keys.patternProperties.length) {
-      delete keys.patternProperties
-    }
   }
 
   for (let [key, _args] of Object.entries(keys)) {
-    const rules: any = jsonSchemaMergeRules()
+    if (!_args.length) { continue }
+    const rules: any = ctx.mergeRules
 
     let rule = `/${key}` in rules ? rules[`/${key}`] : rules["/*"]
     rule = (!("$" in rule) && "/" in rule) ? rule["/"] : rule
@@ -53,13 +47,10 @@ export const jsonSchemaMergeResolver: MergeResolver = (args: any[], ctx) => {
     const merged = _args.length > 1 ? mergeFunc(_args, { ...ctx, allOfItems: args }) : _args[0]
 
     if (merged === undefined) {
-      // throw new Error('Could not merge values of :"' + key + '". They are probably incompatible. Values: \n' + JSON.stringify(_args))
-          
       ctx.mergeError(_args)
     } else {
       result[key] = merged
     }
-
   }
 
   return Object.keys(result).length ? result : undefined

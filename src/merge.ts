@@ -1,6 +1,6 @@
 import { JsonPath, SyncCloneHook, isObject, syncClone } from "json-crawl"
 
-import { buildPointer, findAllOfMergeRules, isRefNode, removeDuplicates, resolveRefNode } from "./utils"
+import { buildPointer, findMergeRules, isRefNode, removeDuplicates, resolveRefNode } from "./utils"
 import { MergeError, MergeOptions, MergeRules } from "./types"
 import { jsonSchemaMergeResolver } from "./resolvers"
 import { jsonSchemaMergeRules } from "./rules"
@@ -15,7 +15,7 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
   const resolvedCache = new Map<string, any>() 
   const nodeToDelete: Map<string, number> = new Map()
   let source = options?.source
-  const mergeRules: MergeRules = options?.rules || jsonSchemaMergeRules() 
+  const rules: MergeRules = options?.rules || jsonSchemaMergeRules() 
 
   return (value, ctx) => {
     // save root value as source if source is not defined
@@ -33,9 +33,6 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
       }
     }
 
-    // check if current node is JsonSchema 
-    const rules = findAllOfMergeRules(ctx.path, mergeRules)
-
     const exitHook = () => {
       const { node } = ctx.state
       const strPath = JSON.stringify(ctx.path)
@@ -44,7 +41,6 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
         if (Array.isArray(node[ctx.key])) {
           if (node[ctx.key].length < 2) {
             mergeError((<any>value)?.allOf || [])
-            
           }
           node[ctx.key].splice(key, 1)
         }
@@ -57,12 +53,14 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
       }
     }
 
-    if (!rules || !rules["/allOf"] || !rules["/allOf"].$) { return { value, exitHook } }
-
     // skip if no allOf
     if (!isObject(value) || !value.allOf) { 
       return { value, exitHook }
     }
+    
+    // check if in current node extected allOf merge in rules
+    const mergeRules = findMergeRules(ctx.path, rules)
+    if (!mergeRules || !mergeRules["/allOf"] || !mergeRules["/allOf"].$) { return { value, exitHook } }
 
     const pointer = buildPointer(ctx.path)
     if (resolvedCache.has(pointer)) {

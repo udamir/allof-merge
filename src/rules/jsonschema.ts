@@ -1,7 +1,14 @@
 import * as resolvers from "../resolvers"
 import { MergeRules } from "../types"
 
-export const jsonSchemaMergeRules = (draft: string = "06"): MergeRules => ({
+export const jsonSchemaVersion = {
+  "draft-04": "draft-04",
+  "draft-06": "draft-06"
+} as const
+
+export type JsonSchemaVersion = keyof typeof jsonSchemaVersion
+
+export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): MergeRules => ({
   "/maximum": { $: resolvers.minValue },
   "/exclusiveMaximum": { $: resolvers.alternative },
   "/minimum": { $: resolvers.maxValue },
@@ -61,7 +68,7 @@ export const jsonSchemaMergeRules = (draft: string = "06"): MergeRules => ({
   "/example": { $: resolvers.mergeObjects },
   "/examples": { $: resolvers.mergeObjects },
   "/deprecated": { $: resolvers.alternative },
-  ...draft === "06" ? { 
+  ...draft === "draft-06" ? { 
     "/propertyNames": () => jsonSchemaMergeRules(draft),
     "/contains": () => jsonSchemaMergeRules(draft),
     "/dependencies": { 

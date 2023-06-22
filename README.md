@@ -5,18 +5,23 @@
 Merge schemas combined using allOf into a more readable composed schema free from allOf.
 
 ## Features
-- Safe merging of schemas combined with allOf in whole JsonSchema document
-- Fastest implmentation - up to x4 times faster then other popular libraries
+- Safe merging of schemas combined with allOf in whole document based on JsonSchema rules
+- Fastest implmentation - up to x5 times faster then other popular libraries
 - Merged schema does not validate more or less than the original schema
 - Removes almost all logical impossibilities
 - Correctly merge additionalProperties, patternProperties and properties taking into account common validations
 - Correctly merge items and additionalItems taking into account common validations
-- Supports merging allOf in OpenApi 3.x
-- Supports merging allOf in JsonSchemas draft-04 and draft-06
-- Supports rules extension to merge other JsonSchema versions
+- Supports rules extension to merge other document types and JsonSchema versions
 - Supports $refs and circular references either (internal references only)
 - Typescript syntax support out of the box
 - No dependencies, can be used in nodejs or browser
+
+## Works perfectly with specifications:
+
+- [JsonSchema](https://json-schema.org/draft/2020-12/json-schema-core.html)
+- [OpenApi 3.x](https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md)
+- ~~Swagger 2.x~~ (roadmap)
+- ~~AsyncApi 2.x~~ (roadmap)
 
 ## Other libraries
 There are some libraries that can merge schemas combined with allOf. One of the most popular is [mokkabonna/json-schema-merge-allof](https://www.npmjs.com/package/json-schema-merge-allof), but it has some limitatons: Does not support circular $refs and no Typescript syntax out of the box.
@@ -35,7 +40,7 @@ npm install allof-merge --save
 ```ts
 import { merge } from 'allof-merge'
 
-const merged = merge({
+const data = {
   type: ['object', 'null'],
   additionalProperties: {
     type: 'string',
@@ -49,7 +54,13 @@ const merged = merge({
       maxLength: 20
     }
   }]
-})
+}
+
+const onMergeError = (msg) => {
+  throw new Error(msg)
+}
+
+const merged = merge(data, { onMergeError })
 
 console.log(merged)
 // {
@@ -80,12 +91,35 @@ Reference `allof-merge.min.js` in your HTML and use the global variable `AllOfMe
 
 ## Documentation
 
-TBD
+### `merge(data: any, options?: MergeOptions)`
+Create a copy of `data` with merged allOf schemas:
+
+
+### Merge options
+```ts
+interface MergeOptions {
+  // source document if merging only part of it
+  // (optional) default = data
+  source?: any          
+  
+  // custom merge rules
+  // (optional) defaul = jsonSchemaMergeRules("draft-06")
+  rules?: MergeRules    
+
+  // Merge error hook, called on any merge conflicts
+  onMergeError?: (message: string, path: JsonPath, values: any[]) => void
+}
+```
+
+### Supported rules
+You can find supported rules in the src/rules directory of this repository:
+- `jsonSchemaMergeRules(version: "draft-04" | "draft-06")`
+- `openapiMergeRules(version: "3.0.x" | "3.1.x")`
 
 ## Benchmark
 ```
-allof-merge x 671 ops/sec ±3.39% (85 runs sampled)
-json-schema-merge-allof x 209 ops/sec ±2.65% (83 runs sampled)
+allof-merge x 977 ops/sec ±0.65% (90 runs sampled)
+json-schema-merge-allof x 186 ops/sec ±2.01% (86 runs sampled)
 Fastest is allof-merge
 ```
 
@@ -93,7 +127,6 @@ Check yourself:
 ```SH
 npm run benchmark
 ```
-
 
 ## Contributing
 When contributing, keep in mind that it is an objective of `allof-merge` to have no package dependencies. This may change in the future, but for now, no-dependencies.
