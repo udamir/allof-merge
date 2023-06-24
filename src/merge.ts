@@ -1,13 +1,14 @@
 import { JsonPath, SyncCloneHook, isObject, syncClone } from "json-crawl"
 
-import { buildPointer, findMergeRules, isRefNode, removeDuplicates, resolveRefNode } from "./utils"
+import { buildPointer, isRefNode, removeDuplicates, resolveRefNode } from "./utils"
 import { MergeError, MergeOptions, MergeRules } from "./types"
 import { jsonSchemaMergeResolver } from "./resolvers"
 import { jsonSchemaMergeRules } from "./rules"
 import { ErrorMessage } from "./errors"
 
 export const merge = (value: any, options?: MergeOptions) => {
-  return syncClone(value, allOfResolverHook(options), {})
+  const rules: MergeRules = options?.rules || jsonSchemaMergeRules() 
+  return syncClone(value, allOfResolverHook(options), { rules })
 }
 
 export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => {
@@ -15,7 +16,6 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
   const resolvedCache = new Map<string, any>() 
   const nodeToDelete: Map<string, number> = new Map()
   let source = options?.source
-  const rules: MergeRules = options?.rules || jsonSchemaMergeRules() 
 
   return (value, ctx) => {
     // save root value as source if source is not defined
@@ -59,8 +59,7 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
     }
     
     // check if in current node extected allOf merge in rules
-    const mergeRules = findMergeRules(ctx.path, rules)
-    if (!mergeRules || !mergeRules["/allOf"] || !mergeRules["/allOf"].$) { return { value, exitHook } }
+    if (!ctx.rules || !ctx.rules["/allOf"] || !( "$" in ctx.rules["/allOf"])) { return { value, exitHook } }
 
     const pointer = buildPointer(ctx.path)
     if (resolvedCache.has(pointer)) {
@@ -75,7 +74,7 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
     }
 
     const allOfItems = normalizeAllOfItems(value, source)
-    const mergedNode = jsonSchemaMergeResolver(allOfItems, { allOfItems, mergeRules, mergeError })
+    const mergedNode = jsonSchemaMergeResolver(allOfItems, { allOfItems, mergeRules: ctx.rules, mergeError })
     
     return { value: mergedNode, exitHook }
   }

@@ -26,28 +26,6 @@ export const removeDuplicates = <T>(array: T[]): T[] => {
   return uniqueItems;
 }
 
-export const findMergeRules = (path: JsonPath, rules: any) => {
-
-  for (const key of path) {
-    let _key = `/${key}`
-    if (!(_key in rules)) {
-      _key = "/*"
-    }
-
-    rules = rules[_key]
-    rules = typeof rules === "function" ? rules() : rules
-    
-    if (!rules) { return }
-  }
-
-  if ("/" in rules) {
-    rules = rules["/"]
-    rules = typeof rules === "function" ? rules() : rules
-  }
-
-  return rules
-} 
-
 export const mergeValues = (value: any, patch: any) => {
   if (Array.isArray(value) && Array.isArray(patch)) {
     return Array.isArray(patch) ? [...value, ...patch] : [...value]

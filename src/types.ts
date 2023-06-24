@@ -1,6 +1,7 @@
-import { JsonPath } from "json-crawl"
+import { JsonPath, CrawlRules } from "json-crawl"
 
 export type JsonSchema = any
+export type MergeRules = CrawlRules<MergeRule>
 
 export interface MergeOptions {
   source?: any          // source JsonSchema if merging only part of it
@@ -22,8 +23,4 @@ export interface MergeContext {
 }
 
 export type MergeResolver = (args: any[], ctx: MergeContext) => any 
-export type MergeRulesFunc = () => MergeRules 
 export type MergeRule = { "$": MergeResolver }
-export type MergeRules = {
-  [key: `/${string}` | "/"]: MergeRules | MergeRulesFunc
-} | MergeRule
