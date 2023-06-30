@@ -1,4 +1,5 @@
 import { jsonSchemaMergeRules } from "./jsonschema"
+import * as resolvers from "../resolvers"
 import { MergeRules } from "../types"
 
 export const openApiVersion = {
@@ -10,7 +11,13 @@ export type OpenApiVersion = keyof typeof openApiVersion
 
 const schemaMergeRules = (version: OpenApiVersion) => {
   return version === openApiVersion["3.0.x"]
-    ? jsonSchemaMergeRules("draft-04")
+    ? { 
+      ...jsonSchemaMergeRules("draft-04"),
+      "/items": () => ({
+        ...jsonSchemaMergeRules("draft-04"),
+        "$": resolvers.itemsMergeResolver,
+      }),
+    }
     : jsonSchemaMergeRules("draft-06")
 }
 

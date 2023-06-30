@@ -12,8 +12,7 @@ export const merge = (value: any, options?: MergeOptions) => {
 }
 
 export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => {
-
-  const resolvedCache = new Map<string, any>() 
+ 
   const nodeToDelete: Map<string, number> = new Map()
   let source = options?.source
 
@@ -35,7 +34,7 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
 
     const exitHook = () => {
       const { node } = ctx.state
-      const strPath = JSON.stringify(ctx.path)
+      const strPath = buildPointer(ctx.path)
       if (nodeToDelete.has(strPath)) {
         const key = nodeToDelete.get(strPath)!
         if (Array.isArray(node[ctx.key])) {
@@ -60,11 +59,6 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
     
     // check if in current node extected allOf merge in rules
     if (!ctx.rules || !ctx.rules["/allOf"] || !( "$" in ctx.rules["/allOf"])) { return { value, exitHook } }
-
-    const pointer = buildPointer(ctx.path)
-    if (resolvedCache.has(pointer)) {
-      return { value: resolvedCache.get(pointer) }
-    }
 
     const { allOf, ...sibling } = value
 
@@ -112,7 +106,7 @@ const findNodeToDelete = (path: JsonPath): [string, number] | undefined => {
   for (let i = path.length - 2; i >= 0; i--) {
     if ((path[i] === "anyOf" || path[i] === "oneOf")) {
       const _path = path.slice(0, i+1)
-      return [JSON.stringify(_path), path[i+1] as number]
+      return [buildPointer(_path), path[i+1] as number]
     }
   }
   return

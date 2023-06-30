@@ -66,7 +66,7 @@ export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): Mer
   "/example": { $: resolvers.mergeObjects },
   "/examples": { $: resolvers.mergeObjects },
   "/deprecated": { $: resolvers.alternative },
-  ...draft === "draft-06" ? { 
+  ...draft !== "draft-04" ? { 
     "/propertyNames": () => jsonSchemaMergeRules(draft),
     "/contains": () => jsonSchemaMergeRules(draft),
     "/dependencies": { 
@@ -81,11 +81,11 @@ export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): Mer
     },
   } : {},
   "/xml": { $: resolvers.mergeObjects },
-  // "/externalDocs": { $: last },
-  // "/description": { $: last },
-  // "/title": { $: last },
-  // "/format": { $: last },
-  // "/default": { $: last },
+  "/externalDocs": { $: resolvers.last },
+  "/description": { $: resolvers.last },
+  "/title": { $: resolvers.last },
+  "/format": { $: resolvers.last },
+  "/default": { $: resolvers.last }, 
   "/*": { $: resolvers.last },
   "/defs": {
     '/*': () => jsonSchemaMergeRules(draft),
