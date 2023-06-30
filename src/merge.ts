@@ -115,7 +115,7 @@ const normalizeAllOfItems = (item: any, source: any, allOfRefs: AllOfRef[], poin
     allOfRefs.push(_allOfRef)
   }
 
-  const items = flattenAllOf(resolvedAllOfItems, source)
+  const items = flattenAllOf(resolvedAllOfItems)
   if (items.find((item) => isRefNode(item))) {
     return normalizeAllOfItems({ allOf: items }, source, allOfRefs, pointer)
   }
@@ -123,7 +123,7 @@ const normalizeAllOfItems = (item: any, source: any, allOfRefs: AllOfRef[], poin
   return items
 }
 
-const flattenAllOf = (items: any[], source: any): any[] => {
+const flattenAllOf = (items: any[]): any[] => {
   // allOf: [{ allOf: [a,b], c }] => allOf: [a, b, c]
   
   const result: any[] = []
@@ -139,7 +139,7 @@ const flattenAllOf = (items: any[], source: any): any[] => {
     } else {
       const { allOf, ...sibling } = item
       const allOfItems = Object.keys(sibling).length ? [...allOf, sibling] : allOf as any[]
-      result.push(...flattenAllOf(allOfItems, source))
+      result.push(...flattenAllOf(allOfItems))
     }
   }
 

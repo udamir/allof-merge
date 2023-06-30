@@ -6,7 +6,7 @@ Merge schemas combined using allOf into a more readable composed schema free fro
 
 ## Features
 - Safe merging of schemas combined with allOf in whole JsonSchema based document
-- Fastest implmentation - up to x5 times faster then other popular libraries
+- Fastest implmentation - up to x4 times faster then other popular libraries
 - Merged schema does not validate more or less than the original schema
 - Removes almost all logical impossibilities
 - Correctly merge additionalProperties, patternProperties and properties taking into account common validations
@@ -118,8 +118,8 @@ You can find supported rules in the src/rules directory of this repository:
 
 ## Benchmark
 ```
-allof-merge x 977 ops/sec ±0.65% (90 runs sampled)
-json-schema-merge-allof x 186 ops/sec ±2.01% (86 runs sampled)
+allof-merge x 800 ops/sec ±2.35% (90 runs sampled)
+json-schema-merge-allof x 217 ops/sec ±2.03% (86 runs sampled)
 Fastest is allof-merge
 ```
 
