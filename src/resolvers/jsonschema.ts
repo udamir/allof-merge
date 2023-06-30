@@ -35,7 +35,7 @@ export const jsonSchemaMergeResolver: MergeResolver = (args: any[], ctx) => {
     if (!_args.length) { continue }
     const rules: any = ctx.mergeRules
 
-    let rule = `/${key}` in rules ? rules[`/${key}`] : rules["/*"]
+    let rule = `/${key}` in rules ? rules[`/${key}`] : rules["/?"]
     rule = (!("$" in rule) && "/" in rule) ? rule["/"] : rule
     rule = typeof rule === "function" ? rule() : rule
     const mergeFunc =  "$" in rule ? rule["$"] : undefined

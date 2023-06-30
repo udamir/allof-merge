@@ -86,7 +86,7 @@ export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): Mer
   "/title": { $: resolvers.last },
   "/format": { $: resolvers.last },
   "/default": { $: resolvers.last }, 
-  "/*": { $: resolvers.last },
+  "/?": { $: resolvers.last },
   "/defs": {
     '/*': () => jsonSchemaMergeRules(draft),
   },

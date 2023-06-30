@@ -131,6 +131,34 @@ describe("module", function () {
     })
   })
 
+  it("combines items with custom fields", function () {
+    const result = merge({
+      items: {
+        allOf: [
+          {
+            type: "string",
+            minLength: 1,
+            "x-tag": "abc",
+          },
+          {
+            type: "string",
+            maxLength: 5,
+            "x-tag": "cba",
+          },
+        ],
+      }
+    })
+
+    expect(result).toMatchObject({
+      items: {
+        type: "string",
+        minLength: 1,
+        maxLength: 5,
+        "x-tag": "cba"
+      }
+    })
+  })
+
   it("combines simple usecase", function () {
     const result = merge({
       allOf: [
