@@ -11,10 +11,23 @@ export const merge = (value: any, options?: MergeOptions) => {
   return syncClone(value, allOfResolverHook(options), { rules })
 }
 
+interface AllOfRef {
+  pointer: string
+  data: string
+  refs: string[]
+}
+
 export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => {
  
   const nodeToDelete: Map<string, number> = new Map()
   let source = options?.source
+
+  /**
+   * Map of cycle nodes paths (used for enableCircular mode)
+   * key    - pointer to source node
+   * value  - path to cycle node
+   */
+  const allOfRefs: AllOfRef[] = []
 
   return (value, ctx) => {
     // save root value as source if source is not defined
@@ -67,23 +80,52 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
       return { value: sibling, exitHook }
     }
 
-    const allOfItems = normalizeAllOfItems(value, source)
+    const allOfItems = normalizeAllOfItems(value, source, allOfRefs, buildPointer(ctx.path))
     const mergedNode = jsonSchemaMergeResolver(allOfItems, { allOfItems, mergeRules: ctx.rules, mergeError })
     
     return { value: mergedNode, exitHook }
   }
 }
 
-const normalizeAllOfItems = (item: any, source: any) => {
+const normalizeAllOfItems = (item: any, source: any, allOfRefs: AllOfRef[], pointer: string): any[] => {
   const { allOf, ...sibling } = item
   const allOfItems = Object.keys(sibling).length ? [...allOf, sibling] : allOf as any[]
-  const resolvedAllOfItems = allOfItems.map((item) => isRefNode(item) ? resolveRefNode(source, item) : item)
-  return flattenAllOf(resolvedAllOfItems, source)
+  const resolvedAllOfItems = []
+  
+  const _allOfRef: AllOfRef = { pointer, data: "", refs: [] }
+
+  for (const item of allOfItems) {
+    if (isRefNode(item)) {
+
+      if (_allOfRef.data === "") {
+        _allOfRef.data = JSON.stringify(allOfItems)
+      }
+
+      const ref = allOfRefs.find((allOfRef) => allOfRef.refs.includes(item.$ref) && allOfRef.data === _allOfRef.data && pointer !== allOfRef.pointer)
+      if (ref) { return [{ $ref: "#" + ref.pointer }] }
+
+      _allOfRef.refs.push(item.$ref)
+      resolvedAllOfItems.push(resolveRefNode(source, item))
+    } else {
+      resolvedAllOfItems.push(item)
+    }
+  }
+
+  if (_allOfRef.refs.length) {
+    allOfRefs.push(_allOfRef)
+  }
+
+  const items = flattenAllOf(resolvedAllOfItems, source)
+  if (items.find((item) => isRefNode(item))) {
+    return normalizeAllOfItems({ allOf: items }, source, allOfRefs, pointer)
+  }
+
+  return items
 }
 
 const flattenAllOf = (items: any[], source: any): any[] => {
   // allOf: [{ allOf: [a,b], c }] => allOf: [a, b, c]
-
+  
   const result: any[] = []
   for (const item of items) {
     if (!isObject(item)) {
@@ -95,7 +137,9 @@ const flattenAllOf = (items: any[], source: any): any[] => {
       // TODO skip non-array allOf 
       result.push(item)
     } else {
-      result.push(...normalizeAllOfItems(item, source))
+      const { allOf, ...sibling } = item
+      const allOfItems = Object.keys(sibling).length ? [...allOf, sibling] : allOf as any[]
+      result.push(...flattenAllOf(allOfItems, source))
     }
   }
 
