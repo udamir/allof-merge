@@ -14,7 +14,7 @@ Merge schemas combined using allOf into a more readable composed schema free fro
 - Supports rules extension to merge other document types and JsonSchema versions
 - Supports $refs and circular references either (internal references only)
 - Typescript syntax support out of the box
-- No dependencies, can be used in nodejs or browser
+- No dependencies (except json-crawl), can be used in nodejs or browser
 
 ## Works perfectly with specifications:
 
@@ -129,7 +129,7 @@ npm run benchmark
 ```
 
 ## Contributing
-When contributing, keep in mind that it is an objective of `allof-merge` to have no package dependencies. This may change in the future, but for now, no-dependencies.
+When contributing, keep in mind that it is an objective of `allof-merge` to have no additional package dependencies.
 
 Please run the unit tests before submitting your PR: `npm test`. Hopefully your PR includes additional unit tests to illustrate your change/modification!
 
