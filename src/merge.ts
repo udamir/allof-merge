@@ -1,6 +1,6 @@
 import { JsonPath, SyncCloneHook, isObject, syncClone } from "json-crawl"
 
-import { buildPointer, isRefNode, removeDuplicates, resolveRefNode } from "./utils"
+import { buildPointer, isRefNode, parseRef, removeDuplicates, resolvePointer } from "./utils"
 import { MergeError, MergeOptions, MergeRules } from "./types"
 import { jsonSchemaMergeResolver } from "./resolvers"
 import { jsonSchemaMergeRules } from "./rules"
@@ -65,36 +65,50 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
       }
     }
 
-    // skip if no allOf
-    if (!isObject(value) || !value.allOf) { 
+    // skip if not object
+    if (!isObject(value)) { 
       return { value, exitHook }
     }
     
     // check if in current node extected allOf merge in rules
     if (!ctx.rules || !ctx.rules["/allOf"] || !( "$" in ctx.rules["/allOf"])) { return { value, exitHook } }
 
-    const { allOf, ...sibling } = value
+    const { allOf = [], ...sibling } = value
 
-    // remove allOf from scheam if is wrong type or empty
-    if (!Array.isArray(allOf) || !allOf.length) {
+    // remove allOf from scheam if is wrong type
+    if (!Array.isArray(allOf)) {
       return { value: sibling, exitHook }
     }
 
-    const allOfItems = normalizeAllOfItems(value, source, allOfRefs, buildPointer(ctx.path))
+    const _allOf = [...allOf]
+
+    if (!_allOf.length && !(options?.mergeRefSibling && isRefNode(value))) {
+      return { value, exitHook }
+    }
+
+    // include sibling to allOf if mergeRefSibling option
+    _allOf.push(sibling)
+    
+    const allOfItems = normalizeAllOfItems(_allOf, source, allOfRefs, buildPointer(ctx.path))
+
+    // remove allOf from schema if it is empty or has single item
+    if (allOfItems.length < 2) {
+      return { value: allOfItems.length ? allOfItems[0] : {}, exitHook }
+    }
+
     const mergedNode = jsonSchemaMergeResolver(allOfItems, { allOfItems, mergeRules: ctx.rules, mergeError })
     
     return { value: mergedNode, exitHook }
   }
 }
 
-const normalizeAllOfItems = (item: any, source: any, allOfRefs: AllOfRef[], pointer: string): any[] => {
-  const { allOf, ...sibling } = item
-  const allOfItems = Object.keys(sibling).length ? [...allOf, sibling] : allOf as any[]
+const normalizeAllOfItems = (allOfItems: any[], source: any, allOfRefs: AllOfRef[], pointer: string): any[] => {
   const resolvedAllOfItems = []
   
   const _allOfRef: AllOfRef = { pointer, data: "", refs: [] }
 
   for (const item of allOfItems) {
+    // resolve $ref
     if (isRefNode(item)) {
 
       if (_allOfRef.data === "") {
@@ -104,8 +118,21 @@ const normalizeAllOfItems = (item: any, source: any, allOfRefs: AllOfRef[], poin
       const ref = allOfRefs.find((allOfRef) => allOfRef.refs.includes(item.$ref) && allOfRef.data === _allOfRef.data && pointer !== allOfRef.pointer)
       if (ref) { return [{ $ref: "#" + ref.pointer }] }
 
-      _allOfRef.refs.push(item.$ref)
-      resolvedAllOfItems.push(resolveRefNode(source, item))
+      const { $ref, ...rest } = item
+
+      _allOfRef.refs.push($ref)
+
+      const _ref = parseRef($ref)
+      const value = !_ref.filePath ? resolvePointer(source, _ref.pointer) : undefined
+
+      if (value !== undefined) {
+        // TODO: raise $ref resolve error
+        resolvedAllOfItems.push(value)
+      } 
+
+      if (Object.keys(rest).length) {
+        resolvedAllOfItems.push(rest)
+      }
     } else {
       resolvedAllOfItems.push(item)
     }
@@ -117,7 +144,7 @@ const normalizeAllOfItems = (item: any, source: any, allOfRefs: AllOfRef[], poin
 
   const items = flattenAllOf(resolvedAllOfItems)
   if (items.find((item) => isRefNode(item))) {
-    return normalizeAllOfItems({ allOf: items }, source, allOfRefs, pointer)
+    return normalizeAllOfItems(items, source, allOfRefs, pointer)
   }
 
   return items

@@ -64,10 +64,10 @@ export const createRef = (basePath?: string, pointer?: string): string => {
 export const resolveRefNode = (data: any, node: any) => {
   const { $ref, ...rest } = node
   const _ref = parseRef($ref)
-  return !_ref.filePath ? resolvePointer(data, _ref.pointer, rest) : undefined
+  return !_ref.filePath ? resolvePointer(data, _ref.pointer) : undefined
 }
 
-const resolvePointer = (data: unknown, pointer: string, sibling?: any): any => {
+export const resolvePointer = (data: unknown, pointer: string): any => {
   if (!isObject(data)) { return }
     
   let value: any = data
@@ -83,7 +83,7 @@ const resolvePointer = (data: unknown, pointer: string, sibling?: any): any => {
       return
     }       
   }
-  return mergeValues(value, sibling)
+  return value
 }
 
 export const pathMask = {

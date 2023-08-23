@@ -4,8 +4,9 @@ export type JsonSchema = any
 export type MergeRules = CrawlRules<MergeRule>
 
 export interface MergeOptions {
-  source?: any          // source JsonSchema if merging only part of it
-  rules?: MergeRules    // custom merge rules
+  source?: any               // source JsonSchema if merging only part of it
+  rules?: MergeRules         // custom merge rules
+  mergeRefSibling?: boolean  // merge $ref and sibling content
   onMergeError?: (message: string, path: JsonPath, values: any[]) => void
 }
 

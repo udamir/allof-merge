@@ -13,6 +13,7 @@ Merge schemas combined using allOf into a more readable composed schema free fro
 - Correctly merge items and additionalItems taking into account common validations
 - Supports rules extension to merge other document types and JsonSchema versions
 - Supports $refs and circular references either (internal references only)
+- Correctly merge of sibling content with $refs (optionally)
 - Typescript syntax support out of the box
 - No dependencies, can be used in nodejs or browser
 
@@ -103,8 +104,12 @@ interface MergeOptions {
   source?: any          
   
   // custom merge rules
-  // (optional) defaul = jsonSchemaMergeRules("draft-06")
+  // (optional) default = jsonSchemaMergeRules("draft-06")
   rules?: MergeRules    
+
+  // merge $ref and sibling content
+  // (optional) default = false
+  mergeRefSibling?: boolean  
 
   // Merge error hook, called on any merge conflicts
   onMergeError?: (message: string, path: JsonPath, values: any[]) => void
