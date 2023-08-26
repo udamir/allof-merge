@@ -1,12 +1,9 @@
 import * as resolvers from "../resolvers"
 import { MergeRules } from "../types"
 
-export const jsonSchemaVersion = {
-  "draft-04": "draft-04",
-  "draft-06": "draft-06"
-} as const
+export const jsonSchemaVersion = ["draft-04", "draft-06"] as const
 
-export type JsonSchemaVersion = keyof typeof jsonSchemaVersion
+export type JsonSchemaVersion = typeof jsonSchemaVersion[number]
 
 export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): MergeRules => ({
   "/maximum": { $: resolvers.minValue },

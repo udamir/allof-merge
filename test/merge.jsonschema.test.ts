@@ -1,6 +1,7 @@
-import { merge } from "../src"
+import { jsonSchemaMergeRules, merge } from "../src"
+import { ErrorMessage } from "../src/errors"
 
-describe("module", function () {
+describe("basic allOf merge cases", function () {
   it("merges schema with same object reference multiple places", () => {
     const commonSchema = {
       allOf: [
@@ -633,6 +634,38 @@ describe("module", function () {
 
       expect(result).toMatchObject({
         enum: [[1], {}, "string"],
+      })
+    })
+
+    it("merges examples", function () {
+      const result = merge({
+        allOf: [
+          {
+            examples: {
+              case1: {
+                value: { test: 1 } 
+              }
+            },
+          },
+          {
+            examples: {
+              case2: {
+                value: { test: 2 }
+              }
+            },
+          },
+        ],
+      })
+
+      expect(result).toMatchObject({
+        examples: {
+          case1: {
+            value: { test: 1 } 
+          },
+          case2: {
+            value: { test: 2 }
+          }
+        },
       })
     })
 
@@ -1987,4 +2020,30 @@ describe("module", function () {
       })
     })
   })
+})
+
+describe("negative allOf merge cases", () => {
+  it("should throw error if merge rule not defined", function () {
+    const rules = jsonSchemaMergeRules()
+    delete rules["/?"]
+
+    const f = () => {
+      merge({
+        allOf: [
+          {
+            test: "First",
+          },
+          {
+            test: "Last",
+          },
+        ],
+      }, { rules })
+    }
+
+    expect(f).toThrowError(ErrorMessage.ruleNotFound('test'))
+  })
+
+
+
+
 })

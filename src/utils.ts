@@ -28,7 +28,7 @@ export const removeDuplicates = <T>(array: T[]): T[] => {
 
 export const mergeValues = (value: any, patch: any) => {
   if (Array.isArray(value) && Array.isArray(patch)) {
-    return Array.isArray(patch) ? [...value, ...patch] : [...value]
+    return [...value, ...patch]
   } else if (isObject(value) && isObject(patch)) {
     const result = { ...value }
     for(const key of Object.keys(patch)) {
@@ -103,11 +103,6 @@ export const pathMask = {
 
 export const parsePointer = (pointer: string): string[] => {
   return pointer.split("/").map((i) => decodeURIComponent(i.replace(pathMask.escapedSlash, "/").replace(pathMask.escapedTilde, "~"))).slice(1)
-}
-
-export const buildRef = (path: JsonPath, fileName = ""): string => {
-  if (!path.length) { return fileName || "#" }
-  return fileName + "#" + buildPointer(path)
 }
 
 export const buildPointer = (path: JsonPath): string => {
