@@ -2,7 +2,7 @@
 <img alt="npm" src="https://img.shields.io/npm/v/allof-merge"> <img alt="npm" src="https://img.shields.io/npm/dm/allof-merge?label=npm"> ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/udamir/allof-merge/ci.yml)
  <img alt="npm type definitions" src="https://img.shields.io/npm/types/allof-merge"> ![Coveralls branch](https://img.shields.io/coverallsCoverage/github/udamir/allof-merge) <img alt="GitHub" src="https://img.shields.io/github/license/udamir/allof-merge">
 
-Merge schemas combined using allOf into a more readable composed schema free from allOf.
+Merge schemas using allOf into a more readable composed schema free from allOf.
 
 ## Features
 - Safe merging of schemas combined with allOf in whole JsonSchema based document
@@ -13,7 +13,8 @@ Merge schemas combined using allOf into a more readable composed schema free fro
 - Correctly merge items and additionalItems taking into account common validations
 - Supports rules extension to merge other document types and JsonSchema versions
 - Supports $refs and circular references either (internal references only)
-- Correctly merge of sibling content with $refs (optionally)
+- Correctly merge of $refs with sibling content (optionally)
+- Correctly merge of combinaries (anyOf, oneOf) with sibling content (optionally)
 - Typescript syntax support out of the box
 - No dependencies (except json-crawl), can be used in nodejs or browser
 
@@ -107,9 +108,13 @@ interface MergeOptions {
   // (optional) default = jsonSchemaMergeRules("draft-06")
   rules?: MergeRules    
 
-  // merge $ref and sibling content
+  // merge $ref with sibling content
   // (optional) default = false
   mergeRefSibling?: boolean  
+
+  // merge anyOf/oneOf with sibling content
+  // (optional) default = false
+  mergeCombinarySibling?: boolean  
 
   // Merge error hook, called on any merge conflicts
   onMergeError?: (message: string, path: JsonPath, values: any[]) => void

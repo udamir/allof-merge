@@ -1,6 +1,6 @@
 import { JsonPath, isObject } from "json-crawl"
 
-import { RefNode } from "./types"
+import { AnyOfNode, OneOfNode, RefNode } from "./types"
 
 export class MapArray<K, V> extends Map<K, Array<V>> {
   public add(key: K, value: V): this {
@@ -42,6 +42,14 @@ export const mergeValues = (value: any, patch: any) => {
 
 export const isRefNode = (value: any): value is RefNode => {
   return value && value.$ref && typeof value.$ref === "string"
+}
+
+export const isAnyOfNode = (value: any): value is AnyOfNode => {
+  return value && value.anyOf && Array.isArray(value.anyOf)
+}
+
+export const isOneOfNode = (value: any): value is OneOfNode => {
+  return value && value.oneOf && Array.isArray(value.oneOf)
 }
 
 export const parseRef = ($ref: string, basePath = "") => {

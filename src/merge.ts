@@ -1,6 +1,6 @@
 import { JsonPath, SyncCloneHook, isObject, syncClone } from "json-crawl"
 
-import { buildPointer, isRefNode, parseRef, removeDuplicates, resolvePointer } from "./utils"
+import { buildPointer, isAnyOfNode, isOneOfNode, isRefNode, parseRef, removeDuplicates, resolvePointer } from "./utils"
 import { MergeError, MergeOptions, MergeRules } from "./types"
 import { jsonSchemaMergeResolver } from "./resolvers"
 import { jsonSchemaMergeRules } from "./rules"
@@ -82,12 +82,29 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
 
     const _allOf = [...allOf]
 
-    if (!_allOf.length && !(options?.mergeRefSibling && isRefNode(value))) {
-      return { value, exitHook }
+    if (!_allOf.length) {
+      if (options?.mergeRefSibling && isRefNode(value)) {
+        // create allOf from $ref and sibling if mergeRefSibling option
+        _allOf.push(sibling)
+      } else if (options?.mergeCombinarySibling && isAnyOfNode(value)) {
+        // include sibling to anyOf if mergeCombinarySibling option
+        const { anyOf, ...rest } = value
+        const _value = Object.keys(rest).length ? { anyOf: anyOf.map((item) => ({ allOf: [item, rest] })) } : value
+        return { value: _value, exitHook }
+      } else if (options?.mergeCombinarySibling && isOneOfNode(value)) {
+        // include sibling to oneOf if mergeCombinarySibling option
+        const { oneOf, ...rest } = value
+        const _value = Object.keys(rest).length ? { oneOf: oneOf.map((item) => ({ allOf: [item, rest] })) } : value
+        return { value: _value, exitHook }
+      }
+    } else {
+      // include sibling to allOf
+      _allOf.push(sibling)
     }
 
-    // include sibling to allOf if mergeRefSibling option
-    _allOf.push(sibling)
+    if (!_allOf.length) {
+      return { value, exitHook }
+    }
     
     const allOfItems = normalizeAllOfItems(_allOf, source, allOfRefs, buildPointer(ctx.path))
 
