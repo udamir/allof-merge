@@ -215,4 +215,61 @@ describe("merge sibling content", function () {
       ],
     })
   })
+
+  it("should merges anyOf and sibling with mergeCombinarySibling option", function () {
+    const result = merge({
+      required: ["id"],
+      type: "object",
+      properties: {
+        id: {
+          type: "string",
+        },
+      },
+      anyOf: [
+        {
+          type: "object",
+          properties: {
+            key: {
+              type: "string",
+            },
+          },
+        },
+        {
+          type: "object",
+          additionalProperties: {
+            type: "string",
+          },
+        },
+      ],
+    }, { mergeCombinarySibling: true })
+
+    expect(result).toMatchObject({
+      anyOf: [
+        {
+          required: ["id"],
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+            },
+            key: {
+              type: "string",
+            },
+          },
+        },
+        {
+          required: ["id"],
+          type: "object",
+          properties: {
+            id: {
+              type: "string",
+            },
+          },
+          additionalProperties: {
+            type: "string",
+          },
+        },
+      ],
+    })
+  })
 })
