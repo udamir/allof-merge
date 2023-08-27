@@ -1,6 +1,6 @@
 {
   "name": "allof-merge",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Simplify your JsonSchema by combining allOf safely.",
   "module": "dist/esm/index.js",
   "main": "dist/cjs/index.js",

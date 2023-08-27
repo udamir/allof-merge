@@ -2024,7 +2024,7 @@ describe("basic allOf merge cases", function () {
 
 describe("negative allOf merge cases", () => {
   it("should throw error if merge rule not defined", function () {
-    const rules = jsonSchemaMergeRules()
+    const rules = { ...jsonSchemaMergeRules() }
     delete rules["/?"]
 
     const f = () => {

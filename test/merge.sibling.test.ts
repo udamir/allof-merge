@@ -160,31 +160,34 @@ describe("merge sibling content", function () {
   })
 
   it("should merges oneOf and sibling with mergeCombinarySibling option", function () {
-    const result = merge({
-      required: ["id"],
-      type: "object",
-      properties: {
-        id: {
-          type: "string",
-        },
-      },
-      oneOf: [
-        {
-          type: "object",
-          properties: {
-            key: {
-              type: "string",
-            },
-          },
-        },
-        {
-          type: "object",
-          additionalProperties: {
+    const result = merge(
+      {
+        required: ["id"],
+        type: "object",
+        properties: {
+          id: {
             type: "string",
           },
         },
-      ],
-    }, { mergeCombinarySibling: true })
+        oneOf: [
+          {
+            type: "object",
+            properties: {
+              key: {
+                type: "string",
+              },
+            },
+          },
+          {
+            type: "object",
+            additionalProperties: {
+              type: "string",
+            },
+          },
+        ],
+      },
+      { mergeCombinarySibling: true }
+    )
 
     expect(result).toMatchObject({
       oneOf: [
@@ -217,31 +220,34 @@ describe("merge sibling content", function () {
   })
 
   it("should merges anyOf and sibling with mergeCombinarySibling option", function () {
-    const result = merge({
-      required: ["id"],
-      type: "object",
-      properties: {
-        id: {
-          type: "string",
-        },
-      },
-      anyOf: [
-        {
-          type: "object",
-          properties: {
-            key: {
-              type: "string",
-            },
-          },
-        },
-        {
-          type: "object",
-          additionalProperties: {
+    const result = merge(
+      {
+        required: ["id"],
+        type: "object",
+        properties: {
+          id: {
             type: "string",
           },
         },
-      ],
-    }, { mergeCombinarySibling: true })
+        anyOf: [
+          {
+            type: "object",
+            properties: {
+              key: {
+                type: "string",
+              },
+            },
+          },
+          {
+            type: "object",
+            additionalProperties: {
+              type: "string",
+            },
+          },
+        ],
+      },
+      { mergeCombinarySibling: true }
+    )
 
     expect(result).toMatchObject({
       anyOf: [
@@ -270,6 +276,159 @@ describe("merge sibling content", function () {
           },
         },
       ],
+    })
+  })
+
+  it("should merge oneOf with discriminator correctly", () => {
+    const schema = {
+      type: "object",
+      description: "Vehicle",
+      discriminator: {
+        propertyName: "powerSource",
+      },
+      oneOf: [{ 
+        $ref: "#/definitions/ElectricVehicle" 
+      }, { 
+        $ref: "#/definitions/PedaledVehicle"
+      }],
+      definitions: {
+        ElectricVehicle: {
+          type: "object",
+          title: "Electric Vehicle",
+          properties: {
+            vehicleType: {
+              description: "The type of vehicle.",
+              type: "string",
+              example: "bicycle",
+            },
+            idealTerrain: {
+              type: "string",
+              example: "roads",
+            },
+            powerSource: {
+              description: "How is the vehicle powered.",
+              type: "string",
+              example: "pedaling",
+            },
+          },
+        },
+        PedaledVehicle: {
+          type: "object",
+          title: "Pedaled Vehicle",
+          properties: {
+            topSpeed: {
+              description: "The top speed in kilometers per hour rounded to the nearest integer.",
+              type: "integer",
+              example: 83,
+            },
+            range: {
+              description: "The 95th percentile range of a trip in kilometers.",
+              type: "integer",
+              example: 100,
+            },
+            powerSource: {
+              description: "How is the vehicle powered.",
+              type: "string",
+              example: "pedaling",
+            },
+          },
+        },
+      },
+    }
+
+    const result = merge(schema, { mergeCombinarySibling: true })
+    expect(result).toMatchObject({
+      discriminator: {
+        propertyName: "powerSource",
+      },
+      oneOf: [
+        {
+          type: "object",
+          title: "Electric Vehicle",
+          description: "Vehicle",
+          properties: {
+            vehicleType: {
+              description: "The type of vehicle.",
+              type: "string",
+              example: "bicycle",
+            },
+            idealTerrain: {
+              type: "string",
+              example: "roads",
+            },
+            powerSource: {
+              description: "How is the vehicle powered.",
+              type: "string",
+              example: "pedaling",
+            },
+          },
+        },
+        {
+          type: "object",
+          title: "Pedaled Vehicle",
+          description: "Vehicle",
+          properties: {
+            topSpeed: {
+              description: "The top speed in kilometers per hour rounded to the nearest integer.",
+              type: "integer",
+              example: 83,
+            },
+            range: {
+              description: "The 95th percentile range of a trip in kilometers.",
+              type: "integer",
+              example: 100,
+            },
+            powerSource: {
+              description: "How is the vehicle powered.",
+              type: "string",
+              example: "pedaling",
+            },
+          },
+        }
+      ],
+      definitions: {
+        ElectricVehicle: {
+          type: "object",
+          title: "Electric Vehicle",
+          properties: {
+            vehicleType: {
+              description: "The type of vehicle.",
+              type: "string",
+              example: "bicycle",
+            },
+            idealTerrain: {
+              type: "string",
+              example: "roads",
+            },
+            powerSource: {
+              description: "How is the vehicle powered.",
+              type: "string",
+              example: "pedaling",
+            },
+          },
+        },
+        PedaledVehicle: {
+          type: "object",
+          title: "Pedaled Vehicle",
+          properties: {
+            topSpeed: {
+              description: "The top speed in kilometers per hour rounded to the nearest integer.",
+              type: "integer",
+              example: 83,
+            },
+            range: {
+              description: "The 95th percentile range of a trip in kilometers.",
+              type: "integer",
+              example: 100,
+            },
+            powerSource: {
+              description: "How is the vehicle powered.",
+              type: "string",
+              example: "pedaling",
+            },
+          },
+        },
+      },
     })
   })
 })

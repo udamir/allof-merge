@@ -35,4 +35,4 @@ export interface MergeContext {
 }
 
 export type MergeResolver = (args: any[], ctx: MergeContext) => any 
-export type MergeRule = { "$": MergeResolver }
+export type MergeRule = { "$": MergeResolver, sibling: string[] }

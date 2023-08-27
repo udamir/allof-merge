@@ -14,6 +14,19 @@ export class MapArray<K, V> extends Map<K, Array<V>> {
   }
 }
 
+export const popValues = (data: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
+  const source: Record<string | number, unknown> = {};
+
+  for (const key of keys) {
+    if (key in data) {
+      source[key] = data[key];
+      delete data[key]
+    }
+  }
+
+  return source
+} 
+
 export const removeDuplicates = <T>(array: T[]): T[] => {
   const uniqueItems: T[] = [];
 
