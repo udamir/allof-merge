@@ -283,9 +283,6 @@ describe("merge sibling content", function () {
     const schema = {
       type: "object",
       description: "Vehicle",
-      discriminator: {
-        propertyName: "powerSource",
-      },
       oneOf: [{ 
         $ref: "#/definitions/ElectricVehicle" 
       }, { 
@@ -338,9 +335,6 @@ describe("merge sibling content", function () {
 
     const result = merge(schema, { mergeCombinarySibling: true })
     expect(result).toMatchObject({
-      discriminator: {
-        propertyName: "powerSource",
-      },
       oneOf: [
         {
           type: "object",

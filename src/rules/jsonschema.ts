@@ -29,12 +29,12 @@ export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): Mer
   "/oneOf": {
     "/*": () => jsonSchemaMergeRules(draft),
     $: resolvers.mergeArray,
-    sibling: ["discriminator", ...draft === "draft-04" ?  ["defs"] : ["definitions"]],
+    sibling: draft === "draft-04" ?  ["defs"] : ["definitions"],
   },
   "/anyOf": {
     "/*": () => jsonSchemaMergeRules(draft),
     $: resolvers.mergeArray,
-    sibling: ["discriminator", ...draft === "draft-04" ?  ["defs"] : ["definitions"]],
+    sibling: draft === "draft-04" ?  ["defs"] : ["definitions"],
   },
   "/properties": {
     "/*": () => jsonSchemaMergeRules(draft),
@@ -59,7 +59,6 @@ export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): Mer
   },
   "/pattern": { $: resolvers.mergePattern },
   "/nullable": { $: resolvers.alternative },
-  "/discriminator": { $: resolvers.mergeObjects },
   "/readOnly": { $: resolvers.alternative },
   "/writeOnly": { $: resolvers.alternative },
   "/example": { $: resolvers.mergeObjects },
