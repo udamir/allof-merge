@@ -444,7 +444,7 @@ describe("merge sibling content", function () {
         } 
       }
     }
-    const result = merge(schema, { mergeCombinarySibling: true })
+    const result = merge(schema, { mergeRefSibling: true, mergeCombinarySibling: true })
 
     expect(result).toMatchObject(schema)
   })

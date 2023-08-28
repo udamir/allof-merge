@@ -84,13 +84,13 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
     const _allOf = [...allOf]
 
     if (!_allOf.length) {
-      if (options?.mergeRefSibling && isRefNode(value)) {
+      if (options?.mergeRefSibling && isRefNode(sibling)) {
         // create allOf from $ref and sibling if mergeRefSibling option
-        Object.keys(sibling).length && _allOf.push(sibling)
-      } else if (options?.mergeCombinarySibling && isAnyOfNode(value) && ctx.rules["/anyOf"]) {
-        return { value: mergeCombinarySibling(value, "anyOf", ctx.rules["/anyOf"]), exitHook }
-      } else if (options?.mergeCombinarySibling && isOneOfNode(value) && ctx.rules["/oneOf"]) {
-        return { value: mergeCombinarySibling(value, "oneOf", ctx.rules["/oneOf"]), exitHook }
+        Object.keys(sibling).length > 1 && _allOf.push(sibling)
+      } else if (options?.mergeCombinarySibling && isAnyOfNode(sibling) && ctx.rules["/anyOf"]) {
+        return { value: mergeCombinarySibling(sibling, "anyOf", ctx.rules["/anyOf"]), exitHook }
+      } else if (options?.mergeCombinarySibling && isOneOfNode(sibling) && ctx.rules["/oneOf"]) {
+        return { value: mergeCombinarySibling(sibling, "oneOf", ctx.rules["/oneOf"]), exitHook }
       }
     } else if (Object.keys(sibling).length) {
       // include sibling to allOf
