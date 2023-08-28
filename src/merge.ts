@@ -86,7 +86,7 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
     if (!_allOf.length) {
       if (options?.mergeRefSibling && isRefNode(value)) {
         // create allOf from $ref and sibling if mergeRefSibling option
-        _allOf.push(sibling)
+        Object.keys(sibling).length && _allOf.push(sibling)
       } else if (options?.mergeCombinarySibling && isAnyOfNode(value) && ctx.rules["/anyOf"]) {
         return { value: mergeCombinarySibling(value, "anyOf", ctx.rules["/anyOf"]), exitHook }
       } else if (options?.mergeCombinarySibling && isOneOfNode(value) && ctx.rules["/oneOf"]) {

@@ -425,4 +425,27 @@ describe("merge sibling content", function () {
       },
     })
   })
+
+  it("should not dereference $ref with no sibling content", () => {
+    const schema = {
+      type: 'object',
+      properties: {
+        id: { $ref: "#/defs/id" },
+        name: { $ref: "#/defs/name" },
+      },
+      defs: {
+        id: {
+          title: 'id',
+          type: 'string',
+        },
+        name: {
+          title: 'name',
+          type: 'string',
+        } 
+      }
+    }
+    const result = merge(schema, { mergeCombinarySibling: true })
+
+    expect(result).toMatchObject(schema)
+  })
 })
