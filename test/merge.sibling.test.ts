@@ -279,6 +279,86 @@ describe("merge sibling content", function () {
     })
   })
 
+  it("should merges nested oneOf and sibling with mergeCombinarySibling option", function () {
+    const result = merge({
+      title: 'test',
+      type: 'object',
+      required: ["id"],
+      oneOf: [{
+        oneOf: [{
+          properties: {
+            id: {
+              type: "string",
+            },
+            name: {
+              type: "string",
+            }
+          }
+        },{
+          properties: {
+            id: {
+              type: "string",
+            },
+            test: {
+              type: "string",
+            }
+          }
+        }]
+      }, {
+        properties: {
+          id: {
+            type: "number",
+          },
+          name: {
+            type: "string",
+          }
+        }
+      }]
+    }, { mergeCombinarySibling: true, mergeRefSibling: true })
+
+    expect(result).toMatchObject({
+      oneOf: [{
+        oneOf: [{
+          title: 'test',
+          type: 'object',
+          required: ["id"],
+          properties: {
+            id: {
+              type: "string",
+            },
+            name: {
+              type: "string",
+            }
+          }
+        },{
+          title: 'test',
+          type: 'object',
+          required: ["id"],
+          properties: {
+            id: {
+              type: "string",
+            },
+            test: {
+              type: "string",
+            }
+          }
+        }]
+      }, {
+        title: 'test',
+        type: 'object',
+        required: ["id"],
+        properties: {
+          id: {
+            type: "number",
+          },
+          name: {
+            type: "string",
+          }
+        }
+      }]
+    })
+  })
+
   it("should merge oneOf with discriminator correctly", () => {
     const schema = {
       type: "object",

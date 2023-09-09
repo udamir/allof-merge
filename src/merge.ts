@@ -109,8 +109,14 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
     }
 
     const mergedNode = jsonSchemaMergeResolver(allOfItems, { allOfItems, mergeRules: ctx.rules, mergeError })
-    
-    return { value: mergedNode, exitHook }
+
+    if (options?.mergeCombinarySibling && isAnyOfNode(mergedNode)) {
+      return { value: mergeCombinarySibling(mergedNode, "anyOf", ctx.rules["/anyOf"]), exitHook }
+    } else if (options?.mergeCombinarySibling && isOneOfNode(mergedNode)) {
+      return { value: mergeCombinarySibling(mergedNode, "oneOf", ctx.rules["/oneOf"]), exitHook }
+    } else {
+      return { value: mergedNode, exitHook }
+    }
   }
 }
 
