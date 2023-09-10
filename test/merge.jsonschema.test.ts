@@ -2042,8 +2042,4 @@ describe("negative allOf merge cases", () => {
 
     expect(f).toThrowError(ErrorMessage.ruleNotFound('test'))
   })
-
-
-
-
 })

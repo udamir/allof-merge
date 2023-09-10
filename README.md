@@ -118,6 +118,9 @@ interface MergeOptions {
 
   // Merge error hook, called on any merge conflicts
   onMergeError?: (message: string, path: JsonPath, values: any[]) => void
+
+  // Ref resolve error hook, called on broken ref
+  onRefResolveError?: (message: string, path: JsonPath, ref: string) => void
 }
 ```
 

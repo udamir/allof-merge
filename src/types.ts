@@ -1,4 +1,4 @@
-import { JsonPath, CrawlRules } from "json-crawl"
+import { JsonPath, CrawlRules, CrawlContext } from "json-crawl"
 
 export type JsonSchema = any
 export type MergeRules = CrawlRules<MergeRule>
@@ -9,6 +9,7 @@ export interface MergeOptions {
   mergeRefSibling?: boolean       // merge $ref and sibling content
   mergeCombinarySibling?: boolean // merge oneOf, anyOf sibling content
   onMergeError?: (message: string, path: JsonPath, values: any[]) => void
+  onRefResolveError?: (message: string, path: JsonPath, ref: string) => void
 }
 
 export interface RefNode {

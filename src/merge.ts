@@ -18,22 +18,31 @@ interface AllOfRef {
   refs: string[]
 }
 
+interface AllOfMergeHookData {
+  source: any
+  allOfRefs: AllOfRef[]
+  options?: MergeOptions
+}
+
 export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => {
  
   const nodeToDelete: Map<string, number> = new Map()
-  let source = options?.source
-
-  /**
-   * Map of cycle nodes paths (used for enableCircular mode)
-   * key    - pointer to source node
-   * value  - path to cycle node
-   */
-  const allOfRefs: AllOfRef[] = []
-
+  const _data: AllOfMergeHookData = {
+    source: options?.source,
+  
+    /**
+     * Map of cycle nodes paths (used for enableCircular mode)
+     * key    - pointer to source node
+     * value  - path to cycle node
+     */
+    allOfRefs: [],
+    options
+  }
+ 
   return (value, ctx) => {
     // save root value as source if source is not defined
     if (!ctx.path.length && !options?.source) {
-      source = value
+      _data.source = value
     }
 
     const mergeError: MergeError = (values) => {
@@ -101,7 +110,11 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
       return { value, exitHook }
     }
     
-    const allOfItems = normalizeAllOfItems(_allOf, source, allOfRefs, buildPointer(ctx.path))
+    const allOfItems = normalizeAllOfItems(_allOf, ctx.path, _data)
+
+    if (allOfItems === null) {
+      return { value, exitHook }
+    }
 
     // remove allOf from schema if it is empty or has single item
     if (allOfItems.length < 2) {
@@ -120,8 +133,10 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
   }
 }
 
-const normalizeAllOfItems = (allOfItems: any[], source: any, allOfRefs: AllOfRef[], pointer: string): any[] => {
+const normalizeAllOfItems = (allOfItems: any[], jsonPath: JsonPath, _data: AllOfMergeHookData): any[] | null => {
   const resolvedAllOfItems = []
+  const pointer = buildPointer(jsonPath)
+  const { source, allOfRefs } = _data
   
   const _allOfRef: AllOfRef = { pointer, data: "", refs: [] }
 
@@ -143,10 +158,11 @@ const normalizeAllOfItems = (allOfItems: any[], source: any, allOfRefs: AllOfRef
       const _ref = parseRef($ref)
       const value = !_ref.filePath ? resolvePointer(source, _ref.pointer) : undefined
 
-      if (value !== undefined) {
-        // TODO: raise $ref resolve error
-        resolvedAllOfItems.push(value)
+      if (value === undefined) {
+        _data.options?.onRefResolveError?.("Connot resolve ref", jsonPath, $ref)
+        return null
       } 
+      resolvedAllOfItems.push(value)
 
       if (Object.keys(rest).length) {
         resolvedAllOfItems.push(rest)
@@ -162,7 +178,7 @@ const normalizeAllOfItems = (allOfItems: any[], source: any, allOfRefs: AllOfRef
 
   const items = flattenAllOf(resolvedAllOfItems)
   if (items.find((item) => isRefNode(item))) {
-    return normalizeAllOfItems(items, source, allOfRefs, pointer)
+    return normalizeAllOfItems(items, jsonPath, _data)
   }
 
   return items
