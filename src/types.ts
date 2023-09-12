@@ -37,3 +37,14 @@ export interface MergeContext {
 
 export type MergeResolver = (args: any[], ctx: MergeContext) => any 
 export type MergeRule = { "$": MergeResolver, sibling: string[] }
+
+export interface AllOfRef {
+  pointer: string
+  data: string
+  refs: string[]
+}
+
+export interface NormalizeResponse {
+  allOfItems: any[]
+  brokenRefs: string[]
+}

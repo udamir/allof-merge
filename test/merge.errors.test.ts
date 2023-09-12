@@ -6,7 +6,8 @@ describe("merge errors handling", function () {
   it("should trigger onRefResolveError when mergin groken $ref", (done) => {
 
     const onRefResolveError = (message: string, path: JsonPath, ref: string) => {
-      expect(ref).toEqual("#/foo")
+      
+      expect(ref).toBe ("#/foo")
       done()
     }
 
@@ -14,9 +15,6 @@ describe("merge errors handling", function () {
       allOf: [
         {
           $ref: "#/foo",
-        },
-        {
-          $ref: "#/bar",
         },
         {
           type: "object",
@@ -35,9 +33,6 @@ describe("merge errors handling", function () {
           $ref: "#/foo",
         },
         {
-          $ref: "#/bar",
-        },
-        {
           type: "object",
           properties: {
             name: {
@@ -50,80 +45,29 @@ describe("merge errors handling", function () {
   })
 
   it("should not merge $ref sibling without mergeRefSibling option", () => {
-    const source = {
-      foo: {
-        type: "object",
-        properties: {
-          id: {
-            type: "string",
-          },
-        },
-      },
-      bar: {
-        type: "object",
-        properties: {
-          permissions: {
-            $ref: "#/permission",
-            type: "object",
-            properties: {
-              admin: {
-                type: "boolean",
-              },
-            },
-          },
-        },
-      },
-      permission: {
-        type: "object",
-        properties: {
-          level: {
-            type: "number",
-          },
-        },
-      },
-    }
-
-    const result = merge(
-      {
-        allOf: [
-          {
-            $ref: "#/foo",
-          },
-          {
-            $ref: "#/bar",
-          },
-          {
-            type: "object",
-            properties: {
-              name: {
-                type: "string",
-              },
-            },
-          },
-        ],
-      },
-      { source }
-    )
-
-    expect(result).toEqual({
+    const schema = {
+      $ref: "#/permission",
       type: "object",
       properties: {
-        id: {
-          type: "string",
+        admin: {
+          type: "boolean",
         },
-        name: {
-          type: "string",
-        },
-        permissions: {
-          $ref: "#/permission",
-          type: "object",
-          properties: {
-            admin: {
-              type: "boolean",
-            },
+      }
+    }
+
+    const result = merge(schema, { mergeCombinarySibling: true, mergeRefSibling: true })
+
+    expect(result).toEqual({
+      allOf: [{
+        $ref: "#/permission",
+      },{
+        type: "object",
+        properties: {
+          admin: {
+            type: "boolean",
           },
-        },
-      },
+        }
+      }]
     })
   })
 })

@@ -88,7 +88,7 @@ export const resolveRefNode = (data: any, node: any) => {
   return !_ref.filePath ? resolvePointer(data, _ref.pointer) : undefined
 }
 
-export const resolvePointer = (data: unknown, pointer: string): any => {
+export const resolvePointer = (data: unknown, pointer: string, pointers: string[] = [pointer]): any => {
   if (!isObject(data)) { return }
     
   let value: any = data
@@ -99,7 +99,8 @@ export const resolvePointer = (data: unknown, pointer: string): any => {
     } else if (isObject(value) && key in value) {
       value = value[key]
     } else if (isRefNode(value)) {
-      value = resolveRefNode(data, value)
+      const _ref = parseRef(value.$ref)
+      value = !_ref.filePath && !pointers.includes(_ref.pointer) ? resolvePointer(data, _ref.pointer, [...pointers, _ref.pointer]) : undefined
     } else {
       return
     }       
