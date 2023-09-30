@@ -751,7 +751,8 @@ describe("basic allOf merge cases", function () {
         ],
       })
     })
-
+    
+    // remove duplicates in combinaries (oneOf/anyOf) is out of scope
     it("merges anyOf by finding valid combinations", function () {
       const result = merge({
         allOf: [
@@ -787,12 +788,16 @@ describe("basic allOf merge cases", function () {
             type: "null",
           },
           {
+            type: ["null", "string"],
+          },
+          {
             type: ["null", "object"],
           },
         ],
       })
     })
 
+    // remove duplicates in combinaries (oneOf/anyOf) is out of scope
     it("extracts common logic", function () {
       const result = merge({
         allOf: [
@@ -830,6 +835,10 @@ describe("basic allOf merge cases", function () {
           },
           {
             type: "null",
+            minLength: 5,
+          },
+          {
+            type: ["null", "string"],
             minLength: 5,
           },
           {

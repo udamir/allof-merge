@@ -1,7 +1,7 @@
 import { JsonPath, SyncCloneHook, isObject, syncClone } from "json-crawl"
 
-import { buildPointer, isAnyOfNode, isOneOfNode, removeDuplicates } from "./utils"
 import { AllOfRef, MergeError, MergeOptions, MergeRules } from "./types"
+import { buildPointer, isAnyOfNode, isOneOfNode } from "./utils"
 import { mergeCombinarySibling } from "./resolvers/combinary"
 import { jsonSchemaMergeResolver } from "./resolvers"
 import { normalizeAllOfItems } from "./normalize"
@@ -45,7 +45,6 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
       }
     }
 
-    // TODO: remove exitHook
     const exitHook = () => {
       const { node } = ctx.state
       const strPath = buildPointer(ctx.path)
@@ -58,12 +57,12 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
           node[ctx.key].splice(key, 1)
         }
       }
-      if ("anyOf" in node) {
-        node.anyOf = removeDuplicates(node.anyOf)
-      }
-      if ("oneOf" in node) {
-        node.oneOf = removeDuplicates(node.oneOf)
-      }
+      // if ("anyOf" in node) {
+      //   node.anyOf = removeDuplicates(node.anyOf)
+      // }
+      // if ("oneOf" in node) {
+      //   node.oneOf = removeDuplicates(node.oneOf)
+      // }
     }
 
     // skip if not object

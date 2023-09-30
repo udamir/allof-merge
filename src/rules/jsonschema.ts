@@ -43,7 +43,7 @@ export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): Mer
   "/items": () => ({
     ...jsonSchemaMergeRules(draft),
     "$": resolvers.itemsMergeResolver,
-    "/*": () => jsonSchemaMergeRules(draft),
+    "/*": (path) => typeof path[path.length-1] === 'number' ? jsonSchemaMergeRules(draft) : {},
   }),
   "/additionalProperties": () => ({ 
     ...jsonSchemaMergeRules(draft),
