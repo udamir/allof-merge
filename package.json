@@ -2,22 +2,26 @@
   "name": "allof-merge",
   "version": "0.5.1",
   "description": "Simplify your JsonSchema by combining allOf safely.",
-  "module": "dist/esm/index.js",
-  "main": "dist/cjs/index.js",
-  "types": "dist/cjs/index.d.ts",
+  "module": "dist/index.mjs",
+  "main": "dist/index.cjs",
+  "browser": "./dist/index.iife.js",
+  "typings": "dist/index.d.ts",
   "files": [
     "dist",
     "browser"
   ],
-  "browser": {
-    "./dist/cjs/index.js": "./browser/allof-merge.js"
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
   },
   "scripts": {
-    "build": "tsc && tsc --module commonjs --outDir dist/cjs",
+    "prebuild": "rimraf ./dist",
+    "build": "rollup -c",
     "test": "jest --verbose",
     "prepublish": "rm -r dist || true && yarn build && yarn build:web",
     "test:coverage": "jest --verbose --coverage",
-    "build:web": "vite build",
     "benchmark": "yarn build && node benchmark"
   },
   "keywords": [
@@ -39,19 +43,27 @@
   "author": "Damir Yusipov",
   "license": "MIT",
   "devDependencies": {
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-json": "^6.0.1",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.5",
     "@types/jest": "^29.5.2",
     "@types/js-yaml": "^4.0.5",
     "benchmark": "^2.1.4",
     "jest": "^29.5.0",
     "js-yaml": "^4.1.0",
     "json-schema-merge-allof": "^0.8.1",
+    "rimraf": "^5.0.5",
+    "rollup": "^2.79.1",
+    "rollup-plugin-filesize": "^10.0.0",
+    "rollup-plugin-progress": "^1.1.2",
     "ts-jest": "^29.1.0",
     "ts-loader": "^9.4.3",
     "ts-node": "^10.7.0",
     "tslint": "^6.1.2",
-    "typescript": "^5.1.3",
-    "vite": "^4.3.9",
-    "vite-plugin-dts": "^2.0.2"
+    "typescript": "^5.1.3"
   },
   "jest": {
     "transform": {

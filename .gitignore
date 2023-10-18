@@ -7,3 +7,6 @@ temp
 browser
 coverage
 .DS_store
+package-lock.json
+.yarnrc.yml
+.yarn
