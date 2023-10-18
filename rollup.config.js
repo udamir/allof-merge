@@ -10,14 +10,11 @@ import typescript from '@rollup/plugin-typescript';
 
 const inputPath = './src'
 
-const banner = `/*!
+const preamble = `/*!
  * allof-merge v${pkg.version}
- *
- * Copyright (C) 2012-${new Date().getFullYear()} ${pkg.author}.
- *
+ * Copyright (C) 2012-${new Date().getFullYear()} ${pkg.author}
  * Date: ${new Date().toUTCString()}
- */
-`;
+ */`;
 
 const extensions = ['.ts', '.js'];
 
@@ -38,7 +35,10 @@ const jsPlugins = [
         include: [`${inputPath}/**/*`],
         extensions,
     }),
-    terser()
+    terser({ format: { 
+        preamble,
+        comments: false
+    } })
 ];
 
 function makeConfig(file, format) {
@@ -47,7 +47,6 @@ function makeConfig(file, format) {
         output: {
             file,
             format,
-            banner,
             name: 'AllofMerge',
             sourcemap: true,
         },
