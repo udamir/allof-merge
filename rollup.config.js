@@ -41,38 +41,22 @@ const jsPlugins = [
     terser()
 ];
 
+function makeConfig(file, format) {
+    return {
+        input: `${inputPath}/index.ts`,
+        output: {
+            file,
+            format,
+            banner,
+            name: 'AllofMerge',
+            sourcemap: true,
+        },
+        plugins: jsPlugins
+    };
+}
+
 export default [
-    {
-        input: `${inputPath}/index.ts`,
-        output: {
-            file: `${pkg.main}`,
-            format: 'umd',
-            banner,
-            name: 'AllofMerge',
-            sourcemap: true,
-        },
-        plugins: jsPlugins
-    },
-    {
-        input: `${inputPath}/index.ts`,
-        output: {
-            file: `${pkg.module}`,
-            banner,
-            format: 'esm',
-            name: 'AllofMerge',
-            sourcemap: true,
-        },
-        plugins: jsPlugins
-    },
-    {
-        input: `${inputPath}/index.ts`,
-        output: {
-            file: `${pkg.browser}`,
-            banner,
-            format: 'iife',
-            name: 'AllofMerge',
-            sourcemap: true,
-        },
-        plugins: jsPlugins
-    },
+    makeConfig(pkg.main, 'umd'),
+    makeConfig(pkg.module, 'esm'),
+    makeConfig(pkg.browser, 'iife'),
 ];
