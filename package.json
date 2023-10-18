@@ -4,7 +4,7 @@
   "description": "Simplify your JsonSchema by combining allOf safely.",
   "module": "dist/index.mjs",
   "main": "dist/index.cjs",
-  "browser": "./dist/index.iife.js",
+  "browser": "dist/index.iife.js",
   "typings": "dist/index.d.ts",
   "files": [
     "dist",
