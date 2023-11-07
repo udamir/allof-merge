@@ -9,7 +9,7 @@ export const mergeCombinarySibling = (value: AnyOfNode | OneOfNode, combinaryKey
   const sibling = popValues(rest, siblingKeys)
 
   return Object.keys(rest).length ? { 
-    [combinaryKey]: combinary.map((item: any) => ({ allOf: [item, rest] })), 
+    [combinaryKey]: combinary.map((item: any) => ({ allOf: [rest, item] })), 
     ...sibling 
   } : value
 }
