@@ -1784,10 +1784,20 @@ globals@^11.1.0:
   resolved "https://registry.npmjs.org/globals/-/globals-11.12.0.tgz"
   integrity sha512-WOBp/EEGUiIsJSp7wcv/y6MO+lV9UoncWqxuFfm8eBwzWNgyfBd6Gz+IeKQ9jCmyhoH99g15M3T+QaVHFjizVA==
 
+gqlapi@^0.5.1:
+  version "0.5.1"
+  resolved "https://registry.yarnpkg.com/gqlapi/-/gqlapi-0.5.1.tgz#f7d1cb7b18881a5b0b60b67538c6728954268424"
+  integrity sha512-zB6gM5iwsvDYFcW7NnQduQXlBCFk9EuYcvXn1ZeQRJiFPKwZvdo2QfXqSp2JZevWHtmFduiCkViCA5Q4nAeizQ==
+
 graceful-fs@^4.2.3, graceful-fs@^4.2.4, graceful-fs@^4.2.9:
   version "4.2.11"
   resolved "https://registry.npmjs.org/graceful-fs/-/graceful-fs-4.2.11.tgz"
   integrity sha512-RbJ5/jmFcNNCcDV5o9eTnBLJ/HszWV0P73bc+Ff4nS/rJj+YaS6IGyiOL0VoBYX+l1Wrl3k63h/KrH+nhJ0XvQ==
+
+graphql@^16.8.1:
+  version "16.8.1"
+  resolved "https://registry.yarnpkg.com/graphql/-/graphql-16.8.1.tgz#1930a965bef1170603702acdb68aedd3f3cf6f07"
+  integrity sha512-59LZHPdGZVh695Ud9lRzPBVTtlX9ZCV150Er2W43ro37wVof0ctenSaskPPjN7lVTIN8mSZt8PHUNKZuNQUuxw==
 
 gzip-size@^6.0.0:
   version "6.0.0"
@@ -2472,10 +2482,10 @@ jsesc@^2.5.1:
   resolved "https://registry.npmjs.org/jsesc/-/jsesc-2.5.2.tgz"
   integrity sha512-OYu7XEzjkCQ3C5Ps3QIZsQfNpqoJyZZA99wd9aWd05NCtC5pWOkShK2mkL6HXQR6/Cy2lbNdPlZBpuQHXE63gA==
 
-json-crawl@^0.2.6:
-  version "0.2.6"
-  resolved "https://registry.npmjs.org/json-crawl/-/json-crawl-0.2.6.tgz"
-  integrity sha512-RGIqnFKadWxySzKPFBciJhem5hGnRDFkfvhBPuH0f59kXmr8j2GlVyGvn8Kw9DdT3D7XKebCX61QQL8Um47dyA==
+json-crawl@^0.4.2:
+  version "0.4.2"
+  resolved "https://registry.yarnpkg.com/json-crawl/-/json-crawl-0.4.2.tgz#34339e4984bdf3a7f39518f1e3a0cd29ac1cc86c"
+  integrity sha512-MOKk9cjtpMrP4H1DmG+PtS7aFWg9OuSqxc/wpFcOE++yVnD5Bi5iKoXD6oqs+kltRwJRgZBYMozRNpQpxD/TJw==
 
 json-parse-even-better-errors@^2.3.0:
   version "2.3.1"

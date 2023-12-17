@@ -5,7 +5,7 @@ export const jsonSchemaVersion = ["draft-04", "draft-06"] as const
 
 export type JsonSchemaVersion = typeof jsonSchemaVersion[number]
 
-export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): MergeRules => ({
+export const jsonSchemaMergeRules = (customRules: MergeRules = {}, draft: JsonSchemaVersion = "draft-06"): MergeRules => ({
   "/maximum": { $: resolvers.minValue },
   "/exclusiveMaximum": { $: resolvers.alternative },
   "/minimum": { $: resolvers.maxValue },
@@ -22,63 +22,67 @@ export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): Mer
   "/enum": { $: resolvers.mergeEnum },
   "/type": { $: resolvers.mergeTypes },
   "/allOf": {
-    "/*": () => jsonSchemaMergeRules(draft),
+    "/*": () => jsonSchemaMergeRules(customRules, draft),
     $: resolvers.mergeArray,
   },
   "/not": { $: resolvers.mergeNot },
   "/oneOf": {
-    "/*": () => jsonSchemaMergeRules(draft),
+    "/*": () => jsonSchemaMergeRules(customRules, draft),
     $: resolvers.mergeArray,
-    sibling: draft === "draft-04" ?  ["defs"] : ["definitions"],
+    sibling: ["definitions", "$defs", "$id", "$schema"],
   },
   "/anyOf": {
-    "/*": () => jsonSchemaMergeRules(draft),
+    "/*": () => jsonSchemaMergeRules(customRules, draft),
     $: resolvers.mergeArray,
-    sibling: draft === "draft-04" ?  ["defs"] : ["definitions"],
+    sibling: ["definitions", "$defs", "$id", "$schema"],
   },
   "/properties": {
-    "/*": () => jsonSchemaMergeRules(draft),
+    "/*": () => jsonSchemaMergeRules(customRules, draft),
     $: resolvers.propertiesMergeResolver,
   },
   "/items": () => ({
-    ...jsonSchemaMergeRules(draft),
-    "$": resolvers.itemsMergeResolver,
-    "/*": (path) => typeof path[path.length-1] === 'number' ? jsonSchemaMergeRules(draft) : {},
+    ...jsonSchemaMergeRules(customRules, draft),
+    $: resolvers.itemsMergeResolver,
+    "/*": ({ key }) => typeof key === 'number' ? jsonSchemaMergeRules(customRules, draft) : {},
   }),
   "/additionalProperties": () => ({ 
-    ...jsonSchemaMergeRules(draft),
+    ...jsonSchemaMergeRules(customRules, draft),
     "$": resolvers.additionalPropertiesMergeResolver 
   }),
   "/additionalItems": () => ({ 
-    ...jsonSchemaMergeRules(draft), 
+    ...jsonSchemaMergeRules(customRules, draft), 
     "$": resolvers.additionalItemsMergeResolver 
   }),
   "/patternProperties": { 
-    "/*": () => jsonSchemaMergeRules(draft),
+    "/*": () => jsonSchemaMergeRules(customRules, draft),
     $: resolvers.propertiesMergeResolver,
   },
   "/pattern": { $: resolvers.mergePattern },
-  "/nullable": { $: resolvers.alternative },
+  // "/nullable": { $: resolvers.alternative },
   "/readOnly": { $: resolvers.alternative },
   "/writeOnly": { $: resolvers.alternative },
   "/example": { $: resolvers.mergeObjects },
   "/examples": { $: resolvers.mergeObjects },
   "/deprecated": { $: resolvers.alternative },
   ...draft !== "draft-04" ? { 
-    "/propertyNames": () => jsonSchemaMergeRules(draft),
-    "/contains": () => jsonSchemaMergeRules(draft),
+    "/propertyNames": () => jsonSchemaMergeRules(customRules, draft),
+    "/contains": () => jsonSchemaMergeRules(customRules, draft),
     "/dependencies": { 
-      "/*": () => jsonSchemaMergeRules(draft),
+      "/*": () => jsonSchemaMergeRules(customRules, draft),
       $: resolvers.dependenciesMergeResolver
     },
     "/const": { $: resolvers.equal },
     "/exclusiveMaximum": { $: resolvers.minValue },
     "/exclusiveMinimum": { $: resolvers.maxValue },
-    "/definitions": {
-      '/*': () => jsonSchemaMergeRules(draft),
+    "/$defs": {
+      '/*': () => jsonSchemaMergeRules(customRules, draft),
       $: resolvers.mergeObjects
     },
   } : {},
+  "/definitions": {
+    '/*': () => jsonSchemaMergeRules(customRules, draft),
+    $: resolvers.mergeObjects
+  },
   "/xml": { $: resolvers.mergeObjects },
   "/externalDocs": { $: resolvers.last },
   "/description": { $: resolvers.last },
@@ -86,9 +90,7 @@ export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06"): Mer
   "/format": { $: resolvers.last },
   "/default": { $: resolvers.last }, 
   "/?": { $: resolvers.last },
-  "/defs": {
-    '/*': () => jsonSchemaMergeRules(draft),
-    $: resolvers.mergeObjects
-  },
+  ...customRules,
+
   $: resolvers.jsonSchemaMergeResolver,
 })

@@ -70,8 +70,9 @@ export const parseRef = ($ref: string, basePath = "") => {
 
   const pointer = !ref || ref === "/" ? "" : ref
   const normalized = createRef(filePath, pointer)
+  const jsonPath = parsePointer(pointer)
   
-  return { filePath, pointer, normalized }
+  return { filePath, pointer, normalized, jsonPath }
 }
 
 export const createRef = (basePath?: string, pointer?: string): string => {

@@ -22,8 +22,10 @@ Merge schemas using allOf into a more readable composed schema free from allOf.
 
 - [JsonSchema](https://json-schema.org/draft/2020-12/json-schema-core.html)
 - [OpenApi 3.x](https://github.com/OAI/OpenAPI-Specification/blob/main/versions/3.0.3.md)
+- [GraphApi](https://github.com/udamir/graphapi)
 - ~~Swagger 2.x~~ (roadmap)
 - ~~AsyncApi 2.x~~ (roadmap)
+- ~~AsyncApi 3.x~~ (roadmap)
 
 ## Other libraries
 There are some libraries that can merge schemas combined with allOf. One of the most popular is [mokkabonna/json-schema-merge-allof](https://www.npmjs.com/package/json-schema-merge-allof), but it has some limitatons: Does not support circular $refs and no Typescript syntax out of the box.
@@ -128,6 +130,7 @@ interface MergeOptions {
 You can find supported rules in the src/rules directory of this repository:
 - `jsonSchemaMergeRules(version: "draft-04" | "draft-06")`
 - `openapiMergeRules(version: "3.0.x" | "3.1.x")`
+- `graphapiMergeRules`
 
 ## Benchmark
 ```

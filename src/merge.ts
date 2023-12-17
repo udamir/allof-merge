@@ -1,6 +1,6 @@
 import { JsonPath, SyncCloneHook, isObject, syncClone } from "json-crawl"
 
-import { AllOfRef, MergeError, MergeOptions, MergeRules } from "./types"
+import { AllOfRef, MergeError, MergeOptions, MergeResolver, MergeRules } from "./types"
 import { buildPointer, isAnyOfNode, isOneOfNode } from "./utils"
 import { mergeCombinarySibling } from "./resolvers/combinary"
 import { jsonSchemaMergeResolver } from "./resolvers"
@@ -13,8 +13,8 @@ export const merge = (value: any, options?: MergeOptions) => {
   return syncClone(value, allOfResolverHook(options), { rules })
 }
 
-const isAllOfMergeRule = (rules: MergeRules) => {
-  return rules && rules["/allOf"] && "$" in rules["/allOf"]
+const isAllOfMergeRule = (rules?: MergeRules): rules is { "/allOf": { $: MergeResolver }, [key: string]: MergeRules } => {
+  return !!rules && rules["/allOf"] && "$" in rules["/allOf"]
 } 
 
 export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => {
@@ -29,32 +29,33 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
    */
   const allOfRefs: AllOfRef[] = []
 
-  return (value, ctx) => {
+  return ({ value, key, path, rules, state }) => {
     // save root value as source if source is not defined
-    if (!ctx.path.length && !options?.source) {
+    if (!path.length && !options?.source) {
       source = value
     }
 
     const mergeError: MergeError = (values) => {
       // check if merge error in anyOf/oneOf combination node
-      const args = findNodeToDelete(ctx.path)
+      const args = findNodeToDelete(path)
       if (args) {
         nodeToDelete.set(...args)
       } else {
-        options?.onMergeError?.(ErrorMessage.mergeError(), ctx.path, values)
+        options?.onMergeError?.(ErrorMessage.mergeError(), path, values)
       }
     }
 
     const exitHook = () => {
-      const { node } = ctx.state
-      const strPath = buildPointer(ctx.path)
+      const { node } = state
+      const strPath = buildPointer(path)
       if (nodeToDelete.has(strPath)) {
-        const key = nodeToDelete.get(strPath)!
-        if (Array.isArray(node[ctx.key])) {
-          if (node[ctx.key].length < 2) {
+        const _key = nodeToDelete.get(strPath)!
+        const child = node[key]
+        if (Array.isArray(child)) {
+          if (child.length < 2) {
             mergeError((<any>value)?.allOf || [])
           }
-          node[ctx.key].splice(key, 1)
+          child.splice(_key, 1)
         }
       }
       // if ("anyOf" in node) {
@@ -67,11 +68,11 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
 
     // skip if not object
     if (!isObject(value) || Array.isArray(value)) { 
-      return { value, exitHook }
+      return { value: value, exitHook }
     }
     
     // check if in current node expected allOf merge rule in rules
-    if (!isAllOfMergeRule(ctx.rules)) { return { value, exitHook } }
+    if (!isAllOfMergeRule(rules)) { return { value, exitHook } }
 
     const { allOf, ...sibling } = value
 
@@ -88,10 +89,10 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
         _allOf.push({ $ref }, rest)
       } else if (options?.mergeCombinarySibling) {
         // create allOf from each combinary content and sibling if mergeCombinarySibling
-        if (isAnyOfNode(sibling) && ctx.rules["/anyOf"]) {
-          return { value: mergeCombinarySibling(sibling, "anyOf", ctx.rules["/anyOf"]), exitHook }
-        } else if (isOneOfNode(sibling) && ctx.rules["/oneOf"]) {
-          return { value: mergeCombinarySibling(sibling, "oneOf", ctx.rules["/oneOf"]), exitHook }
+        if (isAnyOfNode(sibling) && rules["/anyOf"]) {
+          return { value: mergeCombinarySibling(sibling, "anyOf", rules["/anyOf"]), exitHook }
+        } else if (isOneOfNode(sibling) && rules["/oneOf"]) {
+          return { value: mergeCombinarySibling(sibling, "oneOf", rules["/oneOf"]), exitHook }
         }
       } 
     } else if (Object.keys(sibling).length) {
@@ -102,10 +103,10 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
       return { value: sibling, exitHook }
     }
     
-    const { allOfItems, brokenRefs } = normalizeAllOfItems(_allOf, ctx.path, source, allOfRefs)
+    const { allOfItems, brokenRefs } = normalizeAllOfItems(_allOf, path, source, allOfRefs)
 
     if (brokenRefs.length) {
-      brokenRefs.forEach((ref) => options?.onRefResolveError?.("Cannot resolve $ref", ctx.path, ref)) 
+      brokenRefs.forEach((ref) => options?.onRefResolveError?.("Cannot resolve $ref", path, ref)) 
       return { value: { allOf: allOfItems }, exitHook }
     }
 
@@ -114,12 +115,12 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
       return { value: allOfItems.length ? allOfItems[0] : {}, exitHook }
     }
 
-    const mergedNode = jsonSchemaMergeResolver(allOfItems, { allOfItems, mergeRules: ctx.rules, mergeError })
+    const mergedNode = jsonSchemaMergeResolver(allOfItems, { allOfItems, mergeRules: rules, mergeError })
 
     if (options?.mergeCombinarySibling && isAnyOfNode(mergedNode)) {
-      return { value: mergeCombinarySibling(mergedNode, "anyOf", ctx.rules["/anyOf"]), exitHook }
+      return { value: mergeCombinarySibling(mergedNode, "anyOf", rules["/anyOf"]), exitHook }
     } else if (options?.mergeCombinarySibling && isOneOfNode(mergedNode)) {
-      return { value: mergeCombinarySibling(mergedNode, "oneOf", ctx.rules["/oneOf"]), exitHook }
+      return { value: mergeCombinarySibling(mergedNode, "oneOf", rules["/oneOf"]), exitHook }
     } else {
       return { value: mergedNode, exitHook }
     }

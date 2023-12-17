@@ -1,6 +1,6 @@
 const { Suite } = require("benchmark")
 const merger = require("json-schema-merge-allof")
-const { merge } = require("../dist/cjs")
+const { merge } = require("../dist/index.cjs")
 
 const data = require("./data.json")
 
