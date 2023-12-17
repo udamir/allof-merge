@@ -7,7 +7,7 @@ export const openApiVersion = ["3.0.x", "3.1.x"] as const
 export type OpenApiVersion = typeof openApiVersion[number]
 
 const customJsonSchemaMergeRules = (version: JsonSchemaVersion): MergeRules => {
-  return jsonSchemaMergeRules({
+  return jsonSchemaMergeRules(version, {
     "/discriminator": { $: resolvers.mergeObjects },
     "/oneOf": {
       "/*": () => customJsonSchemaMergeRules(version),
@@ -19,7 +19,7 @@ const customJsonSchemaMergeRules = (version: JsonSchemaVersion): MergeRules => {
       $: resolvers.mergeArray,
       sibling: ["discriminator"],
     }
-  }, version)
+  })
 } 
 
 export const openApiJsonSchemaMergeRules = (version: OpenApiVersion): MergeRules => {

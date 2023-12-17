@@ -2,7 +2,7 @@ import { jsonSchemaMergeRules } from "./jsonschema"
 import * as resolvers from "../resolvers"
 import { MergeRules } from "../types"
 
-const graphSchemaMergeRules: MergeRules = jsonSchemaMergeRules({
+const graphSchemaMergeRules: MergeRules = jsonSchemaMergeRules("draft-06", {
   "/args": () => graphSchemaMergeRules,
   "/nullable": { $: resolvers.alternative },
   "/specifiedByURL": { $: resolvers.last },

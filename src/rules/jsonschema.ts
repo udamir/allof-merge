@@ -5,7 +5,7 @@ export const jsonSchemaVersion = ["draft-04", "draft-06"] as const
 
 export type JsonSchemaVersion = typeof jsonSchemaVersion[number]
 
-export const jsonSchemaMergeRules = (customRules: MergeRules = {}, draft: JsonSchemaVersion = "draft-06"): MergeRules => ({
+export const jsonSchemaMergeRules = (draft: JsonSchemaVersion = "draft-06", customRules: MergeRules = {}): MergeRules => ({
   "/maximum": { $: resolvers.minValue },
   "/exclusiveMaximum": { $: resolvers.alternative },
   "/minimum": { $: resolvers.maxValue },
@@ -22,39 +22,39 @@ export const jsonSchemaMergeRules = (customRules: MergeRules = {}, draft: JsonSc
   "/enum": { $: resolvers.mergeEnum },
   "/type": { $: resolvers.mergeTypes },
   "/allOf": {
-    "/*": () => jsonSchemaMergeRules(customRules, draft),
+    "/*": () => jsonSchemaMergeRules(draft, customRules),
     $: resolvers.mergeArray,
   },
   "/not": { $: resolvers.mergeNot },
   "/oneOf": {
-    "/*": () => jsonSchemaMergeRules(customRules, draft),
+    "/*": () => jsonSchemaMergeRules(draft, customRules),
     $: resolvers.mergeArray,
     sibling: ["definitions", "$defs", "$id", "$schema"],
   },
   "/anyOf": {
-    "/*": () => jsonSchemaMergeRules(customRules, draft),
+    "/*": () => jsonSchemaMergeRules(draft, customRules),
     $: resolvers.mergeArray,
     sibling: ["definitions", "$defs", "$id", "$schema"],
   },
   "/properties": {
-    "/*": () => jsonSchemaMergeRules(customRules, draft),
+    "/*": () => jsonSchemaMergeRules(draft, customRules),
     $: resolvers.propertiesMergeResolver,
   },
   "/items": () => ({
-    ...jsonSchemaMergeRules(customRules, draft),
+    ...jsonSchemaMergeRules(draft, customRules),
     $: resolvers.itemsMergeResolver,
-    "/*": ({ key }) => typeof key === 'number' ? jsonSchemaMergeRules(customRules, draft) : {},
+    "/*": ({ key }) => typeof key === 'number' ? jsonSchemaMergeRules(draft, customRules) : {},
   }),
   "/additionalProperties": () => ({ 
-    ...jsonSchemaMergeRules(customRules, draft),
+    ...jsonSchemaMergeRules(draft, customRules),
     "$": resolvers.additionalPropertiesMergeResolver 
   }),
   "/additionalItems": () => ({ 
-    ...jsonSchemaMergeRules(customRules, draft), 
+    ...jsonSchemaMergeRules(draft, customRules), 
     "$": resolvers.additionalItemsMergeResolver 
   }),
   "/patternProperties": { 
-    "/*": () => jsonSchemaMergeRules(customRules, draft),
+    "/*": () => jsonSchemaMergeRules(draft, customRules),
     $: resolvers.propertiesMergeResolver,
   },
   "/pattern": { $: resolvers.mergePattern },
@@ -65,22 +65,22 @@ export const jsonSchemaMergeRules = (customRules: MergeRules = {}, draft: JsonSc
   "/examples": { $: resolvers.mergeObjects },
   "/deprecated": { $: resolvers.alternative },
   ...draft !== "draft-04" ? { 
-    "/propertyNames": () => jsonSchemaMergeRules(customRules, draft),
-    "/contains": () => jsonSchemaMergeRules(customRules, draft),
+    "/propertyNames": () => jsonSchemaMergeRules(draft, customRules),
+    "/contains": () => jsonSchemaMergeRules(draft, customRules),
     "/dependencies": { 
-      "/*": () => jsonSchemaMergeRules(customRules, draft),
+      "/*": () => jsonSchemaMergeRules(draft, customRules),
       $: resolvers.dependenciesMergeResolver
     },
     "/const": { $: resolvers.equal },
     "/exclusiveMaximum": { $: resolvers.minValue },
     "/exclusiveMinimum": { $: resolvers.maxValue },
     "/$defs": {
-      '/*': () => jsonSchemaMergeRules(customRules, draft),
+      '/*': () => jsonSchemaMergeRules(draft, customRules),
       $: resolvers.mergeObjects
     },
   } : {},
   "/definitions": {
-    '/*': () => jsonSchemaMergeRules(customRules, draft),
+    '/*': () => jsonSchemaMergeRules(draft, customRules),
     $: resolvers.mergeObjects
   },
   "/xml": { $: resolvers.mergeObjects },
