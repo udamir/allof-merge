@@ -147,7 +147,7 @@ npm run benchmark
 ## Contributing
 When contributing, keep in mind that it is an objective of `allof-merge` to have no additional package dependencies.
 
-Please run the unit tests before submitting your PR: `npm test`. Hopefully your PR includes additional unit tests to illustrate your change/modification!
+Please run the unit tests before submitting your PR: `yarn test`. Hopefully your PR includes additional unit tests to illustrate your change/modification!
 
 ## License
 
