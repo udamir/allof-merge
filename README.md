@@ -12,7 +12,8 @@ Merge schemas using allOf into a more readable composed schema free from allOf.
 - Correctly merge additionalProperties, patternProperties and properties taking into account common validations
 - Correctly merge items and additionalItems taking into account common validations
 - Supports rules extension to merge other document types and JsonSchema versions
-- Supports $refs and circular references either (internal references only)
+- Supports input with circular references (javaScript references)
+- Supports $refs and circular $refs either (internal references only)
 - Correctly merge of $refs with sibling content (optionally)
 - Correctly merge of combinaries (anyOf, oneOf) with sibling content (optionally)
 - Typescript syntax support out of the box
