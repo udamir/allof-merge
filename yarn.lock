@@ -2482,10 +2482,10 @@ jsesc@^2.5.1:
   resolved "https://registry.npmjs.org/jsesc/-/jsesc-2.5.2.tgz"
   integrity sha512-OYu7XEzjkCQ3C5Ps3QIZsQfNpqoJyZZA99wd9aWd05NCtC5pWOkShK2mkL6HXQR6/Cy2lbNdPlZBpuQHXE63gA==
 
-json-crawl@^0.4.2:
-  version "0.4.2"
-  resolved "https://registry.yarnpkg.com/json-crawl/-/json-crawl-0.4.2.tgz#34339e4984bdf3a7f39518f1e3a0cd29ac1cc86c"
-  integrity sha512-MOKk9cjtpMrP4H1DmG+PtS7aFWg9OuSqxc/wpFcOE++yVnD5Bi5iKoXD6oqs+kltRwJRgZBYMozRNpQpxD/TJw==
+json-crawl@^0.5.1:
+  version "0.5.1"
+  resolved "https://registry.yarnpkg.com/json-crawl/-/json-crawl-0.5.1.tgz#1dcd753ee1bcbebe15934f350bb577e422e5c16b"
+  integrity sha512-guQYl5NFDUC6XtJvlMb80rYTJ0LhY9lLlDpL6idDwSGldpGayWBzsstK7BlmULXM/WsT0jI+skiilwiRb904wA==
 
 json-parse-even-better-errors@^2.3.0:
   version "2.3.1"

@@ -1,4 +1,4 @@
-import { AnyOfNode, MergeRule, OneOfNode } from "../types"
+import type { AnyOfNode, MergeRule, OneOfNode } from "../types"
 import { popValues } from "../utils"
 
 export const mergeCombinarySibling = (value: AnyOfNode | OneOfNode, combinaryKey: "anyOf" | "oneOf", rule: MergeRule) => {

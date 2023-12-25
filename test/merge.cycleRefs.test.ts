@@ -1,6 +1,6 @@
 import { merge } from "../src"
 
-describe("cycle refs", () => {
+describe("cycle $refs", () => {
   it("should support cycle refs in allOf", () => {
     const data = {
       type: 'object',
@@ -28,35 +28,112 @@ describe("cycle refs", () => {
       },
     }
 
-    const result = merge(data)
+    const result: any = merge(data)
  
-    expect(result).toEqual( {
+    expect(result).toMatchObject( {
       type: 'object',
       properties: {
         foo: {
           description: '1-st parent',
           type: 'object',
           properties: {
-            foo: {
-              $ref: '#/properties/foo',
-            },
-            baz: {
-              description: '2-st parent',
-              type: 'object',
-              properties: {
-                foo: {
-                  $ref: '#/properties/foo',
-                },
-                baz: {
-                  $ref: '#/properties/foo/properties/baz',
-                },
-              }
-            },
-
+            foo: result.properties.foo,
+            baz: result.properties.baz,
           }
         },
         baz: {
-          $ref: '#/properties/foo/properties/baz',
+          description: '2-st parent',
+          type: 'object',
+          properties: {
+            foo: result.properties.foo,
+            baz: result.properties.baz,
+          }
+        },
+      },
+    })
+
+    // expect(result).toEqual( {
+    //   type: 'object',
+    //   properties: {
+    //     foo: {
+    //       description: '1-st parent',
+    //       type: 'object',
+    //       properties: {
+    //         foo: {
+    //           $ref: '#/properties/foo',
+    //         },
+    //         baz: {
+    //           description: '2-st parent',
+    //           type: 'object',
+    //           properties: {
+    //             foo: {
+    //               $ref: '#/properties/foo',
+    //             },
+    //             baz: {
+    //               $ref: '#/properties/foo/properties/baz',
+    //             },
+    //           }
+    //         },
+
+    //       }
+    //     },
+    //     baz: {
+    //       $ref: '#/properties/foo/properties/baz',
+    //     },
+    //   },
+    // })
+  })
+
+  it("should support dereferenced cycle refs in allOf", () => {
+    const data: any = {
+      type: 'object',
+      properties: {
+        foo: {
+          allOf: [
+            {
+              description: '1-st parent',
+            },
+            {
+              $ref: '#',
+            },
+          ],
+        },
+        baz: {
+          allOf: [
+            {
+              description: '2-st parent',
+            },
+            {
+              $ref: '#',
+            },
+          ],
+        },
+      },
+    }
+
+    data.properties.foo.allOf[1] = data
+    data.properties.baz.allOf[1] = data
+
+    const result: any = merge(data)
+ 
+    expect(result).toMatchObject({
+      type: 'object',
+      properties: {
+        foo: {
+          description: '1-st parent',
+          type: 'object',
+          properties: {
+            foo: result.properties.foo,
+            baz: result.properties.baz,
+          }
+        },
+        baz: {
+          description: '2-st parent',
+          type: 'object',
+          properties: {
+            foo: result.properties.foo,
+            baz: result.properties.baz,
+          }
         },
       },
     })

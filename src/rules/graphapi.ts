@@ -1,6 +1,6 @@
 import { jsonSchemaMergeRules } from "./jsonschema"
+import type { MergeRules } from "../types"
 import * as resolvers from "../resolvers"
-import { MergeRules } from "../types"
 
 const graphSchemaMergeRules: MergeRules = jsonSchemaMergeRules("draft-06", {
   "/args": () => graphSchemaMergeRules,

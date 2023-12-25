@@ -1,5 +1,5 @@
 import { getAllOfItemsMap, jsonSchemaMergeResolver } from "./jsonschema"
-import { JsonSchema, MergeResolver } from "../types"
+import type { JsonSchema, MergeResolver } from "../types"
 import { MapArray } from "../utils"
 
 export const getPropertiesForMerge = (allOfItems: JsonSchema[]) => {

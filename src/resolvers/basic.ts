@@ -1,6 +1,6 @@
 import { calculateLCM, findCombinations, isEqual, mergeValues } from "../utils"
 import { getAllOfItemsMap } from "./jsonschema"
-import { MergeResolver } from "../types"
+import type { MergeResolver } from "../types"
 
 export const first: MergeResolver = ([a]) => a
 export const last: MergeResolver = (args) => args[args.length-1]

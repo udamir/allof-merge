@@ -1,4 +1,4 @@
-import { JsonPath, CrawlRules } from "json-crawl"
+import type { JsonPath, CrawlRules } from "json-crawl"
 
 export type JsonSchema = any
 export type MergeRules = CrawlRules<MergeRule>

@@ -1,6 +1,6 @@
-import { JsonPath, isObject } from "json-crawl"
+import { type JsonPath, isObject } from "json-crawl"
 
-import { AnyOfNode, OneOfNode, RefNode } from "./types"
+import type { AnyOfNode, OneOfNode, RefNode } from "./types"
 
 export class MapArray<K, V> extends Map<K, Array<V>> {
   public add(key: K, value: V): this {

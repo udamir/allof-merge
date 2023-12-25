@@ -1,6 +1,6 @@
 {
   "name": "allof-merge",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Simplify your JsonSchema by combining allOf safely.",
   "module": "dist/index.mjs",
   "main": "dist/index.cjs",
@@ -84,6 +84,6 @@
     "collectCoverage": true
   },
   "dependencies": {
-    "json-crawl": "^0.4.2"
+    "json-crawl": "^0.5.1"
   }
 }

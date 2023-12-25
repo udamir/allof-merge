@@ -1,5 +1,5 @@
+import type { MergeRules } from "../types"
 import * as resolvers from "../resolvers"
-import { MergeRules } from "../types"
 
 export const jsonSchemaVersion = ["draft-04", "draft-06"] as const
 

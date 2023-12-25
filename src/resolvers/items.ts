@@ -1,5 +1,5 @@
 import { jsonSchemaMergeResolver } from "./jsonschema"
-import { MergeResolver } from "../types"
+import type { MergeResolver } from "../types"
 import { MapArray } from "../utils"
 
 export const itemsMergeResolver: MergeResolver = (args, ctx) => {

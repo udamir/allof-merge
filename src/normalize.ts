@@ -1,7 +1,7 @@
-import { JsonPath, isObject } from "json-crawl"
+import { type JsonPath, isObject } from "json-crawl"
 
 import { buildPointer, isRefNode, parseRef, resolvePointer } from "./utils"
-import { AllOfRef, NormalizeResponse } from "./types"
+import type { AllOfRef, NormalizeResponse } from "./types"
 
 export const normalizeAllOfItems = (allOfItems: any[], jsonPath: JsonPath, source: any, allOfRefs: AllOfRef[]): NormalizeResponse => {
   const resolvedAllOfItems = []

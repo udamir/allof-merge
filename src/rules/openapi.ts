@@ -1,6 +1,6 @@
 import { JsonSchemaVersion, jsonSchemaMergeRules } from "./jsonschema"
+import type { MergeRules } from "../types"
 import * as resolvers from "../resolvers"
-import { MergeRules } from "../types"
 
 export const openApiVersion = ["3.0.x", "3.1.x"] as const
 

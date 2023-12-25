@@ -1,6 +1,6 @@
 import { JsonPath, SyncCloneHook, isObject, syncClone } from "json-crawl"
 
-import { AllOfRef, MergeError, MergeOptions, MergeResolver, MergeRules } from "./types"
+import type { AllOfRef, MergeError, MergeOptions, MergeResolver, MergeRules } from "./types"
 import { buildPointer, isAnyOfNode, isOneOfNode } from "./utils"
 import { mergeCombinarySibling } from "./resolvers/combinary"
 import { jsonSchemaMergeResolver } from "./resolvers"
@@ -68,11 +68,11 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
 
     // skip if not object
     if (!isObject(value) || Array.isArray(value)) { 
-      return { value: value, exitHook }
+      return { exitHook }
     }
     
     // check if in current node expected allOf merge rule in rules
-    if (!isAllOfMergeRule(rules)) { return { value, exitHook } }
+    if (!isAllOfMergeRule(rules)) { return { exitHook } }
 
     const { allOf, ...sibling } = value
 
