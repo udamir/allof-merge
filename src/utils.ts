@@ -27,17 +27,17 @@ export const popValues = (data: Record<string, unknown>, keys: string[]): Record
   return source
 } 
 
-export const removeDuplicates = <T>(array: T[]): T[] => {
-  const uniqueItems: T[] = [];
+// export const removeDuplicates = <T>(array: T[]): T[] => {
+//   const uniqueItems: T[] = [];
 
-  for (const item of array) {
-    if (!uniqueItems.some((uniqueItem) => isEqual(uniqueItem, item))) {
-      uniqueItems.push(item);
-    }
-  }
+//   for (const item of array) {
+//     if (!uniqueItems.some((uniqueItem) => isEqual(uniqueItem, item))) {
+//       uniqueItems.push(item);
+//     }
+//   }
 
-  return uniqueItems;
-}
+//   return uniqueItems;
+// }
 
 export const mergeValues = (value: any, patch: any) => {
   if (Array.isArray(value) && Array.isArray(patch)) {
@@ -83,11 +83,11 @@ export const createRef = (basePath?: string, pointer?: string): string => {
   }
 }
 
-export const resolveRefNode = (data: any, node: any) => {
-  const { $ref, ...rest } = node
-  const _ref = parseRef($ref)
-  return !_ref.filePath ? resolvePointer(data, _ref.pointer) : undefined
-}
+// export const resolveRefNode = (data: any, node: any) => {
+//   const { $ref, ...rest } = node
+//   const _ref = parseRef($ref)
+//   return !_ref.filePath ? resolvePointer(data, _ref.pointer) : undefined
+// }
 
 export const resolvePointer = (data: unknown, pointer: string, pointers: string[] = [pointer]): any => {
   if (!isObject(data)) { return }
