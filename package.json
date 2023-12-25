@@ -1,7 +1,7 @@
 {
   "name": "allof-merge",
-  "version": "0.6.2",
-  "description": "Simplify your JsonSchema by combining allOf safely.",
+  "version": "0.6.3",
+  "description": "Simplify JsonSchema/Openapi by combining allOf safely",
   "module": "dist/index.mjs",
   "main": "dist/index.cjs",
   "browser": "dist/index.iife.js",

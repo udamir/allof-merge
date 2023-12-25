@@ -2,16 +2,16 @@
 <img alt="npm" src="https://img.shields.io/npm/v/allof-merge"> <img alt="npm" src="https://img.shields.io/npm/dm/allof-merge?label=npm"> ![GitHub Workflow Status (with event)](https://img.shields.io/github/actions/workflow/status/udamir/allof-merge/ci.yml)
  <img alt="npm type definitions" src="https://img.shields.io/npm/types/allof-merge"> ![Coveralls branch](https://img.shields.io/coverallsCoverage/github/udamir/allof-merge) <img alt="GitHub" src="https://img.shields.io/github/license/udamir/allof-merge">
 
-Merge schemas using allOf into a more readable composed schema free from allOf.
+Merge schemas with allOf into a more readable composed schema free from allOf.
 
 ## Features
-- Safe merging of schemas combined with allOf in whole JsonSchema based document
-- Fastest implmentation - up to x4 times faster then other popular libraries
+- Safe merging of schemas combined with allOf in whole document
+- Fastest implmentation - up to x3 times faster then other popular libraries
 - Merged schema does not validate more or less than the original schema
 - Removes almost all logical impossibilities
 - Correctly merge additionalProperties, patternProperties and properties taking into account common validations
 - Correctly merge items and additionalItems taking into account common validations
-- Supports rules extension to merge other document types and JsonSchema versions
+- Supports custom rules to merge other document types and JsonSchema versions
 - Supports input with circular references (javaScript references)
 - Supports $refs and circular $refs either (internal references only)
 - Correctly merge of $refs with sibling content (optionally)
@@ -108,7 +108,7 @@ interface MergeOptions {
   source?: any          
   
   // custom merge rules
-  // (optional) default = jsonSchemaMergeRules("draft-06")
+  // (optional) default = auto select based on the input (jsonSchemaMergeRules, openapiMergeRules, graphapiMergeRules)
   rules?: MergeRules    
 
   // merge $ref with sibling content
@@ -135,7 +135,7 @@ You can find supported rules in the src/rules directory of this repository:
 
 ## Benchmark
 ```
-allof-merge x 800 ops/sec ±2.35% (90 runs sampled)
+allof-merge x 657 ops/sec ±2.35% (90 runs sampled)
 json-schema-merge-allof x 217 ops/sec ±2.03% (86 runs sampled)
 Fastest is allof-merge
 ```

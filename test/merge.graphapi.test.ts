@@ -1,5 +1,5 @@
-import { merge, graphapiMergeRules } from "../src"
 import { graphapi, yaml } from "./helpers"
+import { merge } from "../src"
 
 describe("Build GraphApi", () => {
 
@@ -55,7 +55,7 @@ describe("Build GraphApi", () => {
       }
     `
 
-    const merged = merge(schema, { rules: graphapiMergeRules, mergeCombinarySibling: true, mergeRefSibling: true })
+    const merged = merge(schema, { mergeCombinarySibling: true, mergeRefSibling: true })
 
     const expected = yaml`
       graphapi: 0.1.2

@@ -1,15 +1,29 @@
-import { JsonPath, SyncCloneHook, isObject, syncClone } from "json-crawl"
+import { type JsonPath, type SyncCloneHook, isObject, syncClone } from "json-crawl"
 
 import type { AllOfRef, MergeError, MergeOptions, MergeResolver, MergeRules } from "./types"
+import { graphapiMergeRules, jsonSchemaMergeRules, openApiMergeRules } from "./rules"
 import { buildPointer, isAnyOfNode, isOneOfNode } from "./utils"
 import { mergeCombinarySibling } from "./resolvers/combinary"
 import { jsonSchemaMergeResolver } from "./resolvers"
 import { normalizeAllOfItems } from "./normalize"
-import { jsonSchemaMergeRules } from "./rules"
 import { ErrorMessage } from "./errors"
 
+export const selectMergeRules = (data: unknown): MergeRules => {
+  if (typeof data !== "object" || !data) { return jsonSchemaMergeRules() }
+
+  if ("openapi" in data && typeof data.openapi === "string" &&  /3.+/.test(data.openapi)) {
+    const version = data.openapi.startsWith("3.1") ? "3.1.x" : "3.0.x"
+    return openApiMergeRules(version)
+  }
+  // if ("asyncapi" in data && typeof data.asyncapi === "string" && /2.+/.test(data?.asyncapi)) return asyncApi2MergeRules
+  // if ("swagger" in data && typeof data.swagger === "string" && /2.+/.test(data?.swagger)) return swagger2MergeRules
+  if ("graphapi" in data && typeof data.graphapi === "string") return graphapiMergeRules
+  return jsonSchemaMergeRules()
+}
+
+
 export const merge = (value: any, options?: MergeOptions) => {
-  const rules: MergeRules = options?.rules || jsonSchemaMergeRules() 
+  const rules: MergeRules = options?.rules ?? selectMergeRules(value)
   return syncClone(value, allOfResolverHook(options), { rules })
 }
 

@@ -1,10 +1,10 @@
-import { merge, openApiMergeRules } from "../src"
+import { merge } from "../src"
 const source31x = require("./resources/openapi31x.json")
 const source30x = require("./resources/openapi30x.json")
 
 describe("merge allof in openapi schema", function () {
   it("merges schema in openapi 3.0.x", () => {
-    const result = merge(source30x, { rules: openApiMergeRules() })
+    const result = merge(source30x)
 
     expect(result).toMatchObject({
       openapi: "3.0.2",
@@ -106,7 +106,7 @@ describe("merge allof in openapi schema", function () {
   })
 
   it("merges schema in openapi 3.1.x", () => {
-    const result = merge(source31x, { rules: openApiMergeRules("3.1.x") })
+    const result = merge(source31x)
 
     expect(result).toMatchObject({
       openapi: "3.1.0",
