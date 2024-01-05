@@ -3,7 +3,7 @@ import { type JsonPath, isObject } from "json-crawl"
 import { buildPointer, isRefNode, parseRef, resolvePointer } from "./utils"
 import type { AllOfRef, NormalizeResponse } from "./types"
 
-export const normalizeAllOfItems = (allOfItems: any[], jsonPath: JsonPath, source: any, allOfRefs: AllOfRef[]): NormalizeResponse => {
+export const normalizeAllOfItems = (allOfItems: unknown[], jsonPath: JsonPath, source: unknown, allOfRefs: AllOfRef[]): NormalizeResponse => {
   const resolvedAllOfItems = []
   const pointer = buildPointer(jsonPath)
   const brokenRefs: string[] = []
@@ -56,10 +56,10 @@ export const normalizeAllOfItems = (allOfItems: any[], jsonPath: JsonPath, sourc
   return { allOfItems: items, brokenRefs }
 }
 
-const flattenAllOf = (items: any[]): any[] => {
+const flattenAllOf = (items: unknown[]): unknown[] => {
   // allOf: [{ allOf: [a,b], c }] => allOf: [a, b, c]
   
-  const result: any[] = []
+  const result: unknown[] = []
   for (const item of items) {
     if (!isObject(item)) {
       // error, object expected
@@ -71,7 +71,7 @@ const flattenAllOf = (items: any[]): any[] => {
       result.push(item)
     } else {
       const { allOf, ...sibling } = item
-      const allOfItems = Object.keys(sibling).length ? [...allOf, sibling] : allOf as any[]
+      const allOfItems = Object.keys(sibling).length ? [...allOf, sibling] : allOf
       result.push(...flattenAllOf(allOfItems))
     }
   }

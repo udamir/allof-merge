@@ -22,7 +22,7 @@ export const selectMergeRules = (data: unknown): MergeRules => {
 }
 
 
-export const merge = (value: any, options?: MergeOptions) => {
+export const merge = (value: unknown, options?: MergeOptions) => {
   const rules: MergeRules = options?.rules ?? selectMergeRules(value)
   return syncClone(value, allOfResolverHook(options), { rules })
 }
@@ -90,7 +90,7 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
 
     const { allOf, ...sibling } = value
 
-    const _allOf: any[] = []
+    const _allOf: unknown[] = []
     // remove allOf from scheam if is wrong type
     if (Array.isArray(allOf)) {
       _allOf.push(...allOf)
