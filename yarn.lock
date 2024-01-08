@@ -2483,9 +2483,9 @@ jsesc@^2.5.1:
   integrity sha512-OYu7XEzjkCQ3C5Ps3QIZsQfNpqoJyZZA99wd9aWd05NCtC5pWOkShK2mkL6HXQR6/Cy2lbNdPlZBpuQHXE63gA==
 
 json-crawl@^0.5.2:
-  version "0.5.2"
-  resolved "https://registry.yarnpkg.com/json-crawl/-/json-crawl-0.5.2.tgz#5e4d3d40f1bb8c484bd451f5198d9eca2136f473"
-  integrity sha512-psBnZ5fdZQZJau/1J+pAjnpEY1JzL2AQ7am8TBf/eyDjsMovAaGlZUxcEvOVBuZ92920ACiN+OD0YOv+hb7b0w==
+  version "0.5.3"
+  resolved "https://registry.yarnpkg.com/json-crawl/-/json-crawl-0.5.3.tgz#3a2e1d308d4fc5a444902f1f94f4a9e03d584c6b"
+  integrity sha512-BEjjCw8c7SxzNK4orhlWD5cXQh8vCk2LqDr4WgQq4CV+5dvopeYwt1Tskg67SuSLKvoFH5g0yuYtg7rcfKV6YA==
 
 json-parse-even-better-errors@^2.3.0:
   version "2.3.1"
