@@ -84,7 +84,6 @@ console.log(merged)
 A browser version of `allof-merge` is also available via CDN:
 ```html
 <script src="https://cdn.jsdelivr.net/npm/allof-merge@latest/browser/allof-merge.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/allof-merge@latest/browser/allof-merge.js"></script>
 ```
 
 Reference `allof-merge.min.js` in your HTML and use the global variable `AllOfMerge`.
