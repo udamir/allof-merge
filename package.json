@@ -47,7 +47,7 @@
     "@rollup/plugin-json": "^6.0.1",
     "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "^11.1.5",
+    "@rollup/plugin-typescript": "^12.1.0",
     "@types/jest": "^29.5.2",
     "@types/js-yaml": "^4.0.5",
     "benchmark": "^2.1.4",
