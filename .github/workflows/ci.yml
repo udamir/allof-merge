@@ -37,7 +37,7 @@ jobs:
       - name: Coveralls GitHub Action
         # You may pin to the exact commit or the version.
         # uses: coverallsapp/github-action@c7885c00cb7ec0b8f9f5ff3f53cddb980f7a4412
-        uses: coverallsapp/github-action@v2.3.0
+        uses: coverallsapp/github-action@v2.3.4
         if: matrix.node == 16
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
