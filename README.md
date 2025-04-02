@@ -107,7 +107,7 @@ interface MergeOptions {
   source?: any          
   
   // custom merge rules
-  // (optional) default = auto select based on the input (jsonSchemaMergeRules, openapiMergeRules, graphapiMergeRules)
+  // (optional) default = auto select based on the input (jsonSchemaMergeRules, openApiMergeRules, graphapiMergeRules)
   rules?: MergeRules    
 
   // merge $ref with sibling content
@@ -129,7 +129,7 @@ interface MergeOptions {
 ### Supported rules
 You can find supported rules in the src/rules directory of this repository:
 - `jsonSchemaMergeRules(version: "draft-04" | "draft-06")`
-- `openapiMergeRules(version: "3.0.x" | "3.1.x")`
+- `openApiMergeRules(version: "3.0.x" | "3.1.x")`
 - `graphapiMergeRules`
 
 ## Benchmark
