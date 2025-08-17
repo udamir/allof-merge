@@ -19,15 +19,19 @@ export const normalizeAllOfItems = (allOfItems: unknown[], jsonPath: JsonPath, s
       }
 
       const { $ref, ...rest } = item
-      const { filePath, normalized, pointer } = parseRef($ref)
+      const { filePath, normalized, pointer: refPointer } = parseRef($ref)
 
-      const ref = allOfRefs.find((allOfRef) => allOfRef.refs.includes(item.$ref) && allOfRef.data === _allOfRef.data && pointer !== allOfRef.pointer)
+      if (pointer === refPointer) {
+        continue
+      }
+
+      const ref = allOfRefs.find((allOfRef) => allOfRef.refs.includes(item.$ref) && allOfRef.data === _allOfRef.data && refPointer !== allOfRef.pointer)
       if (ref) { 
-        return { allOfItems: [{ $ref: "#" + ref.pointer }], brokenRefs }
+        return { allOfItems: [{ $ref: `#${ref.pointer}` }], brokenRefs }
       }
 
       _allOfRef.refs.push(normalized)
-      const value = !filePath ? resolvePointer(source, pointer) : undefined
+      const value = !filePath ? resolvePointer(source, refPointer) : undefined
 
       if (value === undefined) {
         brokenRefs.push(normalized)

@@ -105,7 +105,8 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
         // create allOf from each combinary content and sibling if mergeCombinarySibling
         if (isAnyOfNode(sibling) && rules["/anyOf"]) {
           return { value: mergeCombinarySibling(sibling, "anyOf", rules["/anyOf"]), exitHook }
-        } else if (isOneOfNode(sibling) && rules["/oneOf"]) {
+        }
+        if (isOneOfNode(sibling) && rules["/oneOf"]) {
           return { value: mergeCombinarySibling(sibling, "oneOf", rules["/oneOf"]), exitHook }
         }
       } 
@@ -120,7 +121,9 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
     const { allOfItems, brokenRefs } = normalizeAllOfItems(_allOf, path, source, allOfRefs)
 
     if (brokenRefs.length) {
-      brokenRefs.forEach((ref) => options?.onRefResolveError?.("Cannot resolve $ref", path, ref)) 
+      for (const ref of brokenRefs) {
+        options?.onRefResolveError?.("Cannot resolve $ref", path, ref)
+      }
       return { value: { allOf: allOfItems }, exitHook }
     }
 
@@ -133,11 +136,11 @@ export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => 
 
     if (options?.mergeCombinarySibling && isAnyOfNode(mergedNode)) {
       return { value: mergeCombinarySibling(mergedNode, "anyOf", rules["/anyOf"]), exitHook }
-    } else if (options?.mergeCombinarySibling && isOneOfNode(mergedNode)) {
-      return { value: mergeCombinarySibling(mergedNode, "oneOf", rules["/oneOf"]), exitHook }
-    } else {
-      return { value: mergedNode, exitHook }
     }
+    if (options?.mergeCombinarySibling && isOneOfNode(mergedNode)) {
+      return { value: mergeCombinarySibling(mergedNode, "oneOf", rules["/oneOf"]), exitHook }
+    }
+    return { value: mergedNode, exitHook }
   }
 }
 
