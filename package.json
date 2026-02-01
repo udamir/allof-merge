@@ -1,6 +1,6 @@
 {
   "name": "allof-merge",
-  "version": "0.6.7",
+  "version": "0.6.8",
   "description": "Simplify JsonSchema/Openapi by combining allOf safely",
   "module": "dist/index.mjs",
   "main": "dist/index.cjs",

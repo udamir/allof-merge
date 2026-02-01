@@ -1,6 +1,6 @@
 import { merge } from "../src"
 
-describe("merge sibling content", function () {
+describe("merge sibling content", () => {
   it("should merge $ref sibling with mergeRefSibling option", () => {
     const source = {
       foo: {
@@ -159,7 +159,7 @@ describe("merge sibling content", function () {
     })
   })
 
-  it("should merges oneOf and sibling with mergeCombinarySibling option", function () {
+  it("should merges oneOf and sibling with mergeCombinarySibling option", () => {
     const result = merge(
       {
         required: ["id"],
@@ -219,7 +219,7 @@ describe("merge sibling content", function () {
     })
   })
 
-  it("should merges anyOf and sibling with mergeCombinarySibling option", function () {
+  it("should merges anyOf and sibling with mergeCombinarySibling option", () => {
     const result = merge(
       {
         required: ["id"],
@@ -279,7 +279,7 @@ describe("merge sibling content", function () {
     })
   })
 
-  it("should merges nested oneOf and sibling with mergeCombinarySibling option", function () {
+  it("should merges nested oneOf and sibling with mergeCombinarySibling option", () => {
     const result = merge({
       title: 'test',
       type: 'object',

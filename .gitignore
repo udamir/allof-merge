@@ -10,3 +10,5 @@ coverage
 package-lock.json
 .yarnrc.yml
 .yarn
+.claude
+claude.md
