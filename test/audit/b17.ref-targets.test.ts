@@ -341,7 +341,7 @@ describe("B17.2 $ref to a sibling member of a merged node (D-21)", () => {
 
   it("B17.2.14 the raw hook (single pass) inlines the same way", () => {
     const doc = aDoc()
-    const result: any = syncClone(clone(doc), allOfResolverHook(), { rules: jsonSchemaMergeRules(), unsafe: true })
+    const result: any = syncClone(clone(doc), allOfResolverHook(), { rules: jsonSchemaMergeRules(), circular: false })
     expect(result.properties.p).toEqual({ type: "string" })
     expect(result.definitions.A).toEqual({ properties: { x: { type: "string", minLength: 3 } } })
   })

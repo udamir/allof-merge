@@ -316,7 +316,7 @@ const deepFreeze = <T>(value: T): T => {
  * kept as `allOf` (D-4, D-4b). Links stay links (D-22, D-23): in a whole-document merge, a `$ref` whose pointer runs
  * through a node the merge rewrites is rewritten to the matching merged location when the value there equals the
  * original target, and replaced by a copy of the target otherwise (see `relink`).
- * With `syncClone` and the raw `hook`, pass `{ unsafe: true }` (as `merge` does) so that json-crawl's own identity memo
+ * With `syncClone` and the raw `hook`, pass `{ circular: false }` (as `merge` does) so that json-crawl's own identity memo
  * does not reintroduce shared cyclic instances.
  */
 export const createMerger = (options: MergeOptions = {}): Merger => {
@@ -1546,8 +1546,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     try {
       let result: unknown
       for (;;) {
-        // unsafe: the hook keeps its own identity memo (shared outputs) and cycle detection
-        result = syncClone(value, hook, { rules, unsafe: true })
+        // circular: false: the hook keeps its own identity memo (shared outputs) and cycle detection
+        result = syncClone(value, hook, { rules, circular: false })
         // finish the frames of the last path (done memo, inlining counts, cycle-$ref taint)
         popFrames(call, FLUSH)
         if (!wholeDocument || !call.ownerRefs || !call.rewritten.size) { break }

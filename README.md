@@ -109,7 +109,7 @@ Creates a reusable merger. `merger.merge(data, { rules?, source? })` behaves lik
 
 - Merged conjunctions of the same item instances share their output instance between calls (and within one result), so do not mutate results in place when you reuse a merger, or pass `freezeOutput: true` to get deep-frozen results. A server that caches one merger for documents of different tenants should use `freezeOutput: true` or a merger per tenant.
 - The input documents must not be mutated while a merger is in use: the resolution index and the memo are keyed by object identity and are not invalidated (create a new merger after changing a document).
-- When the raw `hook` (or `allOfResolverHook`) is used with json-crawl's `syncClone`, pass `{ unsafe: true }` (as `merge` does): the hook keeps its own identity memo and cycle detection, and json-crawl's identity memo would otherwise reintroduce shared cyclic instances. The raw hook runs one clone pass: it rewrites links (D-22, see Output contract) when the root is finished, but it does not apply the D-17 fallback re-merge; use `merge`/`merger.merge` for whole documents.
+- When the raw `hook` (or `allOfResolverHook`) is used with json-crawl's `syncClone`, pass `{ circular: false }` (as `merge` does): the hook keeps its own identity memo and cycle detection, and json-crawl's identity memo would otherwise reintroduce shared cyclic instances. The raw hook runs one clone pass: it rewrites links (D-22, see Output contract) when the root is finished, but it does not apply the D-17 fallback re-merge; use `merge`/`merger.merge` for whole documents.
 
 ```ts
 import { createMerger } from 'allof-merge'
@@ -301,7 +301,7 @@ You can find supported rules in the src/rules directory of this repository:
 `customRules` of all four factories are schema-level rules: they are added to the rules of every schema location (root, `properties/*`, `items`, `not`, `definitions/*`, OpenAPI `components/schemas/*`, parameter and media type schemas, GraphApi schemas, …) and win over the built-in rule of the same key. Rules objects are memoized per `(version, customRules)` identity and deep-frozen (also the OpenAPI and GraphApi rule sets and lazily derived child rules); the caller's custom rule objects are only referenced, not frozen. A rule is `{ $?: MergeResolver, sibling?: string[], group?: string }`: `$` merges the values of the key, `sibling` lists the keys kept outside of `oneOf`/`anyOf` branches by `mergeCombinarySibling`, and `group` names the keyword group (`type`, `enumConst`, `numericBounds`, `string`, `objectShape`, `arrayShape`, `dependencies`, `conditional`) that merges the key together with its related keywords. A custom `$` without `group` on one of these keys hands the whole group back to the per-key resolvers. The format lattice is chosen by the `format` rule: `"/format": { $: mergeOpenApiFormat, group: "string" }` enables it in JSON Schema rules, `mergeFormat` is the strict resolver.
 
 #### Vendor and unknown keywords (D-19)
-A key the rule set has no rule for (`x-go-type`, `foo`, `prefixItems` under draft-07, …) is merged by the `"/?"` rule, which is a silent last-wins by default. The rule of a key is found with json-crawl precedence: exact key (`"/x-go-type"`) > longest matching prefix of the `"/^"` prefix map > `"/*"` > `"/?"`; built-in keywords are exact keys, so prefixes and `"/*"` only reach unknown keys. A rule set without `"/?"` (a hand-written rule tree) also falls back to last-wins (0.6.8 threw `Merge rule not found`).
+A key the rule set has no rule for (`x-go-type`, `foo`, `prefixItems` under draft-07, …) is merged by the `"/?"` rule, which is a silent last-wins by default. The rule of a key is found with json-crawl precedence: exact key (`"/x-go-type"`) > longest matching prefix rule (`"/x-*"`, json-crawl 1.0) > `"/*"` > `"/?"`; built-in keywords are exact keys, so prefixes and `"/*"` only reach unknown keys. A rule set without `"/?"` (a hand-written rule tree) also falls back to last-wins (0.6.8 threw `Merge rule not found`).
 
 ```ts
 import { merge, jsonSchemaMergeRules, openApiMergeRules, createGraphapiMergeRules, equal, first } from 'allof-merge'
@@ -311,14 +311,14 @@ const strictLast = { $: (values, ctx) => { if (new Set(values).size > 1) ctx.mer
 
 const rules = jsonSchemaMergeRules("draft-07", {
   "/x-go-type": { $: equal },                   // exact vendor key: different values are a contradiction (false)
-  "/^": { "x-": strictLast },                     // every other x- key: last-wins + onMergeError
+  "/x-*": strictLast,                            // every other x- key: last-wins + onMergeError
   "/?": { $: first },                            // every other unknown key: first-wins instead of last-wins
 })
 merge(schema, { rules, onMergeError })
 
 // the same custom rules for OpenAPI and GraphApi documents (applied at every schema location)
-merge(openApiDoc, { rules: openApiMergeRules("3.1.x", { "/^": { "x-": strictLast } }) })
-merge(graphApiDoc, { rules: createGraphapiMergeRules({ "/^": { "x-": strictLast } }) })
+merge(openApiDoc, { rules: openApiMergeRules("3.1.x", { "/x-*": strictLast }) })
+merge(graphApiDoc, { rules: createGraphapiMergeRules({ "/x-*": strictLast }) })
 ```
 
 A resolver gets the values of the key in item order and returns the merged value; returning `undefined` makes the conjunction a contradiction (`false`, reported), `ctx.mergeError(values)` reports without failing. Rules are matched field-wise like json-crawl rules: a prefix or `"/*"` rule is shallow-merged under a matching exact rule, so give them only a `$`.

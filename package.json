@@ -92,6 +92,6 @@
     "collectCoverage": true
   },
   "dependencies": {
-    "json-crawl": "^0.6.0"
+    "json-crawl": "file:./vendor/json-crawl-1.0.0.tgz"
   }
 }

@@ -77,7 +77,7 @@ export interface IntersectContext {
 
 export { isAllOfMergeRule }
 
-// the rule the rule set defines for a key (json-crawl precedence: exact key > longest `"/^"` prefix > `/*`; function
+// the rule the rule set defines for a key (json-crawl precedence: exact key > longest `"/<prefix>*"` prefix > `/*`; function
 // rules are invoked with the crawl context), or undefined when it defines none with a `$` (an unknown keyword)
 export const knownKeyRule = (rules: MergeRules, key: string, path: JsonPath, value: unknown): MergeRule | undefined => {
   const rule: any = getNodeRules(rules as any, key, path, value)

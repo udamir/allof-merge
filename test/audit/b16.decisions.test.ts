@@ -336,8 +336,8 @@ describe("B16.4 vendor and unknown keywords (D-19)", () => {
     expect(mergeErrors).toHaveLength(1)
   })
 
-  it("B16.4.4 a \"/^\" prefix map applies to every x- key at the root and in nested schemas", () => {
-    const rules = jsonSchemaMergeRules("draft-07", { "/^": { "x-": { $: reportingLast } } })
+  it("B16.4.4 a \"/x-*\" prefix rule applies to every x- key at the root and in nested schemas", () => {
+    const rules = jsonSchemaMergeRules("draft-07", { "/x-*": { $: reportingLast } })
     const conflict = { allOf: [{ "x-a": 1, "x-b": "u" }, { "x-a": 2, "x-b": "u", other: 1 }, { other: 2 }] }
     const schema = { ...clone(conflict), properties: { p: clone(conflict) }, items: clone(conflict), patternProperties: { "^z": clone(conflict) } }
     const { result, mergeErrors } = mergeReport(schema, { rules })
@@ -351,17 +351,17 @@ describe("B16.4 vendor and unknown keywords (D-19)", () => {
   it("B16.4.5 precedence: exact key > longest prefix > /* (json-crawl), built-in keywords are exact keys", () => {
     const rules = jsonSchemaMergeRules("draft-07", {
       "/x-exact": { $: tag("exact") },
-      "/^": { "x-": { $: tag("x") }, "x-long-": { $: tag("long") }, "ti": { $: tag("ti") } },
+      "/x-*": { $: tag("x") }, "/x-long-*": { $: tag("long") }, "/ti*": { $: tag("ti") },
     })
     const result = merge({ allOf: [{ "x-exact": 1, "x-long-a": 1, "x-short": 1, "x-ex": 1, title: "a", tick: 1 }, { "x-exact": 2, "x-long-a": 2, "x-short": 2, "x-ex": 2, title: "b", tick: 2 }] }, { rules })
     expect(result).toEqual({ "x-exact": "exact:1+2", "x-long-a": "long:1+2", "x-short": "x:1+2", "x-ex": "x:1+2", title: "b", tick: "ti:1+2" })
     // a "/*" rule is the lowest of the three: it applies to unknown keys only
-    const star = jsonSchemaMergeRules("draft-07", { "/*": { $: tag("star") }, "/^": { "x-": { $: tag("x") } } })
+    const star = jsonSchemaMergeRules("draft-07", { "/*": { $: tag("star") }, "/x-*": { $: tag("x") } })
     expect(merge({ allOf: [{ "x-a": 1, foo: 1, minLength: 1 }, { "x-a": 2, foo: 2, minLength: 3 }] }, { rules: star })).toEqual({ "x-a": "x:1+2", foo: "star:1+2", minLength: 3 })
   })
 
   it("B16.4.6 the unknown-key default is overridden with a custom \"/?\" rule (root and nested); vendor rules still win", () => {
-    const rules = jsonSchemaMergeRules("draft-07", { "/?": { $: reportingLast }, "/^": { "x-": { $: resolvers.first } } })
+    const rules = jsonSchemaMergeRules("draft-07", { "/?": { $: reportingLast }, "/x-*": { $: resolvers.first } })
     const conflict = { allOf: [{ foo: 1, "x-a": 1, title: "a" }, { foo: 2, "x-a": 2, title: "b" }] }
     const { result, mergeErrors } = mergeReport({ ...clone(conflict), properties: { p: clone(conflict) } }, { rules })
     expect(result).toEqual({ foo: 2, "x-a": 1, title: "b", properties: { p: { foo: 2, "x-a": 1, title: "b" } } })
@@ -385,7 +385,7 @@ describe("B16.4 vendor and unknown keywords (D-19)", () => {
   })
 
   it.each(["3.0.x", "3.1.x"] as const)("B16.4.8 openApiMergeRules(%s, customRules) applies vendor rules at every schema location", (version) => {
-    const custom = { "/x-go-type": { $: reportingLast }, "/^": { "x-ext-": { $: tag("ext") } } }
+    const custom = { "/x-go-type": { $: reportingLast }, "/x-ext-*": { $: tag("ext") } }
     const rules = openApiMergeRules(version, custom)
     expect(openApiMergeRules(version, custom)).toBe(rules)
     expect(openApiMergeRules(version)).not.toBe(rules)
@@ -408,7 +408,7 @@ describe("B16.4 vendor and unknown keywords (D-19)", () => {
 
   it("B16.4.9 createGraphapiMergeRules(customRules) applies vendor rules in GraphApi schemas", () => {
     expect(createGraphapiMergeRules()).toBe(graphapiMergeRules)
-    const custom = { "/^": { "x-": { $: reportingLast } } }
+    const custom = { "/x-*": { $: reportingLast } }
     const rules = createGraphapiMergeRules(custom)
     expect(createGraphapiMergeRules(custom)).toBe(rules)
     const doc = graphDoc({ A: { allOf: [{ type: "object", "x-go-type": "A" }, { "x-go-type": "B", properties: { p: { allOf: [{ "x-k": 1 }, { "x-k": 2 }] } } }] } })
@@ -431,7 +431,7 @@ describe("B16.4 vendor and unknown keywords (D-19)", () => {
 
   it("B16.4.11 vendor rules do not change validation (ajv oracle, x- keys are annotations)", () => {
     const schema = { allOf: [{ type: "object", "x-a": 1, properties: { n: { type: "number", "x-b": "u" } } }, { required: ["n"], "x-a": 2 }] }
-    const rules = jsonSchemaMergeRules("draft-07", { "/^": { "x-": { $: reportingLast } } })
+    const rules = jsonSchemaMergeRules("draft-07", { "/x-*": { $: reportingLast } })
     const result = merge(clone(schema), { rules })
     expectSameValidation(schema, result, [{}, { n: 1 }, { n: "a" }, null, 1])
     expect(compile(result)({ n: 1 })).toBe(true)

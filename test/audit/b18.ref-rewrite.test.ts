@@ -404,7 +404,7 @@ describe("B18.4 options, reuse, modes", () => {
   })
 
   it("B18.4.4 the raw hook relinks at the end of a whole-document clone", () => {
-    const result: any = syncClone(clone(doc()), allOfResolverHook(), { rules: jsonSchemaMergeRules(), unsafe: true })
+    const result: any = syncClone(clone(doc()), allOfResolverHook(), { rules: jsonSchemaMergeRules(), circular: false })
     expect(result.properties.x).toEqual({ $ref: "#/definitions/A/properties/x" })
     expect(result.properties.y).toEqual({ type: "number", description: "y" })
     expectRefsResolve(doc(), result)
