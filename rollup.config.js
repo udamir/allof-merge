@@ -4,9 +4,12 @@ import progress from 'rollup-plugin-progress';
 import commonjs from '@rollup/plugin-commonjs'
 import json from '@rollup/plugin-json';
 import resolve from '@rollup/plugin-node-resolve';
-import pkg from './package.json';
+import { createRequire } from 'module';
 import terser from '@rollup/plugin-terser';
 import typescript from '@rollup/plugin-typescript';
+
+// package.json is read through require: an ESM json import needs an import attribute on current Node versions
+const pkg = createRequire(import.meta.url)('./package.json');
 
 const inputPath = './src'
 

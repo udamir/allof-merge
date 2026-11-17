@@ -57,17 +57,7 @@ describe("merge errors handling", function () {
 
     const result = merge(schema, { mergeCombinarySibling: true, mergeRefSibling: true })
 
-    expect(result).toEqual({
-      allOf: [{
-        $ref: "#/permission",
-      },{
-        type: "object",
-        properties: {
-          admin: {
-            type: "boolean",
-          },
-        }
-      }]
-    })
+    // D-9 (VR-35): a broken $ref with siblings is left as it is
+    expect(result).toEqual(schema)
   })
 })

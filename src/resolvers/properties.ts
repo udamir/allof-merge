@@ -1,101 +1,64 @@
-import { getAllOfItemsMap, jsonSchemaMergeResolver } from "./jsonschema"
-import type { JsonSchema, MergeResolver } from "../types"
-import { MapArray } from "../utils"
+import { mergeObjectShape } from "../groups/object"
+import { combineSchemas } from "../groups/common"
+import { getAllOfItemsMap } from "./jsonschema"
+import type { JsonSchema, MergeContext, MergeResolver } from "../types"
+import { asFragments, type Fragments } from "../utils"
+import { hasOwn, safeSet } from "../safe"
 
-export const getPropertiesForMerge = (allOfItems: JsonSchema[]) => {
-  const properties: any[] = []
-
-  for (const schema of allOfItems) {
-    if (!("properties" in schema)) { continue }
-    const ownProperties = new Set(Object.keys(schema.properties))
-    const additionalPropertiesSchema = new MapArray<string, any>()
-
-    // all "properties" should be filtered with "patternProperties" 
-    // all non-comman properties should be merged with "additionalProperties" schema
-    for (const prop of ownProperties.values()) {
-      for (const _schema of allOfItems) {
-        if (_schema == schema || (_schema.properties && prop in _schema.properties)) { continue }
-
-        if ("patternProperties" in _schema && _schema.patternProperties) {
-          for (const pattern of Object.keys(_schema.patternProperties)) {
-            if (new RegExp(pattern).test(prop)) { continue }
-            // remove property if name is not match pattern
-            ownProperties.delete(prop)
-          }
-        } else if ("additionalProperties" in _schema) {
-          if (_schema.additionalProperties === false) {
-            // filter all restricted properties
-            ownProperties.delete(prop)
-          } else if (typeof _schema.additionalProperties === "object") {
-            // store additionalProperties schema for property
-            additionalPropertiesSchema.add(prop, _schema.additionalProperties)
-          }
-        }
-      }
-    }
-
-    if (!ownProperties.size) { continue }
-
-    const props: Record<string, any> = {}
-    for (const prop of ownProperties.values()) {
-      if (additionalPropertiesSchema.has(prop)) {
-        props[prop] = { allOf: [schema.properties[prop], ...additionalPropertiesSchema.get(prop)!]}
-      } else {
-        props[prop] = schema.properties[prop]
-      }
-    }
-    properties.push(props)
-  }
-
-  return properties
+// merged `properties` of the items as a one-element list (compatibility export; empty when no property survives)
+export const getPropertiesForMerge = (allOfItems: JsonSchema[]): any[] => {
+  const { properties } = mergeObjectShape(allOfItems)
+  return properties ? [properties] : []
 }
 
-export const getPatternPropertiesForMerge = (allOfItems: JsonSchema[]) => {
-  const patternProperties: any[] = []
-
-  for(const schema of allOfItems) {
-    if (!("patternProperties" in schema)) { continue }
-    const patterns = new Set(Object.keys(schema.patternProperties))
-
-    for(const _schema of allOfItems) {
-      if (_schema == schema) { continue }
-      if ("additionalProperties" in _schema && !_schema.additionalProperties) {
-        for (const pattern of patterns.values()) {
-          if (_schema.patternProperties && pattern in _schema.patternProperties) { continue }
-          patterns.delete(pattern)
-        }
-      }
-    }
-
-    if (!patterns.size) { continue }
-    const props: Record<string, any> = {}
-    for (const prop of patterns.values()) {
-      props[prop] = schema.patternProperties[prop]
-    }
-    patternProperties.push(props)
-  }
-
-  return patternProperties
+// merged `patternProperties` of the items as a one-element list (compatibility export)
+export const getPatternPropertiesForMerge = (allOfItems: JsonSchema[]): any[] => {
+  const { patternProperties } = mergeObjectShape(allOfItems)
+  return patternProperties ? [patternProperties] : []
 }
 
-export const propertiesMergeResolver: MergeResolver = (args) => {
+/*
+ * Per-key fallbacks, used when a custom `$` on one of properties / patternProperties / additionalProperties hands
+ * the object-shape group back to the per-key table (VR-39). They consult every item of the node (ctx.allOfItems)
+ * through the group algorithm, so the result is the same as the group's for the keys without a custom rule
+ * (patterns are matched within the limits of the call's `matchPatterns` setting). When the group keeps the object shapes as allOf fragments, the
+ * first fallback that runs for the node emits them and the others drop their key.
+ */
+const shapes = new WeakMap<object, { merged: Record<string, unknown>, emitted: boolean }>()
+
+const objectShapeOf = (items: Record<string, any>[], settings: MergeContext["settings"]) => {
+  let entry = shapes.get(items)
+  if (!entry) {
+    entry = { merged: mergeObjectShape(items, settings), emitted: false }
+    shapes.set(items, entry)
+  }
+  return entry
+}
+
+const shapeKey = (key: string, args: any[], ctx: MergeContext | undefined, legacy: () => unknown): unknown | Fragments => {
+  if (!ctx || !Array.isArray(ctx.allOfItems)) { return legacy() }
+  const entry = objectShapeOf(ctx.allOfItems, ctx.settings)
+  if (hasOwn(entry.merged, "allOf")) {
+    if (entry.emitted) { return asFragments([]) }
+    entry.emitted = true
+    return asFragments(entry.merged.allOf as unknown[])
+  }
+  return hasOwn(entry.merged, key) ? entry.merged[key] : asFragments([])
+}
+
+// property-wise conjunction (direct calls without a context)
+const memberwise = (args: any[]): Record<string, any> => {
   const result: Record<string, any> = {}
-  const props = getAllOfItemsMap(args)
-
-  for (const [prop, items] of Object.entries(props)) {
-    if (items.includes(false)) {
-      result[prop] = false
-    } else {
-      result[prop] = items.length > 1 ? { allOf: items } : items[0]
-    }
+  const props = getAllOfItemsMap(args.filter((v) => typeof v === "object" && v !== null && !Array.isArray(v)))
+  for (const prop of Object.keys(props)) {
+    safeSet(result, prop, combineSchemas(props[prop]))
   }
-
   return result
 }
 
-export const additionalPropertiesMergeResolver: MergeResolver = (args, ctx) => {
-  if (args.reduce((r, v) => r && (v === true), true)) {
-    return true
-  }
-  return jsonSchemaMergeResolver(args, ctx)
-}
+export const propertiesMergeResolver: MergeResolver = (args, ctx) => shapeKey("properties", args, ctx, () => memberwise(args))
+
+export const patternPropertiesMergeResolver: MergeResolver = (args, ctx) => shapeKey("patternProperties", args, ctx, () => memberwise(args))
+
+// `false` wins, `true` is absorbed, schemas are conjoined (with a context: the object-shape group's value)
+export const additionalPropertiesMergeResolver: MergeResolver = (args, ctx) => shapeKey("additionalProperties", args, ctx, () => combineSchemas(args))

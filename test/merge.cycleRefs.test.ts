@@ -30,27 +30,24 @@ describe("cycle $refs", () => {
 
 		const result: any = merge(data);
 
-		expect(result).toMatchObject({
+		// D-4b: a cycle re-entry is a $ref to the source location of the re-entered node, never a cyclic object
+		const baz = {
+			type: "object",
+			description: "2-st parent",
+			properties: { foo: { $ref: "#/properties/foo" }, baz: { $ref: "#/properties/baz" } },
+		};
+		expect(result).toEqual({
 			type: "object",
 			properties: {
 				foo: {
 					description: "1-st parent",
 					type: "object",
-					properties: {
-						foo: result.properties.foo,
-						baz: result.properties.baz,
-					},
+					properties: { foo: { $ref: "#/properties/foo" }, baz },
 				},
-				baz: {
-					description: "2-st parent",
-					type: "object",
-					properties: {
-						foo: result.properties.foo,
-						baz: result.properties.baz,
-					},
-				},
+				baz,
 			},
 		});
+		expect(() => JSON.stringify(result)).not.toThrow();
 
 		// expect(result).toEqual( {
 		//   type: 'object',
@@ -116,27 +113,24 @@ describe("cycle $refs", () => {
 
 		const result: any = merge(data);
 
-		expect(result).toMatchObject({
+		// D-4b: a cycle re-entry is a $ref to the source location of the re-entered node, never a cyclic object
+		const baz = {
+			type: "object",
+			description: "2-st parent",
+			properties: { foo: { $ref: "#/properties/foo" }, baz: { $ref: "#/properties/baz" } },
+		};
+		expect(result).toEqual({
 			type: "object",
 			properties: {
 				foo: {
 					description: "1-st parent",
 					type: "object",
-					properties: {
-						foo: result.properties.foo,
-						baz: result.properties.baz,
-					},
+					properties: { foo: { $ref: "#/properties/foo" }, baz },
 				},
-				baz: {
-					description: "2-st parent",
-					type: "object",
-					properties: {
-						foo: result.properties.foo,
-						baz: result.properties.baz,
-					},
-				},
+				baz,
 			},
 		});
+		expect(() => JSON.stringify(result)).not.toThrow();
 	});
 
 	it("should support cross cycle refs in allOf", () => {
@@ -180,8 +174,9 @@ describe("cycle $refs", () => {
 							type: "string",
 							description: "1-st parent",
 							properties: {
+								// D-4: the in-progress conjunction started at a node that is not in the source: kept as allOf
 								test: {
-									$ref: "#/properties/foo/properties/test",
+									allOf: [{ type: "string" }, { $ref: "#/properties/foo" }],
 								},
 							},
 						},

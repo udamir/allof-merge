@@ -1,4 +1,4 @@
-import { JsonSchemaVersion, jsonSchemaMergeRules } from "./jsonschema"
+import { type JsonSchemaVersion, freezeRules, jsonSchemaMergeRules } from "./jsonschema"
 import type { MergeRules } from "../types"
 import * as resolvers from "../resolvers"
 
@@ -6,85 +6,143 @@ export const openApiVersion = ["3.0.x", "3.1.x"] as const
 
 export type OpenApiVersion = typeof openApiVersion[number]
 
-const customJsonSchemaMergeRules = (version: JsonSchemaVersion): MergeRules => {
-  return jsonSchemaMergeRules(version, {
-    "/discriminator": { $: resolvers.mergeObjects },
-    "/oneOf": {
-      "/*": () => customJsonSchemaMergeRules(version),
-      $: resolvers.mergeArray,
-      sibling: ["discriminator"],
-    },
-    "/anyOf": {
-      "/*": () => customJsonSchemaMergeRules(version),
-      $: resolvers.mergeArray,
-      sibling: ["discriminator"],
-    }
-  })
-} 
+const NO_CUSTOM_RULES: MergeRules = Object.freeze({})
+const schemaRulesCache = new Map<OpenApiVersion, WeakMap<object, MergeRules>>()
+const documentRulesCache = new Map<OpenApiVersion, WeakMap<object, MergeRules>>()
 
-export const openApiJsonSchemaMergeRules = (version: OpenApiVersion): MergeRules => {
-  return version === "3.0.x"
-    ? { 
-      ...customJsonSchemaMergeRules("draft-04"),
-      "/items": ({ key }) => ({
-        ...customJsonSchemaMergeRules("draft-04"),
-        "$": resolvers.itemsMergeResolver,
-      }),
-    }
-    : customJsonSchemaMergeRules("draft-06")
+// memoized per (version, customRules identity)
+const cached = (cache: Map<OpenApiVersion, WeakMap<object, MergeRules>>, version: OpenApiVersion, customRules: MergeRules, build: () => MergeRules): MergeRules => {
+  let byCustomRules = cache.get(version)
+  if (!byCustomRules) {
+    byCustomRules = new WeakMap()
+    cache.set(version, byCustomRules)
+  }
+  let rules = byCustomRules.get(customRules)
+  if (!rules) {
+    rules = build()
+    byCustomRules.set(customRules, rules)
+  }
+  return rules
 }
 
-const parametersMergeRules = (version: OpenApiVersion): MergeRules => ({
-  "/*": {
-    "/schema": openApiJsonSchemaMergeRules(version)
-  }
-})
+const customJsonSchemaMergeRules = (version: JsonSchemaVersion, customRules: MergeRules): MergeRules => {
+  let rules: MergeRules
+  const child = () => rules
+  rules = jsonSchemaMergeRules(version, {
+    ...freezeRules({
+      // OpenAPI 3.0 `nullable` is merged with `type` by the type group (D-1): absent on a typed item = false, an
+      // item without `type` does not restrict null; OpenAPI 3.1 has no nullable keyword (annotation, AND)
+      ...version === "draft-04" ? { "/nullable": { $: resolvers.and, group: "type" } } : {},
+      "/discriminator": { $: resolvers.mergeObjects },
+      // int32 ⊂ int64 / float ⊂ double narrowing is OpenAPI-only (D-14)
+      "/format": { $: resolvers.mergeOpenApiFormat, group: "string" },
+      "/oneOf": {
+        "/*": child,
+        $: resolvers.mergeArray,
+        sibling: ["discriminator"],
+      },
+      "/anyOf": {
+        "/*": child,
+        $: resolvers.mergeArray,
+        sibling: ["discriminator"],
+      },
+    }),
+    // the caller's schema rules win over the OpenAPI ones (same convention as jsonSchemaMergeRules); they belong to
+    // the caller and are only referenced, not frozen
+    ...customRules,
+  })
+  return rules
+}
 
-const requestBodyMergeRules = (version: OpenApiVersion): MergeRules => ({
-  "/content": {
-    "/*": {
-      "/schema": openApiJsonSchemaMergeRules(version),
-      "/encoding": {
-        "/headers": parametersMergeRules(version)
-      }
-    }
-  }
-})
+/**
+ * Schema rules of an OpenAPI version: 3.0 schemas follow draft-04 (boolean exclusive bounds), 3.1 schemas are JSON
+ * Schema 2020-12. `customRules` are schema-level rules (like the second argument of jsonSchemaMergeRules) applied at
+ * every schema location. Memoized per (version, customRules identity).
+ */
+export const openApiJsonSchemaMergeRules = (version: OpenApiVersion, customRules: MergeRules = NO_CUSTOM_RULES): MergeRules => {
+  return cached(schemaRulesCache, version, customRules, () => customJsonSchemaMergeRules(version === "3.0.x" ? "draft-04" : "2020-12", customRules))
+}
 
-const responsesMergeRules = (version: OpenApiVersion): MergeRules => ({
-  "/*": {
-    "/headers": parametersMergeRules(version),
+const buildOpenApiMergeRules = (version: OpenApiVersion, customRules: MergeRules): MergeRules => {
+  const schema = openApiJsonSchemaMergeRules(version, customRules)
+
+  // Parameter / Header objects: schema or content media types
+  const parameter: MergeRules = {
+    "/schema": schema,
     "/content": {
       "/*": {
-        "/schema": openApiJsonSchemaMergeRules(version),
-        "/encoding": {
-          "/headers": parametersMergeRules(version)
-        }
-      }
-    },
-  }
-})
-
-export const openApiMergeRules = (version: OpenApiVersion = "3.0.x"): MergeRules => ({
-  "/paths": {
-    "/*": {
-      "/*": {
-        "/parameters": parametersMergeRules(version),
-        "/requestBody": requestBodyMergeRules(version),
-        "/responses": responsesMergeRules(version),
+        "/schema": schema,
       },
-      "/parameters": parametersMergeRules(version),
     },
-  },
-  "/components": {
-    "/schemas": {
-      "/*": openApiJsonSchemaMergeRules(version)
-    },
-    "/responses": responsesMergeRules(version),
-    "/parameters": parametersMergeRules(version),
-    "/requestBodies": {
-      "/*": requestBodyMergeRules(version)
-    },
-    "/headers": parametersMergeRules(version),
   }
-})
+  const parameters: MergeRules = { "/*": parameter }
+
+  const mediaType: MergeRules = {
+    "/schema": schema,
+    "/encoding": {
+      "/*": {
+        "/headers": parameters,
+      },
+    },
+  }
+  const content: MergeRules = { "/*": mediaType }
+  const requestBody: MergeRules = { "/content": content }
+  const responses: MergeRules = {
+    "/*": {
+      "/headers": parameters,
+      "/content": content,
+    },
+  }
+
+  let pathItem: MergeRules
+  const operation: MergeRules = {
+    "/parameters": parameters,
+    "/requestBody": requestBody,
+    "/responses": responses,
+    "/callbacks": {
+      "/*": {
+        "/*": () => pathItem,
+      },
+    },
+  }
+  pathItem = {
+    "/*": operation,
+    "/parameters": parameters,
+  }
+
+  return freezeRules({
+    "/paths": {
+      "/*": pathItem,
+    },
+    "/webhooks": {
+      "/*": pathItem,
+    },
+    "/components": {
+      "/schemas": {
+        "/*": schema,
+      },
+      "/responses": responses,
+      "/parameters": parameters,
+      "/requestBodies": {
+        "/*": requestBody,
+      },
+      "/headers": parameters,
+      "/pathItems": {
+        "/*": pathItem,
+      },
+      "/callbacks": {
+        "/*": {
+          "/*": pathItem,
+        },
+      },
+    },
+  })
+}
+
+/**
+ * Document rules of an OpenAPI version. `customRules` are schema-level rules applied at every schema location of the
+ * document (see openApiJsonSchemaMergeRules). Memoized per (version, customRules identity).
+ */
+export const openApiMergeRules = (version: OpenApiVersion = "3.0.x", customRules: MergeRules = NO_CUSTOM_RULES): MergeRules => {
+  return cached(documentRulesCache, version, customRules, () => buildOpenApiMergeRules(version, customRules))
+}

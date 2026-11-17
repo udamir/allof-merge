@@ -38,7 +38,8 @@ describe('items', function() {
         properties: {
           name: {
             type: 'string',
-            pattern: '(?=bar)(?=foo)'
+            // DESIGN_PROPOSALS §5 row 4 (AM-03): pattern conjunction
+            pattern: '^(?=[\\s\\S]*?(?:bar))(?=[\\s\\S]*?(?:foo))[\\s\\S]*$'
           }
         }
       }
