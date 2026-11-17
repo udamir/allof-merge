@@ -28,7 +28,7 @@ export const enumConstGroup: KeywordGroup = {
         if (Array.isArray(list)) {
           lists.push(list)
         } else {
-          report?.("Malformed enum value is ignored", [list])
+          report?.("Malformed enum value is ignored", [list], { code: "malformed-value", keyword: "enum" })
         }
       }
       if (lists.length) {

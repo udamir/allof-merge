@@ -1,6 +1,7 @@
 import type { GroupContext, KeywordGroup } from "../types"
 import { getNodeRules } from "json-crawl"
-import { conjunctPatterns, mergeOpenApiFormat } from "../resolvers/basic"
+import { conjunctPatterns, isUnsafePattern, mergeOpenApiFormat } from "../resolvers/basic"
+import { ISSUE_MESSAGES } from "../issues"
 import { mergeFormats } from "./format"
 import { hasOwn } from "../safe"
 import { compilePattern } from "../utils"
@@ -17,7 +18,7 @@ const lengths = (values: unknown[], key: string, report?: Report): number[] => {
     if (isLength(value)) {
       result.push(value)
     } else {
-      report?.(`Malformed ${key} value is ignored`, [value])
+      report?.(`Malformed ${key} value is ignored`, [value], { code: "malformed-value", keyword: key })
     }
   }
   return result
@@ -32,6 +33,7 @@ const lengths = (values: unknown[], key: string, report?: Report): number[] => {
  * values (non-integer lengths, non-string patterns/formats) are ignored and reported.
  */
 export const stringGroup: KeywordGroup = {
+  // two different formats make the conjunction impossible (user decision Q1)
   name: "string",
   keys: ["minLength", "maxLength", "pattern", "format"],
   resolve: ({ values, report, mergeRules, path }) => {
@@ -53,7 +55,7 @@ export const stringGroup: KeywordGroup = {
         if (typeof pattern === "string") {
           patterns.push(pattern)
         } else {
-          report?.("Malformed pattern value is ignored", [pattern])
+          report?.("Malformed pattern value is ignored", [pattern], { code: "malformed-value", keyword: "pattern" })
         }
       }
       if (patterns.length) {
@@ -62,7 +64,9 @@ export const stringGroup: KeywordGroup = {
           result.pattern = pattern
         } else {
           const invalid = patterns.filter((p) => compilePattern(p) === null)
-          if (invalid.length) { report?.("Invalid pattern is kept as an allOf fragment", invalid) }
+          if (invalid.length) { report?.("Invalid pattern is kept as an allOf fragment", invalid, { code: "pattern-invalid", keyword: "pattern" }) }
+          const unsafe = [...new Set(patterns)].filter((p) => compilePattern(p) !== null && isUnsafePattern(p))
+          if (unsafe.length) { report?.(ISSUE_MESSAGES["pattern-kept"]!, unsafe, { code: "pattern-kept", keyword: "pattern" }) }
           fragments.push(...[...new Set(patterns)].map((p) => ({ pattern: p })))
         }
       }
@@ -72,9 +76,8 @@ export const stringGroup: KeywordGroup = {
       // the numeric lattice applies when the location's `format` rule is `mergeOpenApiFormat` (OpenAPI rule sets, D-14)
       const rule: any = mergeRules ? getNodeRules(mergeRules as any, "format", path ?? [], values.format[0]) : undefined
       const format = mergeFormats(values.format, report, !!rule && rule.$ === mergeOpenApiFormat)
-      if (format.allOf) {
-        fragments.push(...(format.allOf as unknown[]))
-      } else if (hasOwn(format, "format")) {
+      if (!format) { return undefined }
+      if (hasOwn(format, "format")) {
         result.format = format.format
       }
     }

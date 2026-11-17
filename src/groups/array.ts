@@ -2,6 +2,7 @@ import type { GroupContext, KeywordGroup } from "../types"
 import { deepEqual } from "../utils"
 import { hasOwn, safeAssign } from "../safe"
 import { combineSchemas, isSchemaValue } from "./common"
+import { ISSUE_MESSAGES } from "../issues"
 
 const KEYS = ["items", "additionalItems", "prefixItems", "contains", "minContains", "maxContains"] as const
 
@@ -64,7 +65,7 @@ export const mergeArrayShape = (items: Record<string, any>[], mode?: TupleKeywor
   const legacy = items.filter((item) => isLegacyTuple(item, mode))
   const regular = legacy.length ? items.filter((item) => !isLegacyTuple(item, mode)) : items
   if (legacy.length) {
-    report?.("Array-valued items is not a tuple keyword under 2020-12, kept as allOf", legacy.map((item) => item.items))
+    report?.("Array-valued items is not a tuple keyword under 2020-12, kept as allOf", legacy.map((item) => item.items), { code: "tuple-kept", keyword: "items" })
     result.allOf = legacy.map(legacyFragment)
   }
   if (mode === "prefixItems") {
@@ -130,12 +131,13 @@ export const mergeContains = (items: Record<string, any>[], report?: GroupContex
   const count = (item: Record<string, any>, key: string): number | undefined => {
     if (!hasOwn(item, key)) { return undefined }
     if (isCount(item[key])) { return item[key] }
-    report?.(`Malformed ${key} value is ignored`, [item[key]])
+    report?.(`Malformed ${key} value is ignored`, [item[key]], { code: "malformed-value", keyword: key })
     return undefined
   }
 
   const same = owners.every((item) => deepEqual(item.contains, owners[0].contains))
   if (!same) {
+    report?.(ISSUE_MESSAGES["contains-kept"]!, owners.map((item) => item.contains), { code: "contains-kept", keyword: "contains" })
     result.allOf = owners.map((item) => {
       const fragment: Record<string, unknown> = { contains: item.contains }
       const min = count(item, "minContains")
@@ -177,7 +179,7 @@ export const arrayShapeGroup: KeywordGroup = {
         if (!hasOwn(values, key)) { continue }
         if (key === "additionalItems" && mode === "prefixItems") { continue }
         const malformed = values[key].filter((value) => !isSchemaValue(value) && !(key !== "additionalItems" && Array.isArray(value)))
-        if (malformed.length) { report?.(`Malformed ${key} value is ignored`, malformed) }
+        if (malformed.length) { report?.(`Malformed ${key} value is ignored`, malformed, { code: "malformed-value", keyword: key }) }
       }
       safeAssign(result, mergeArrayShape(items, mode, report))
     }

@@ -1,4 +1,5 @@
 import type { KeywordGroup } from "../types"
+import { ISSUE_MESSAGES } from "../issues"
 
 const KEYS = ["if", "then", "else"] as const
 
@@ -11,7 +12,7 @@ const KEYS = ["if", "then", "else"] as const
 export const conditionalGroup: KeywordGroup = {
   name: "conditional",
   keys: KEYS,
-  resolve: ({ items, values }) => {
+  resolve: ({ items, values, report }) => {
     const owners = items.filter((item) => KEYS.some((key) => key in item))
     const result: Record<string, unknown> = {}
     if (owners.length <= 1) {
@@ -20,6 +21,7 @@ export const conditionalGroup: KeywordGroup = {
       }
       return result
     }
+    report?.(ISSUE_MESSAGES["conditional-kept"]!, owners.map((item) => item.if), { code: "conditional-kept", keyword: "if" })
     result.allOf = owners.map((item) => {
       const fragment: Record<string, unknown> = {}
       for (const key of KEYS) {

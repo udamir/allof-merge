@@ -1,9 +1,10 @@
 import { JSON_ROOT_KEY, type JsonPath, type SyncCloneHook, syncClone } from "json-crawl"
 
 import type { MergeOptions, MergeRule, MergeRules, Merger, RefAnnotations } from "./types"
-import { asyncApiMergeRules, detectAsyncApiVersion, graphapiMergeRules, jsonSchemaMergeRules, openApiMergeRules, unwrapSchemaFormat } from "./rules"
+import { type IssueHint, type MergeIssue, type MergeIssueCode, type MergeIssueSeverity, ISSUE_MESSAGES, MERGE_ISSUES, atLevel } from "./issues"
+import { type JsonSchemaVersion, asyncApiMergeRules, asyncApiSchemaMergeRules, detectAsyncApiVersion, graphapiMergeRules, jsonSchemaMergeRules, openApiJsonSchemaMergeRules, openApiMergeRules, unwrapSchemaFormat } from "./rules"
 import { dedupeValues, deepEqual, isAnchorPointer, isAnyOfNode, isEmptyObject, isOneOfNode, isPlainObject, isRefNode, parseRef } from "./utils"
-import { buildPointer } from "./pointer"
+import { buildPointer, parsePointer } from "./pointer"
 import { type ResolutionIndex, type ResolveResult, createResolutionIndex } from "./resolve"
 import { mergeCombinarySibling } from "./resolvers/combinary"
 import { productBranches } from "./resolvers/basic"
@@ -46,23 +47,79 @@ const inheritedKeyFilter = (option: RefAnnotations | undefined): ((key: string) 
   return (key) => exact.has(key) || prefixes.some((prefix) => key.startsWith(prefix))
 }
 
+/**
+ * The JSON Schema draft of a `$schema` / `jsonSchemaDialect` URI: draft-04, draft-06, draft-07, or 2020-12 for
+ * 2019-09 and 2020-12 (whose merge rules are the same); undefined for anything else.
+ */
+export const jsonSchemaDraftOf = (uri: unknown): JsonSchemaVersion | undefined => {
+  if (typeof uri !== "string") { return undefined }
+  const match = /json-schema\.org\/(?:draft-0?([467])\/|draft\/(2019-09|2020-12)\/)/.exec(uri)
+  if (!match) { return undefined }
+  return match[1] ? `draft-0${match[1]}` as JsonSchemaVersion : "2020-12"
+}
+
+const OPENAPI_30 = /^3\.0(?:\.\d+)?(?:-[\w.]+)?$/
+const OPENAPI_3X = /^3\.[1-9]\d*(?:\.\d+)?(?:-[\w.]+)?$/
+
+/**
+ * The document rules of `data` (used by `merge` when no rules are given): OpenAPI 3.0.x / 3.1+ (exact version
+ * strings; a 3.1 `jsonSchemaDialect` naming draft-04/06/07 schemas selects those schema rules), AsyncAPI 2.x / 3.x,
+ * GraphApi, else JSON Schema with the draft of `$schema` (draft-06 when absent or unknown).
+ */
 export const selectMergeRules = (data: unknown): MergeRules => {
   if (typeof data !== "object" || !data) { return jsonSchemaMergeRules() }
   const doc = data as Record<string, unknown>
 
-  if (hasOwn(doc, "openapi") && typeof doc.openapi === "string" && /3.+/.test(doc.openapi)) {
-    const version = doc.openapi.startsWith("3.1") ? "3.1.x" : "3.0.x"
-    return openApiMergeRules(version)
+  if (hasOwn(doc, "openapi") && typeof doc.openapi === "string") {
+    if (OPENAPI_30.test(doc.openapi)) { return openApiMergeRules("3.0.x") }
+    if (OPENAPI_3X.test(doc.openapi)) {
+      const dialect = hasOwn(doc, "jsonSchemaDialect") ? jsonSchemaDraftOf(doc.jsonSchemaDialect) : undefined
+      return openApiMergeRules("3.1.x", undefined, dialect)
+    }
   }
   const asyncApiVersion = detectAsyncApiVersion(doc)
   if (asyncApiVersion) { return asyncApiMergeRules(asyncApiVersion) }
   // if ("swagger" in data && typeof data.swagger === "string" && /2.+/.test(data?.swagger)) return swagger2MergeRules
   if (hasOwn(doc, "graphapi") && typeof doc.graphapi === "string") return graphapiMergeRules
-  return jsonSchemaMergeRules()
+  return jsonSchemaMergeRules((hasOwn(doc, "$schema") && jsonSchemaDraftOf(doc.$schema)) || "draft-06")
+}
+
+export type SchemaDialect = JsonSchemaVersion | "2019-09" | "openapi-3.0" | "openapi-3.1" | "asyncapi-schema"
+
+/**
+ * The schema-level rules allof-merge uses at a schema location of `dialect`: a JSON Schema draft (or a `$schema`
+ * URI), the OpenAPI 3.0 / 3.1 schema rules (strict 3.0.3 `nullable`, numeric format lattice, `discriminator`), the
+ * AsyncAPI schema (`"asyncapi-schema"`), or an AsyncAPI `schemaFormat` string. `undefined` for a schemaFormat that
+ * is not JSON Schema (Avro, RAML, ...): such a value is not merged. For consumers that merge single schemas.
+ */
+export const schemaMergeRulesFor = (dialect: SchemaDialect | string): MergeRules | undefined => {
+  switch (dialect) {
+    case "draft-04": case "draft-06": case "draft-07": case "2020-12": return jsonSchemaMergeRules(dialect)
+    case "2019-09": return jsonSchemaMergeRules("2020-12")
+    case "openapi-3.0": return openApiJsonSchemaMergeRules("3.0.x")
+    case "openapi-3.1": return openApiJsonSchemaMergeRules("3.1.x")
+    case "asyncapi-schema": return asyncApiSchemaMergeRules(undefined)
+  }
+  const draft = jsonSchemaDraftOf(dialect)
+  return draft ? jsonSchemaMergeRules(draft) : asyncApiSchemaMergeRules(dialect)
 }
 
 export const merge = (value: unknown, options?: MergeOptions) => {
   return createMerger(options).merge(value)
+}
+
+/** `merge` that also returns every issue at or above `options.issueLevel` (`options.onIssue` is still called). */
+export const mergeWithIssues = (value: unknown, options: MergeOptions = {}): { result: unknown, issues: MergeIssue[] } => {
+  const issues: MergeIssue[] = []
+  const { onIssue } = options
+  const result = createMerger({
+    ...options,
+    onIssue: (issue) => {
+      issues.push(issue)
+      onIssue?.(issue)
+    },
+  }).merge(value)
+  return { result, issues }
 }
 
 export const allOfResolverHook = (options?: MergeOptions): SyncCloneHook<{}> => {
@@ -122,6 +179,14 @@ interface MemoEntry {
   node?: unknown
   done: boolean
   aborted?: boolean              // the run that created the entry was interrupted
+  issues?: RecordedIssues        // the issues raised while the entry was merged (replayed on every reuse)
+}
+
+// issues raised while an output was created, with paths in the coordinates of the call that created it
+interface RecordedIssues {
+  source: unknown                // the document of that call (source pointers are only kept for the same document)
+  depth: number                  // path length of the output's location in that call
+  issues: MergeIssue[]
 }
 
 interface TrieNode {
@@ -179,6 +244,7 @@ interface Frame {
   at: At                                        // the hook context (its path is the output location of the node)
   rules: unknown                                // the node's rules (the done memo is per rules)
   site?: Site                                   // the node is a $ref replaced by a copy of its target (D-22)
+  issues?: MergeIssue[]                         // issues raised in the subtree (recorded for replay)
 }
 
 // a `$ref` whose pointer runs through a node the merge rewrites, replaced by a copy of the original target during the
@@ -218,6 +284,13 @@ interface CallState {
   shifts: WeakMap<object, Partial<Record<"oneOf" | "anyOf", (number | undefined)[]>>> // output node -> old branch
                                                 // index -> new index, for branches dropFalseBranches / dedupeAnyOf
                                                 // moved (undefined: removed), D-27
+  issueKeys: Set<string>                        // issues delivered in this call (de-duplication)
+  seen: Set<string>                             // issues raised in this call (and in its earlier D-17 rounds)
+  prior?: Set<string>                           // issues raised by the earlier rounds of this merge (D-17)
+  issues: MergeIssue[]                          // every issue raised or replayed in this call (result cache)
+  copies: WeakMap<object, object>               // input node of a clean subtree -> its copy (fast path, one output
+                                                // instance per input instance)
+  unclean: WeakSet<object>                      // clean subtrees holding a $ref through a rewritten node (rule 6)
 }
 
 // finished outputs of one input node, per rules identity (usually one)
@@ -228,6 +301,9 @@ interface DoneEntry {
 }
 
 const NOT_DONE: unique symbol = Symbol("not done")
+
+// subtreeHeight of a subtree that needs work
+const DIRTY = -1
 
 const doneGet = (done: WeakMap<object, DoneEntry>, value: object, rules: unknown): unknown => {
   const entry = done.get(value)
@@ -253,7 +329,8 @@ interface InlinedTarget {
 
 interface Collected {
   items: any[]
-  broken: string[]
+  broken: { ref: string, code: "broken-ref" | "ref-cycle" | "external-ref" }[]
+  unevaluated: object[]          // items kept whole because of their own unevaluated* (D-8)
   withoutSibling: number
   fragments: object[]
   targets: InlinedTarget[]
@@ -327,6 +404,131 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   const unsatisfiable = (): unknown => notEmpty ? { not: {} } : false
   const isUnsatisfiable = (value: unknown): boolean => {
     return value === false || (notEmpty && isPlainObject(value) && Object.keys(value).length === 1 && isEmptyObject(value.not))
+  }
+
+  // ---- issues (docs/NORMALIZATION_DESIGN.md §3) ----
+  const issueLevel: MergeIssueSeverity = options.issueLevel === "error" ? "error" : "warning"
+  // output -> the issues raised while it was created: replayed (with the current location as path prefix) whenever
+  // the output is reused, by this call or a later one, so every call reports the same issues
+  const recorded = new WeakMap<object, RecordedIssues>()
+  // a whole-document merge that re-merges (D-17 fallback) carries the issues and once-tokens of its earlier rounds into
+  // the next one: an issue (and its legacy callback) is delivered once, whichever round raised it
+  let carry: { seen: Set<string>, reported: Set<unknown> } | undefined
+  // per-call override of onIssue (merger.merge(value, { onIssue }))
+  let callSink: ((issue: MergeIssue) => void) | undefined
+  let hasCallSink = false
+
+  const sourcePointerOf = (c: CallState, node: unknown): string | undefined => {
+    if (typeof node !== "object" || node === null || c.index.source === undefined) { return undefined }
+    const pointer = c.index.pointerOf(node)
+    return pointer === undefined ? undefined : `#${pointer}`
+  }
+
+  const freezeIssue = (issue: MergeIssue): MergeIssue => {
+    Object.freeze(issue.path)
+    return Object.freeze(issue)
+  }
+
+  // the issue goes to the frame on top of the stack (it belongs to that node's subtree) and to the call's list
+  const record = (c: CallState, issue: MergeIssue) => {
+    const top = c.stack[c.stack.length - 1]
+    if (top) { (top.issues ??= []).push(issue) }
+    c.issues.push(issue)
+  }
+
+  // de-duplication key: one issue per (code, node, keyword, ref) per call; branch issues also per branch index
+  const issueKey = (issue: MergeIssue): string => {
+    const at = issue.sourcePointer ?? `@${buildPointer(issue.path)}`
+    const branch = issue.code === "branch-removed" || issue.code === "branch-kept-for-link" ? String(issue.path[issue.path.length - 1]) : ""
+    return `${issue.code}\u0000${at}\u0000${issue.keyword ?? ""}\u0000${issue.ref ?? ""}\u0000${issue.reason ?? ""}\u0000${branch}`
+  }
+
+  const offer = (keys: Set<string>, issue: MergeIssue, key = issueKey(issue)) => {
+    const sink = hasCallSink ? callSink : options.onIssue
+    if (!sink || !atLevel(issue.severity, issueLevel) || keys.has(key)) { return }
+    keys.add(key)
+    sink(issue)
+  }
+
+  interface IssueDetails {
+    message?: string
+    keyword?: string
+    values?: unknown[]
+    ref?: string
+    reason?: string
+    path?: JsonPath                // instead of the location of `at`
+    node?: unknown                 // the input node (default: the node on top of the stack)
+    legacy?: boolean               // false: do not call the legacy callback of the code (a site that was silent)
+  }
+
+  /**
+   * Raises an issue at `at`: calls the legacy callback of the code (onMergeError / onRefResolveError, with the legacy
+   * message, path and values), records the issue for replay and offers it to the sink (level filter, de-duplication).
+   */
+  const emit = (c: CallState, code: MergeIssueCode, at: At | undefined, d: IssueDetails = {}) => {
+    const meta = MERGE_ISSUES[code]
+    const path = d.path ?? (at ? at.path : [])
+    const message = d.message ?? ISSUE_MESSAGES[code] ?? meta.description
+    const issue: MergeIssue = { code, severity: meta.severity, category: meta.category, message, path: [...path] }
+    const sourcePointer = sourcePointerOf(c, d.node ?? c.stack[c.stack.length - 1]?.value)
+    if (sourcePointer !== undefined) { issue.sourcePointer = sourcePointer }
+    if (d.keyword !== undefined) { issue.keyword = d.keyword }
+    if (d.values !== undefined) { issue.values = d.values }
+    if (d.ref !== undefined) { issue.ref = d.ref }
+    if (d.reason !== undefined) { issue.reason = d.reason }
+    freezeIssue(issue)
+    record(c, issue)
+    const key = issueKey(issue)
+    // raised by an earlier round of the same merge (D-17 fallback): delivered there already
+    if (c.prior?.has(key)) { return }
+    c.seen.add(key)
+    if (d.legacy !== false) {
+      if (meta.legacy === "merge") {
+        onMergeError?.(message, path, (d.values ?? []) as any[])
+      } else if (meta.legacy === "ref") {
+        onRefResolveError?.(message, path, d.ref ?? "")
+      }
+    }
+    offer(c.issueKeys, issue, key)
+  }
+
+  // an issue of a nested merge (a resolver's merger), its path relative to the node at `at`
+  const forwardIssue = (c: CallState, at: At, issue: MergeIssue, legacy: boolean) => {
+    const base = at.path
+    const copy: MergeIssue = { ...issue, path: [...base, ...issue.path] }
+    if (copy.sourcePointer === undefined || c.index.source === undefined) { delete copy.sourcePointer }
+    freezeIssue(copy)
+    record(c, copy)
+    const key = issueKey(copy)
+    if (c.prior?.has(key)) { return }
+    c.seen.add(key)
+    if (legacy && MERGE_ISSUES[issue.code].legacy === "merge") { onMergeError?.(ErrorMessage.mergeError(), base, (issue.values ?? []) as any[]) }
+    offer(c.issueKeys, copy, key)
+  }
+
+  // the recorded issues of a reused output, at the location `at` of the node `node` that reuses it
+  const replay = (c: CallState, rec: RecordedIssues | undefined, at: At, node: unknown) => {
+    if (!rec || !rec.issues.length) { return }
+    const base = at.path
+    const here = sourcePointerOf(c, node)
+    const sameSource = rec.source === c.index.source
+    for (const issue of rec.issues) {
+      const rel = issue.path.slice(rec.depth)
+      const copy: MergeIssue = { ...issue, path: [...base, ...rel] }
+      const sourcePointer = rel.length ? (sameSource ? issue.sourcePointer : undefined) : here
+      if (sourcePointer === undefined) {
+        delete copy.sourcePointer
+      } else {
+        copy.sourcePointer = sourcePointer
+      }
+      freezeIssue(copy)
+      record(c, copy)
+      offer(c.issueKeys, copy)
+    }
+  }
+
+  const replayOutput = (c: CallState, output: unknown, at: At, node: unknown) => {
+    if (typeof output === "object" && output !== null) { replay(c, recorded.get(output), at, node) }
   }
 
   const indexes = new WeakMap<object, ResolutionIndex>()
@@ -416,8 +618,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return weight
   }
 
-  const reportBudget = (c: CallState, at: At, values: unknown[]) => {
-    reportOnce(c, "expansionBudget", ErrorMessage.expansionBudgetExceeded(settings.expansionBudget), at, values)
+  const reportBudget = (c: CallState, at: At, values: unknown[], ref?: string) => {
+    emitOnce(c, "expansionBudget", "expansion-budget", at, { message: ErrorMessage.expansionBudgetExceeded(settings.expansionBudget), values, ref })
   }
 
   // the document refs are resolved against: options.source, a per-call override, or the root of the current clone
@@ -460,7 +662,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     finished: new WeakSet(),
     inlined: new Map(),
     expanded: 0,
-    reported: new Set(),
+    reported: new Set(carry?.reported),
     rewritten: new Set(),
     ownerRefs: false,
     owners: new Map(),
@@ -470,6 +672,12 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     sitePositions: [],
     asyncApi3: detectAsyncApiVersion(index.source) === "3.0",
     shifts: new WeakMap(),
+    issueKeys: new Set(carry?.seen),
+    seen: new Set(carry?.seen),
+    prior: carry?.seen,
+    issues: [],
+    copies: new WeakMap(),
+    unclean: new WeakSet(),
   })
 
   let call: CallState = newCall(createResolutionIndex(undefined), undefined)
@@ -520,10 +728,11 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     }
   }
 
-  const reportOnce = (c: CallState, token: unknown, message: string, at: At, values: unknown[]) => {
+  // limits are reported once per target / once per call
+  const emitOnce = (c: CallState, token: unknown, code: MergeIssueCode, at: At, d: IssueDetails) => {
     if (c.reported.has(token)) { return }
     c.reported.add(token)
-    onMergeError?.(message, at.path, values)
+    emit(c, code, at, d)
   }
 
   // adds `counts` to a frame; the map is shared until the frame has to change it (copy on write)
@@ -554,7 +763,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     for (const [target, count] of counts) {
       if ((c.inlined.get(target) ?? 0) + count > settings.maxRefExpansion) {
         const pointer = c.index.pointerOf(target)
-        reportOnce(c, target, ErrorMessage.refExpansionExceeded(pointer === undefined ? "(inline)" : `#${pointer}`, settings.maxRefExpansion), at, [target])
+        const ref = pointer === undefined ? "(inline)" : `#${pointer}`
+        emitOnce(c, target, "ref-expansion-limit", at, { message: ErrorMessage.refExpansionExceeded(ref, settings.maxRefExpansion), values: [target], ref })
         return false
       }
       weight += count * weightOf(target)
@@ -589,6 +799,12 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       if (frame.counts) {
         if (owned) { c.outputCounts.set(output as object, frame.counts) }
         addCounts(stack[stack.length - 1], frame.counts)
+      }
+      if (frame.issues) {
+        // the issues of the subtree belong to the output it created (replayed on reuse) and to the parent's subtree
+        if (owned) { recorded.set(output as object, { source: c.index.source, depth: frame.depth, issues: frame.issues }) }
+        const parent = stack[stack.length - 1]
+        if (parent) { (parent.issues ??= []).push(...frame.issues) }
       }
       if (frame.site && !c.siteNodes.has(frame.value)) {
         // the copy that replaced a D-22 $ref (a $ref left in place — broken, limited, a cycle — is not a copy)
@@ -626,6 +842,141 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return isDistributable(node) || isPrunable(node)
   }
 
+  // ---- fast path (§3.6): subtrees that need no work ----
+
+  // a node that the merge may change by itself under this merger's options (rules 1-5 of §3.6; conservative: rule
+  // locations are not consulted, a node they would leave alone only costs the regular path)
+  const nodeNeedsWork = (node: object): boolean => {
+    if (Array.isArray(node)) { return false }
+    const n = node as Record<string, any>
+    if (hasOwn(n, "allOf")) { return true }
+    if (mergeRefSibling && isRefNode(n) && refRest(n)) { return true }
+    const oneOf = hasOwn(n, "oneOf") && Array.isArray(n.oneOf) ? n.oneOf as unknown[] : undefined
+    const anyOf = hasOwn(n, "anyOf") && Array.isArray(n.anyOf) ? n.anyOf as unknown[] : undefined
+    if (!oneOf && !anyOf) { return false }
+    if (mergeCombinary && ((oneOf && anyOf) || Object.keys(n).some((key) => !isCombinaryKey(key) && !CONTAINER_SIBLINGS.includes(key)))) { return true }
+    if (settings.dropFalseBranches && (oneOf?.some(isUnsatisfiable) || anyOf?.some(isUnsatisfiable))) { return true }
+    return settings.dedupeAnyOf && !!anyOf && anyOf.length > 1 && dedupeValues(anyOf) !== anyOf
+  }
+
+  // input node -> height of its subtree (0 for a leaf container), or DIRTY when the subtree needs work (a node of
+  // nodeNeedsWork, or a cycle: the clone must write cycle $refs). Inputs must not change while the merger is in use
+  const heights = new WeakMap<object, number>()
+
+  // iterative post-order scan, memoized per node
+  const subtreeHeight = (root: object): number => {
+    const known = heights.get(root)
+    if (known !== undefined) { return known }
+    interface ScanFrame { node: Record<string | number, unknown>, keys: string[] | undefined, length: number, i: number, height: number }
+    const stack: ScanFrame[] = []
+    const onPath = new Set<object>()
+    const enter = (node: object) => {
+      onPath.add(node)
+      const keys = Array.isArray(node) ? undefined : Object.keys(node)
+      stack.push({ node: node as Record<string | number, unknown>, keys, length: keys ? keys.length : (node as unknown[]).length, i: 0, height: nodeNeedsWork(node) ? DIRTY : 0 })
+    }
+    enter(root)
+    let result = DIRTY
+    while (stack.length) {
+      const top = stack[stack.length - 1]
+      if (top.height !== DIRTY && top.i < top.length) {
+        const child = top.keys ? top.node[top.keys[top.i++]] : top.node[top.i++]
+        if (typeof child !== "object" || child === null) { continue }
+        const height = heights.get(child)
+        if (height !== undefined) {
+          top.height = height === DIRTY ? DIRTY : Math.max(top.height, height + 1)
+        } else if (onPath.has(child)) {
+          top.height = DIRTY
+        } else {
+          enter(child)
+        }
+        continue
+      }
+      stack.pop()
+      onPath.delete(top.node)
+      heights.set(top.node, top.height)
+      const parent = stack[stack.length - 1]
+      if (!parent) {
+        result = top.height
+      } else if (parent.height !== DIRTY) {
+        parent.height = top.height === DIRTY ? DIRTY : Math.max(parent.height, top.height + 1)
+      }
+    }
+    return result
+  }
+
+  // a container of the same kind as `value` (array length kept: holes stay holes)
+  const newContainer = (value: object): Record<string | number, unknown> =>
+    (Array.isArray(value) ? new Array(value.length) : {}) as Record<string | number, unknown>
+
+  // a whole-document $ref whose pointer runs through a node the merge rewrites (rule 6): D-22 replaces it
+  const isOwnedRef = (c: CallState, node: object): boolean =>
+    c.wholeDocument && !Array.isArray(node) && isRefNode(node) && ownersOf(c, (node as Record<string, string>).$ref).length > 0
+
+  /**
+   * The copy of a clean subtree: own enumerable string keys (`__proto__` as data), holes kept, one copy per input
+   * instance (registered in the call). In a whole-document merge a $ref through a rewritten node stops the copy: the
+   * nodes on the path to it are marked unclean for the call and the regular path takes over (undefined).
+   */
+  const cleanCopy = (c: CallState, root: object): object | undefined => {
+    if (isOwnedRef(c, root)) {
+      c.unclean.add(root)
+      return undefined
+    }
+    const created: object[] = [root]
+    const rootCopy = newContainer(root)
+    c.copies.set(root, rootCopy)
+    interface CopyFrame { source: Record<string | number, unknown>, copy: Record<string | number, unknown>, keys: string[] | undefined, length: number, i: number }
+    const frameOf = (source: object, copy: Record<string | number, unknown>): CopyFrame => {
+      const keys = Array.isArray(source) ? undefined : Object.keys(source)
+      return { source: source as Record<string | number, unknown>, copy, keys, length: keys ? keys.length : (source as unknown[]).length, i: 0 }
+    }
+    const stack: CopyFrame[] = [frameOf(root, rootCopy)]
+    while (stack.length) {
+      const top = stack[stack.length - 1]
+      if (top.i >= top.length) {
+        stack.pop()
+        continue
+      }
+      let key: string | number
+      if (top.keys) {
+        key = top.keys[top.i++]
+      } else {
+        key = top.i++
+        if (!(key in top.source)) { continue }
+      }
+      const child = top.source[key]
+      if (typeof child !== "object" || child === null) {
+        safeSet(top.copy, key, child)
+        continue
+      }
+      const existing = c.copies.get(child)
+      if (existing) {
+        safeSet(top.copy, key, existing)
+        continue
+      }
+      if (isOwnedRef(c, child)) {
+        for (const frame of stack) { c.unclean.add(frame.source) }
+        for (const node of created) { c.copies.delete(node) }
+        return undefined
+      }
+      const copy = newContainer(child)
+      c.copies.set(child, copy)
+      created.push(child)
+      safeSet(top.copy, key, copy)
+      stack.push(frameOf(child, copy))
+    }
+    return rootCopy
+  }
+
+  // the merge can change `value` (or report about it): §3.6 rules on the input, and the depth limit
+  const needsMerge = (value: unknown): boolean => {
+    if (typeof value !== "object" || value === null) { return false }
+    const height = subtreeHeight(value)
+    // a whole-document $ref can only run through a rewritten node when some node of the document needs work
+    return height === DIRTY || height > settings.maxDepth
+  }
+
   // the rewritable nodes a local $ref pointer runs through (`#/definitions/A/properties/x` -> A when A has an allOf;
   // `#/definitions/A/allOf/0` -> A), walked in the call's source like the resolution index does (intermediate $refs
   // are followed). The target itself is not "run through", nor are container members (UNAFFECTED_MEMBERS). Empty
@@ -649,7 +1000,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
           continue
         }
         if (!isPlainObject(value)) { break }
-        if (!UNAFFECTED_MEMBERS.has(segment) && isRewritable(value) && !owners.includes(value)) { owners.push(value) }
+        // a node whose subtree needs no work is copied as it is: pointers through it keep their meaning (P1)
+        if (!UNAFFECTED_MEMBERS.has(segment) && isRewritable(value) && subtreeHeight(value) === DIRTY && !owners.includes(value)) { owners.push(value) }
         if (hasOwn(value, segment)) {
           value = value[segment]
           i++
@@ -691,7 +1043,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       c.ownerRefs = true
       return { $ref: ref }
     }
-    onMergeError?.(ErrorMessage.cyclicValue(), at.path, [])
+    emit(c, "cyclic-value", at, { message: ErrorMessage.cyclicValue(), values: [] })
     return {}
   }
 
@@ -770,7 +1122,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   // oneOf/anyOf branches removed (dropFalseBranches), identical anyOf branches once (dedupeAnyOf), the opt-in
   // `simplify` rules. A node that turns out to be a contradiction is written as one (D-10 container siblings kept).
   // `report` is the node's contradiction report (silent inside a oneOf/anyOf branch)
-  const simplifyMerged = (c: CallState, frame: Frame, holder: Record<string | number, unknown>, key: string | number, rules: MergeRules, report?: (values: unknown[]) => void, merged = true) => {
+  const simplifyMerged = (c: CallState, frame: Frame, holder: Record<string | number, unknown>, key: string | number, rules: MergeRules, report?: (values: unknown[], message?: string, hint?: IssueHint) => void, merged = true) => {
     const out = holder[key]
     if (!isPlainObject(out)) { return }
     if (!merged && keepUnmerged?.has(frame.value)) { return }
@@ -791,10 +1143,26 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         conflict = []
         break
       }
+      // the input branches (for the issues): the node's own when the merge kept their positions
+      const input = isPlainObject(frame.value) && Array.isArray(frame.value[combinaryKey]) && frame.value[combinaryKey].length === branches.length
+        ? frame.value[combinaryKey] as unknown[]
+        : branches
+      const impossible = (code: MergeIssueCode) => {
+        if (!settings.dropFalseBranches) { return }
+        for (let i = 0; i < branches.length; i++) {
+          if (!isUnsatisfiable(branches[i])) { continue }
+          emit(c, code, frame.at, { path: [...frame.at.path, combinaryKey, i], keyword: combinaryKey, values: [input[i]], node: frame.value })
+        }
+      }
       // a branch holding a pointer target of this call's output (a cycle re-entry, a D-22 copy) keeps its index
       let first = 0
       while (branches[first] === next[first]) { first++ }
-      if (branches.slice(first).some((branch) => typeof branch === "object" && branch !== null && tainted.has(branch))) { continue }
+      if (branches.slice(first).some((branch) => typeof branch === "object" && branch !== null && tainted.has(branch))) {
+        impossible("branch-kept-for-link")
+        continue
+      }
+      // decision C: an impossible branch is removed and reported (duplicates are a rule-defined outcome, not issues)
+      impossible("branch-removed")
       // where every branch went (D-27): a kept branch to its new index, a duplicate anyOf branch to the equal one kept
       const moved = branches.map((branch) => {
         const at = next.indexOf(branch)
@@ -811,7 +1179,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     if (conflict) { c.rewritten.add(frame.value) }
     if (!conflict && merged && settings.simplify) {
       conflict = simplifySchema(out, rules as Record<string, any>, settings.simplify, isUnsatisfiable)
-      if (conflict) { report?.(conflict) }
+      if (conflict) { report?.(conflict, undefined, { code: "unsatisfiable", reason: "simplify" }) }
     }
     // a contradiction replaces the node's subtree: not when that subtree holds pointer targets of the call's output
     if (conflict && !frame.tainted) { safeSet(holder, key, contradiction(out)) }
@@ -838,7 +1206,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     const cost = distributionCost(node, combinaryKey, rule)
     if (cost) {
       if (cost > c.budget.remaining) {
-        onMergeError?.(ErrorMessage.branchBudgetExceeded(cost, settings.branchBudget), at.path, [node[combinaryKey]])
+        emit(c, "branch-budget", at, { message: ErrorMessage.branchBudgetExceeded(cost, settings.branchBudget), values: [node[combinaryKey]], keyword: combinaryKey })
         return node
       }
       c.budget.remaining -= cost
@@ -861,7 +1229,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   const collectItems = (c: CallState, items: unknown[], node: object, sibling?: Record<string, any>, ownItem?: unknown): Collected => {
     const seen = new Set<object>([node])
     const out: any[] = []
-    const broken: string[] = []
+    const broken: Collected["broken"] = []
+    const unevaluated: object[] = []
     const fragments: object[] = []
     const targets: InlinedTarget[] = []
     const malformed: unknown[] = []
@@ -902,12 +1271,13 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
         if (!nodeLevel && hasUnevaluated(item)) {
           fragments.push(origin ? { $ref: origin.$ref } : item)
+          unevaluated.push(item)
           continue
         }
 
         if (hasOwn(item, "$ref") && !isRefNode(item)) {
           // an empty or non-string $ref cannot be resolved: a broken ref, the node is kept (VR-42)
-          broken.push(typeof item.$ref === "string" ? item.$ref : String(item.$ref))
+          broken.push({ ref: typeof item.$ref === "string" ? item.$ref : String(item.$ref), code: "broken-ref" })
           out.push(origin ?? item)
           continue
         }
@@ -917,7 +1287,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
           let target = resolved.ok ? resolved.target : undefined
           // a ref -> ref chain that comes back to one of its own refs is a cycle (VR-40)
           if (!resolved.ok || target === item || (isRefNode(target) && chain?.has(target))) {
-            broken.push(item.$ref)
+            const code = resolved.ok || resolved.reason === "cycle" ? "ref-cycle" : resolved.reason === "external" ? "external-ref" : "broken-ref"
+            broken.push({ ref: item.$ref, code })
             out.push(origin ?? item)
             continue
           }
@@ -980,7 +1351,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       work.push({ item: sibling, nodeLevel: true })
       run()
     }
-    return { items: out, broken, withoutSibling, fragments, targets, malformed, unmergeable, limited }
+    return { items: out, broken, unevaluated, withoutSibling, fragments, targets, malformed, unmergeable, limited }
   }
 
   const commitTargets = (c: CallState, frame: Frame, targets: InlinedTarget[]) => {
@@ -1029,6 +1400,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     } else if (doneGet(c.done, value, rules) !== NOT_DONE) {
       const output = doneGet(c.done, value, rules)
       if (share(c, output, parent, ctx)) {
+        replayOutput(c, output, ctx, value)
         safeSet(state.node, nodeKey, output)
         // the same $ref node met again: another position of its (non-object) copy
         const site = c.siteNodes.get(value)
@@ -1038,9 +1410,29 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       forceNoMerge = true
     }
 
+    // fast path (§3.6): a subtree that needs no work is copied without frames, rule resolution or link checks; one
+    // output instance per input instance (D-11)
+    if (!rewalk && !forceNoMerge && !parent?.noMerge) {
+      const copied = c.copies.get(value)
+      if (copied) {
+        safeSet(state.node, nodeKey, copied)
+        return { done: true }
+      }
+      if (!c.unclean.has(value)) {
+        const height = subtreeHeight(value)
+        if (height !== DIRTY && depth + height <= settings.maxDepth) {
+          const copy = cleanCopy(c, value)
+          if (copy) {
+            safeSet(state.node, nodeKey, copy)
+            return { done: true }
+          }
+        }
+      }
+    }
+
     const tooDeep = depth > settings.maxDepth
     if (tooDeep && !parent?.noMerge) {
-      reportOnce(c, "maxDepth", ErrorMessage.maxDepthExceeded(settings.maxDepth), ctx, [])
+      emitOnce(c, "maxDepth", "max-depth", ctx, { message: ErrorMessage.maxDepthExceeded(settings.maxDepth), values: [] })
     }
     const frame: Frame = { value, holder: state.node, key: nodeKey, depth, rewalk, noMerge: forceNoMerge || tooDeep || !!parent?.noMerge, at: ctx, rules }
     c.stack.push(frame)
@@ -1048,7 +1440,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
     // a $ref of the output whose pointer runs through a rewritable node (also one copied without merging): checked
     // after the clone pass of a whole-document merge (D-17)
-    if (!Array.isArray(value) && isRefNode(value) && ownersOf(c, value.$ref).length) { c.ownerRefs = true }
+    if (c.wholeDocument && !Array.isArray(value) && isRefNode(value) && ownersOf(c, value.$ref).length) { c.ownerRefs = true }
 
     if (frame.noMerge) { return }
 
@@ -1060,7 +1452,9 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
           exitHook: () => {
             const branches = state.node[key]
             if (Array.isArray(branches) && branches.length && branches.every(isUnsatisfiable)) {
-              onMergeError?.(ErrorMessage.mergeError(), ctx.path, value)
+              // the branches' frames are finished first: the issue belongs to the array's frame
+              popFrames(c, branches)
+              emit(c, "unsatisfiable-combinator", ctx, { message: ErrorMessage.mergeError(), values: value, keyword: String(key) })
             }
           }
         }
@@ -1080,6 +1474,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
           // an output holding a cycle $ref into another document is not reused for this one
           const output = cached && cached.rules === rules && reusable(c, cached.output, cached.source) ? cached.output : undefined
           if (output && share(c, output, frame, ctx)) {
+            replayOutput(c, output, ctx, node)
             safeSet(state.node, nodeKey, safeClone(output))
             return { done: true }
           }
@@ -1102,7 +1497,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       const parts = split(node)
       if (!parts.allOf) {
         // allOf of a wrong type is ignored and reported (D-6); the rest of the node is kept
-        onMergeError?.(ErrorMessage.malformedValue("allOf"), ctx.path, [node.allOf])
+        emit(c, "malformed-allof", ctx, { message: ErrorMessage.malformedValue("allOf"), values: [node.allOf], keyword: "allOf" })
         return { value: parts.sibling }
       }
       items = parts.allOf
@@ -1139,11 +1534,11 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         // itself, merged as the node (exact: nothing else is conjoined with it)
         const ref = node.$ref
         if ((c.inlined.get(target) ?? 0) + 1 > settings.maxRefExpansion) {
-          reportOnce(c, target, ErrorMessage.refExpansionExceeded(ref, settings.maxRefExpansion), ctx, [ref])
+          emitOnce(c, target, "ref-expansion-limit", ctx, { message: ErrorMessage.refExpansionExceeded(ref, settings.maxRefExpansion), values: [ref], ref })
           return
         }
         if (c.expanded + weightOf(target) > settings.expansionBudget) {
-          reportBudget(c, ctx, [ref])
+          reportBudget(c, ctx, [ref], ref)
           return
         }
         commitTargets(c, frame, [{ target, ref }])
@@ -1156,7 +1551,9 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       // a broken or external $ref with siblings is left as it is (D-9, VR-35)
       const resolved = resolveChain(c.index, node.$ref)
       if (!resolved.ok) {
-        if (resolved.reason !== "external") { onRefResolveError?.(ErrorMessage.refResolveError(), ctx.path, node.$ref) }
+        // an external $ref next to siblings was silent before (D-9): a new issue without the legacy callback
+        const code = resolved.reason === "external" ? "external-ref" : resolved.reason === "cycle" ? "ref-cycle" : "broken-ref"
+        emit(c, code, ctx, { message: code === "external-ref" ? undefined : ErrorMessage.refResolveError(), ref: node.$ref, keyword: "$ref", legacy: code !== "external-ref" })
         return
       }
       // $ref with sibling content: allOf of the reference and the siblings
@@ -1179,7 +1576,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     const collected = collectItems(c, items, node, sibling, ownItem)
 
     if (collected.malformed.length) {
-      onMergeError?.(ErrorMessage.malformedValue("allOf item"), ctx.path, collected.malformed)
+      emit(c, "malformed-allof-item", ctx, { message: ErrorMessage.malformedValue("allOf item"), values: collected.malformed, keyword: "allOf" })
     }
 
     // maxRefExpansion: a target inlined too often keeps its $ref items, the node is left as it is (D-7, VR-03)
@@ -1187,20 +1584,24 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       c.rewritten.delete(node)
       const { target, ref, budget } = collected.limited
       if (budget) {
-        reportBudget(c, ctx, [ref])
+        reportBudget(c, ctx, [ref], ref)
       } else {
-        reportOnce(c, target, ErrorMessage.refExpansionExceeded(ref, settings.maxRefExpansion), ctx, [ref])
+        emitOnce(c, target, "ref-expansion-limit", ctx, { message: ErrorMessage.refExpansionExceeded(ref, settings.maxRefExpansion), values: [ref], ref })
       }
       return
     }
 
     for (const { message, ref } of collected.unmergeable) {
-      onMergeError?.(message, ctx.path, [ref])
+      emit(c, "schema-format-kept", ctx, { message, values: [ref], ref })
+    }
+    if (collected.unevaluated.length) {
+      emit(c, "unevaluated-kept", ctx, { values: collected.unevaluated, keyword: "allOf" })
     }
 
     if (collected.broken.length) {
-      for (const ref of collected.broken) {
-        onRefResolveError?.(ErrorMessage.refResolveError(), ctx.path, ref)
+      for (const { ref, code } of collected.broken) {
+        // the legacy callback receives every unresolvable $ref of an allOf as before (also an external one)
+        emit(c, code, ctx, { message: ErrorMessage.refResolveError(), ref, keyword: "allOf" })
       }
       commitTargets(c, frame, collected.targets)
       // the node keeps its structure: siblings stay in place, resolvable items are resolved, broken ones stay `$ref`
@@ -1213,7 +1614,19 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     const schemas = collected.items
     const { fragments } = collected
 
-    if (schemas.includes(false)) { return { value: contradiction(sibling) } }
+    // contradictions inside a oneOf/anyOf branch are legitimate (the branch is just impossible): not reported
+    const silent = typeof key === "number" && !!parent && isCombinaryKey(parent.key)
+    const report = (values: any[], message?: string, hint?: IssueHint) => {
+      const code = hint?.code ?? (message ? "merge-conflict" : "unsatisfiable")
+      if (!message && silent && MERGE_ISSUES[code].category === "contradiction") { return }
+      emit(c, code, ctx, { message: message ?? ErrorMessage.mergeError(), values, keyword: hint?.keyword, reason: hint?.reason })
+    }
+
+    if (schemas.includes(false)) {
+      // a `false` item: reported once per node (it was silent before: no legacy callback)
+      if (!silent) { emit(c, "unsatisfiable", ctx, { message: ErrorMessage.mergeError(), values: [false], keyword: "allOf", reason: "false-item", legacy: false }) }
+      return { value: contradiction(sibling) }
+    }
     if (!schemas.length && !fragments.length) { return { value: {} } }
 
     if (schemas.length === 1 && !fragments.length) {
@@ -1228,6 +1641,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       if (doneGet(c.done, single, rules) !== NOT_DONE) {
         let output = doneGet(c.done, single, rules)
         if (!share(c, output, frame, ctx)) { return }
+        replayOutput(c, output, ctx, node)
         commitTargets(c, frame, collected.targets)
         // a D-22 copy is its own instance (relink replaces it by identity, never the location it was shared from)
         if (frame.site && typeof output === "object" && output !== null) { output = safeClone(output) }
@@ -1235,7 +1649,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         return { done: true }
       }
       commitTargets(c, frame, collected.targets)
-      return { value: single }
+      // F-10: the single item gets the simplifications of a merged node too (merge is idempotent)
+      return { value: single, exitHook: () => simplifyMerged(c, frame, state.node, nodeKey, rules, report) }
     }
 
     const memoKey: object[] = fragments.length ? [...schemas, FRAGMENT_MARK, ...fragments] : schemas
@@ -1246,6 +1661,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     if (entry) {
       if (entry.done) {
         if (!share(c, entry.node, frame, ctx)) { return }
+        replay(c, entry.issues, ctx, node)
         const output = frame.site && typeof entry.node === "object" && entry.node !== null ? safeClone(entry.node) : entry.node
         safeSet(state.node, nodeKey, output)
         return { done: true }
@@ -1271,14 +1687,6 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
     commitTargets(c, frame, collected.targets)
 
-    // contradictions inside a oneOf/anyOf branch are legitimate (the branch is just impossible): not reported
-    const silent = typeof key === "number" && !!parent && isCombinaryKey(parent.key)
-    const report = (values: any[], message?: string) => {
-      if (message || !silent) {
-        onMergeError?.(message ?? ErrorMessage.mergeError(), ctx.path, values)
-      }
-    }
-
     let result: unknown
     if (!schemas.length) {
       const kept = settings.dedupeFragments ? dedupeValues(fragments) : fragments
@@ -1293,7 +1701,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
             budget: c.budget,
             settings,
             report,
-            mergeNested: (values, nestedRules) => createMerger({ ...options, source: c.index.source, freezeOutput: false }).merge({ allOf: values }, { rules: nestedRules }),
+            forward: (issue) => forwardIssue(c, ctx, issue, true),
+            mergeNested: (values, nestedRules) => createMerger({ ...options, source: c.index.source, freezeOutput: false, onIssue: (issue) => forwardIssue(c, ctx, issue, false), issueLevel: "warning" }).merge({ allOf: values }, { rules: nestedRules }),
           })
       if (merged === UNCHANGED) {
         c.rewritten.delete(node)
@@ -1322,7 +1731,10 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return {
       value: result,
       exitHook: () => {
-        simplifyMerged(c, frame, state.node, nodeKey, rules, (values) => report(values))
+        simplifyMerged(c, frame, state.node, nodeKey, rules, report)
+        // the subtree's frames are finished: the entry keeps the issues of its merge for replay
+        popFrames(c, state.node[nodeKey])
+        created.issues = { source: c.index.source, depth: frame.depth, issues: frame.issues ? [...frame.issues] : [] }
         created.node = state.node[nodeKey]
         created.done = true
         created.frame = undefined
@@ -1454,11 +1866,21 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
     const links = new Map<unknown, unknown>()     // copy -> link
     const copies = new Map<object, unknown>()     // link -> copy (to turn a link back)
+    // every site whose copy stays in the output is reported (a copy instead of a link)
+    const copied = new Set<Site>()
+    const reportCopies = () => {
+      for (const site of copied) {
+        emit(c, "link-copied", undefined, { path: parsePointer(site.path), ref: site.node.$ref, keyword: "$ref", node: site.node })
+      }
+    }
     // pointers below a copy that became a link move below the link's target, except into the link's own siblings
     const converted: { from: string[], to: string[], siblings: Record<string, unknown> }[] = []
     for (const [copy, site] of c.sites) {
       const target = decide(copy, site)
-      if (target === undefined) { continue }
+      if (target === undefined) {
+        copied.add(site)
+        continue
+      }
       const link = linkOf(site, target)
       links.set(copy, link)
       copies.set(link, copy)
@@ -1468,13 +1890,19 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       const copy = at[key]
       if (typeof copy === "object" && copy !== null) { continue }
       const target = decide(copy, site)
-      if (target === undefined) { continue }
+      if (target === undefined) {
+        copied.add(site)
+        continue
+      }
       const link = linkOf(site, target)
       safeSet(at, key, link)
       copies.set(link, copy)
       converted.push({ from: segmentsOf(`#${site.path}`), to: segmentsOf(target), siblings: link })
     }
-    if (!copies.size) { return }
+    if (!copies.size) {
+      reportCopies()
+      return
+    }
     if (links.size) { replaceAll(holder, links) }
 
     // pointers into a copy that became a link: the same place below the link's target (equal value)
@@ -1515,9 +1943,14 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         if (!finalIndex.resolve((link as Record<string, string>).$ref).ok) { failed.set(link, copy) }
       }
       if (!failed.size) { break }
-      for (const link of failed.keys()) { copies.delete(link as object) }
+      for (const link of failed.keys()) {
+        const site = c.sites.get(failed.get(link) as object)
+        if (site) { copied.add(site) }
+        copies.delete(link as object)
+      }
       replaceAll(holder, failed)
     }
+    reportCopies()
   }
 
   // the raw hook: a whole-document clone relinks its D-22 copies when the root is finished
@@ -1532,18 +1965,57 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return { ...response, exitHook: previous ? () => { previous(); finish() } : finish }
   }
 
-  const mergeWith = (value: unknown, callOptions?: Pick<MergeOptions, "rules" | "source">): unknown => {
+  // fragment mode: (source, value, rules) -> finished output and its issues. A merger's options are fixed and inputs
+  // must not change while it is in use, so a repeated call returns the same output and replays the issues (§3.8)
+  const results = new WeakMap<object, WeakMap<object, Map<unknown, { output: unknown, issues: MergeIssue[] }>>>()
+
+  const cachedResult = (source: unknown, value: unknown, rules: unknown) => {
+    if (typeof source !== "object" || source === null || typeof value !== "object" || value === null) { return undefined }
+    return results.get(source)?.get(value)?.get(rules)
+  }
+
+  const cacheResult = (source: unknown, value: unknown, rules: unknown, output: unknown, issues: MergeIssue[]) => {
+    if (typeof source !== "object" || source === null || typeof value !== "object" || value === null) { return }
+    let byValue = results.get(source)
+    if (!byValue) {
+      byValue = new WeakMap()
+      results.set(source, byValue)
+    }
+    let byRules = byValue.get(value)
+    if (!byRules) {
+      byRules = new Map()
+      byValue.set(value, byRules)
+    }
+    byRules.set(rules, { output, issues })
+  }
+
+  const mergeWith = (value: unknown, callOptions?: Pick<MergeOptions, "rules" | "source" | "onIssue">): unknown => {
     const rules: MergeRules = callOptions?.rules ?? options.rules ?? selectMergeRules(value)
     const previousSource = configuredSource
     const previousHasSource = hasConfiguredSource
+    const previousSink = callSink
+    const previousHasSink = hasCallSink
     if (callOptions && "source" in callOptions) {
       configuredSource = callOptions.source
       hasConfiguredSource = callOptions.source !== undefined
+    }
+    if (callOptions && "onIssue" in callOptions) {
+      callSink = callOptions.onIssue
+      hasCallSink = true
     }
     let completed = false
     // whole-document mode: refs are resolved against the merged value itself, so the output must resolve them (D-17)
     const wholeDocument = !hasConfiguredSource || configuredSource === value
     try {
+      if (!wholeDocument) {
+        const hit = cachedResult(configuredSource, value, rules)
+        if (hit) {
+          const keys = new Set<string>()
+          for (const issue of hit.issues) { offer(keys, issue) }
+          completed = true
+          return hit.output
+        }
+      }
       let result: unknown
       for (;;) {
         // circular: false: the hook keeps its own identity memo (shared outputs) and cycle detection
@@ -1563,12 +2035,21 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         }
         if (keep.size === (keepUnmerged?.size ?? 0)) { break }
         keepUnmerged = keep
+        // the next round delivers only what this one has not
+        carry = { seen: call.seen, reported: call.reported }
         // the memo and the container cache hold outputs merged without the kept nodes
         memos = new WeakMap()
         containerOutput = new WeakMap()
       }
+      // the nodes the D-17 fallback kept unmerged (their members are merged)
+      for (const node of keepUnmerged ?? []) {
+        const pointer = call.index.pointerOf(node)
+        emit(call, "kept-for-link", undefined, { path: pointer === undefined ? [] : parsePointer(pointer), keyword: "allOf", node })
+      }
       completed = true
-      return options.freezeOutput ? deepFreeze(result) : result
+      if (options.freezeOutput) { result = deepFreeze(result) }
+      if (!wholeDocument) { cacheResult(configuredSource, value, rules, result, call.issues) }
+      return result
     } finally {
       if (keepUnmerged) {
         // outputs merged with kept nodes are not shared with later calls
@@ -1578,6 +2059,9 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       }
       configuredSource = previousSource
       hasConfiguredSource = previousHasSource
+      callSink = previousSink
+      hasCallSink = previousHasSink
+      carry = undefined
       // an interrupted run (a hook threw) leaves entries without a result: forget them
       if (!completed) { abortInProgress() }
       call.stack.length = 0
@@ -1585,7 +2069,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     }
   }
 
-  return { merge: mergeWith, hook }
+  return { merge: mergeWith, hook, needsMerge: (value) => needsMerge(value) }
 }
 
 // the merger of the exported jsonSchemaMergeResolver (late-bound, see engine.ts)

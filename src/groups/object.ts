@@ -1,5 +1,6 @@
 import type { GroupContext, KeywordGroup, PatternMatchLimits, ResolvedMergeSettings } from "../types"
-import { isEmptyObject, isPlainObject, matchPattern, patternLimits } from "../utils"
+import { compilePattern, hasNestedQuantifier, isEmptyObject, isPlainObject, matchPattern, patternLimits } from "../utils"
+import { ISSUE_MESSAGES } from "../issues"
 import { hasOwn, safeSet } from "../safe"
 import { combineSchemas, copyContainer, isSchemaValue } from "./common"
 
@@ -19,7 +20,7 @@ const containerOf = (item: Record<string, any>, key: string, report: Report): Re
   if (!hasOwn(item, key)) { return undefined }
   const value = item[key]
   if (!isPlainObject(value)) {
-    report?.(`Malformed ${key} value is ignored`, [value])
+    report?.(`Malformed ${key} value is ignored`, [value], { code: "malformed-value", keyword: key })
     return undefined
   }
   const names = Object.keys(value)
@@ -29,7 +30,7 @@ const containerOf = (item: Record<string, any>, key: string, report: Report): Re
     if (isSchemaValue(value[name])) {
       safeSet(container, name, value[name])
     } else {
-      report?.(`Malformed ${key} member is ignored`, [value[name]])
+      report?.(`Malformed ${key} member is ignored`, [value[name]], { code: "malformed-value", keyword: key })
     }
   }
   return container
@@ -42,7 +43,7 @@ const shapeOf = (item: Record<string, any>, report: Report): ObjectShape => {
   if (hasOwn(item, "additionalProperties")) {
     additionalProperties = item.additionalProperties
     if (!isSchemaValue(additionalProperties)) {
-      report?.("Malformed additionalProperties value is ignored", [additionalProperties])
+      report?.("Malformed additionalProperties value is ignored", [additionalProperties], { code: "malformed-value", keyword: "additionalProperties" })
       additionalProperties = undefined
     }
   }
@@ -65,8 +66,16 @@ export const MAX_PATTERN_TESTS = 100_000
 // marker: a name could not be matched against a pattern (matching disabled, length caps, unsafe pattern)
 const UNKNOWN: unique symbol = Symbol("unknown")
 
-// the object shapes of the items that carry object-shape keywords, kept as exact allOf fragments
-const objectShapeFragments = (shapes: ObjectShape[]): Record<string, unknown> => {
+// why a name could not be matched against a pattern (the `reason` of an object-shape-kept issue)
+const unmatchedReason = (pattern: string, name: string, limits: false | Required<PatternMatchLimits>): string => {
+  if (limits === false || name.length > limits.maxNameLength || pattern.length > limits.maxPatternLength) { return "match-limit" }
+  if (compilePattern(pattern) === null) { return "invalid-pattern" }
+  return hasNestedQuantifier(pattern) ? "nested-quantifier" : "match-limit"
+}
+
+// the object shapes of the items that carry object-shape keywords, kept as exact allOf fragments (reported)
+const objectShapeFragments = (shapes: ObjectShape[], report: Report | undefined, reason: string): Record<string, unknown> => {
+  report?.(ISSUE_MESSAGES["object-shape-kept"]!, [], { code: "object-shape-kept", keyword: "properties", reason })
   const fragments = shapes.map((shape) => {
     const fragment: Record<string, unknown> = {}
     if (shape.properties) { fragment.properties = shape.properties }
@@ -112,9 +121,19 @@ export const mergeObjectShape = (
 
   // at most MAX_PATTERN_TESTS name x pattern tests per node (VR-07); beyond that the shapes are kept as fragments
   let tests = 0
+  // the cause of the last UNKNOWN match
+  let unknownReason = "match-limit"
   const match = (pattern: string, name: string): boolean | typeof UNKNOWN => {
-    if (++tests > MAX_PATTERN_TESTS) { return UNKNOWN }
-    return matchPattern(pattern, name, limits) ?? UNKNOWN
+    if (++tests > MAX_PATTERN_TESTS) {
+      unknownReason = "test-budget"
+      return UNKNOWN
+    }
+    const matched = matchPattern(pattern, name, limits)
+    if (matched === undefined) {
+      unknownReason = unmatchedReason(pattern, name, limits)
+      return UNKNOWN
+    }
+    return matched
   }
 
   const hasPatterns = shapes.some((shape) => shape.patterns.length)
@@ -138,10 +157,10 @@ export const mergeObjectShape = (
       for (const shape of shapes) {
         if (shape.patterns.includes(pattern) || isOpen(shape.additionalProperties)) { continue }
         // `false` or a schema next to other patterns: no exact single-shape form
-        if (shape.patterns.length || shape.additionalProperties === false) { return objectShapeFragments(shapes) }
+        if (shape.patterns.length || shape.additionalProperties === false) { return objectShapeFragments(shapes, report, "pattern-interaction") }
         for (const name of shape.properties ? Object.keys(shape.properties) : []) {
           const matched = match(pattern, name)
-          if (matched === UNKNOWN || matched) { return objectShapeFragments(shapes) }
+          if (matched === UNKNOWN || matched) { return objectShapeFragments(shapes, report, matched === UNKNOWN ? unknownReason : "pattern-interaction") }
         }
         schemas.push(shape.additionalProperties)
       }
@@ -193,7 +212,7 @@ export const mergeObjectShape = (
       let matched = false
       for (const pattern of shape.patterns) {
         const found = match(pattern, name)
-        if (found === UNKNOWN) { return objectShapeFragments(shapes) }
+        if (found === UNKNOWN) { return objectShapeFragments(shapes, report, unknownReason) }
         if (!found) { continue }
         matched = true
         // no pattern is kept in the closed case: apply it to the name directly

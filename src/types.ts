@@ -1,4 +1,7 @@
 import type { JsonPath, CrawlRules, SyncCloneHook } from "json-crawl"
+import type { IssueHint, MergeIssue, MergeIssueCode, MergeIssueSeverity } from "./issues"
+
+export type { IssueHint, MergeIssue, MergeIssueCategory, MergeIssueCode, MergeIssueInfo, MergeIssueSeverity } from "./issues"
 
 export type JsonSchema = any
 export type MergeRules = CrawlRules<MergeRule>
@@ -18,6 +21,8 @@ export interface MergeOptions {
   mergeCombinarySibling?: boolean // merge oneOf, anyOf sibling content
   onMergeError?: (message: string, path: JsonPath, values: any[]) => void
   onRefResolveError?: (message: string, path: JsonPath, ref: string) => void
+  onIssue?: (issue: MergeIssue) => void // every issue at or above `issueLevel` (see MERGE_ISSUES); reported on every call
+  issueLevel?: MergeIssueSeverity  // minimum severity delivered to onIssue / mergeWithIssues (default "warning": all)
   unsatisfiable?: UnsatisfiableMode // how a contradiction is written: boolean `false` (default) or `{ not: {} }`
   branchBudget?: number           // max number of oneOf/anyOf combinations produced by one merge() call (default 1024)
   matchPatterns?: boolean | PatternMatchLimits // match property names against other items' patternProperties (default true, with default limits)
@@ -66,10 +71,14 @@ export interface ResolvedMergeSettings {
 }
 
 export interface Merger {
-  // same as merge(value, options), reusing the resolution index and the merge memo of this merger
-  merge: (value: unknown, options?: Pick<MergeOptions, "rules" | "source">) => unknown
+  // same as merge(value, options), reusing the resolution index and the merge memo of this merger; `onIssue` replaces
+  // the merger's sink for this call (one merger can serve callers with different contexts)
+  merge: (value: unknown, options?: Pick<MergeOptions, "rules" | "source" | "onIssue">) => unknown
   // the json-crawl clone hook (same as allOfResolverHook(options))
   hook: SyncCloneHook<{}>
+  // whether merge(value, options) can produce anything but a plain copy of `value` (or report an issue other than a
+  // limit): false for subtrees without allOf and without the forms the merger's options rewrite
+  needsMerge: (value: unknown, options?: Pick<MergeOptions, "source">) => boolean
 }
 
 export interface RefNode {
@@ -89,10 +98,19 @@ export interface OneOfNode {
 
 export type MergeError = (values: any[]) => void
 
+// a report with an issue code (the engine fills it in; `mergeError(values)` is the same as `report("merge-conflict", values)`)
+export type MergeReport = (code: MergeIssueCode, values: any[], details?: { message?: string, keyword?: string, reason?: string }) => void
+
 export interface MergeContext {
   allOfItems: JsonSchema[]
   mergeRules: MergeRules
   mergeError: MergeError
+  // report an issue with a code (populated by the engine; optional for direct callers)
+  report?: MergeReport
+  // forward an issue of a nested merge, its path relative to this node (populated by the engine)
+  forward?: (issue: MergeIssue) => void
+  // the keyword being merged (populated by the engine)
+  key?: string
   path?: JsonPath
   // resolved merge options (populated by the engine; optional for direct callers)
   settings?: ResolvedMergeSettings
@@ -119,8 +137,9 @@ export interface GroupContext {
   path: JsonPath
   // resolved merge options (populated by the engine; optional for direct callers of group resolvers)
   settings?: ResolvedMergeSettings
-  // report a non-fatal problem (malformed value, unmergeable keyword) at the node; populated by the engine
-  report?: (message: string, values: any[]) => void
+  // report a non-fatal problem (malformed value, unmergeable keyword) at the node; populated by the engine. Without a
+  // hint the report is a "merge-conflict" issue (custom groups); built-in groups pass the issue code
+  report?: (message: string, values: any[], hint?: IssueHint) => void
 }
 
 // a group resolver returns the merged keys it owns, or undefined when the conjunction is contradictory

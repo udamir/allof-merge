@@ -3,6 +3,7 @@ import { combineSchemas } from "../groups/common"
 import type { MergeContext, MergeResolver } from "../types"
 import { asFragments } from "../utils"
 import { hasOwn } from "../safe"
+import { groupReport } from "./basic"
 
 /*
  * Per-key fallbacks, used when a custom `$` on one of the array-shape keys hands the group back to the per-key
@@ -20,7 +21,7 @@ const arrayShapeKey = (key: string, args: any[], ctx: MergeContext | undefined, 
   if (!items) { return legacy() }
   let merged = shaped.get(items)
   if (!merged) {
-    merged = mergeArrayShape(items, tupleKeywordOf(ctx?.mergeRules), (_message, values) => ctx?.mergeError?.(values))
+    merged = mergeArrayShape(items, tupleKeywordOf(ctx?.mergeRules), groupReport(ctx))
     shaped.set(items, merged)
   }
   // 2020-12 legacy tuple fragments (D-18) travel with `items` (present whenever an item has an array `items`)
@@ -37,10 +38,10 @@ export const additionalItemsMergeResolver: MergeResolver = (args, ctx) => arrayS
 
 // contains: different `contains` are kept as allOf fragments (with their own min/maxContains)
 const contained = new WeakMap<object, Record<string, unknown>>()
-const containsOf = (items: Record<string, any>[]) => {
+const containsOf = (items: Record<string, any>[], ctx: MergeContext | undefined) => {
   let merged = contained.get(items)
   if (!merged) {
-    merged = mergeContains(items)
+    merged = mergeContains(items, groupReport(ctx))
     contained.set(items, merged)
   }
   return merged
@@ -49,14 +50,14 @@ const containsOf = (items: Record<string, any>[]) => {
 export const containsMergeResolver: MergeResolver = (args, ctx) => {
   const items = fromItems(ctx)
   if (!items) { return args.length === 1 ? args[0] : asFragments(args.map((contains) => ({ contains }))) }
-  const merged = containsOf(items)
+  const merged = containsOf(items, ctx)
   return hasOwn(merged, "allOf") ? asFragments(merged.allOf as unknown[]) : hasOwn(merged, "contains") ? merged.contains : asFragments([])
 }
 
 const containsCount = (key: "minContains" | "maxContains", legacy: MergeResolver): MergeResolver => (args, ctx) => {
   const items = fromItems(ctx)
   if (!items) { return legacy(args, ctx) }
-  const merged = containsOf(items)
+  const merged = containsOf(items, ctx)
   // in fragment mode the counts travel with their `contains`
   return hasOwn(merged, key) ? merged[key] : asFragments([])
 }

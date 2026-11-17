@@ -1,14 +1,37 @@
-import { ValueSet, asFragments, deepEqual, findCombinations, mergeValues, uniqueConcat } from "../utils"
+import { ValueSet, asFragments, deepEqual, findCombinations, isValidMultipleOf, mergeValues, uniqueConcat } from "../utils"
 import { getAllOfItemsMap } from "./jsonschema"
-import type { MergeContext, MergeResolver } from "../types"
+import type { GroupContext, MergeContext, MergeResolver } from "../types"
+import { ErrorMessage } from "../errors"
+import { ISSUE_MESSAGES } from "../issues"
 import { getOwn, hasOwn, safeSet } from "../safe"
 import { getNodeRules } from "json-crawl"
 import { mergeMultipleOfValues, mergeNumericBounds } from "../groups/numeric"
 import { mergeFormats } from "../groups/format"
 
-// report a malformed value through the resolver context (direct callers may pass no context)
+// report a malformed value through the resolver context (direct callers may pass no context): a "malformed-value"
+// issue when the engine provides `report`, the plain `mergeError` otherwise
 const malformed = (ctx: MergeContext | undefined, values: unknown[]) => {
-  if (values.length) { ctx?.mergeError?.(values) }
+  if (!values.length || !ctx) { return }
+  if (ctx.report) {
+    ctx.report("malformed-value", values, { message: ErrorMessage.malformedValue(ctx.key ?? "keyword"), keyword: ctx.key })
+  } else {
+    ctx.mergeError?.(values)
+  }
+}
+
+/**
+ * The group-style `report(message, values, hint)` of a resolver context, for resolvers that run a keyword group's
+ * algorithm: an issue with the hint's code through `ctx.report`, or the plain `mergeError` (direct callers).
+ */
+export const groupReport = (ctx: MergeContext | undefined): GroupContext["report"] => {
+  if (!ctx) { return undefined }
+  return (message, values, hint) => {
+    if (ctx.report) {
+      ctx.report(hint?.code ?? "merge-conflict", values, { message, keyword: hint?.keyword ?? ctx.key, reason: hint?.reason })
+    } else {
+      ctx.mergeError?.(values)
+    }
+  }
 }
 
 // a per-key resolver result that drops the key (every value was malformed)
@@ -65,19 +88,19 @@ export const mergeNot: MergeResolver = (args, ctx) => {
 }
 // least common multiple, or allOf fragments when it cannot be computed exactly (VR-01)
 export const mergeMultipleOf: MergeResolver = (args, ctx) => {
-  const merged = mergeMultipleOfValues(args, (_message, values) => malformed(ctx, values))
+  const merged = mergeMultipleOfValues(args, groupReport(ctx))
   if (hasOwn(merged, "multipleOf")) { return merged.multipleOf }
   return asFragments((merged.allOf as unknown[] | undefined) ?? [])
 }
 const formatResolver = (lattice: boolean): MergeResolver => (args, ctx) => {
-  const merged = mergeFormats(args, (_message, values) => malformed(ctx, values), lattice)
-  if (hasOwn(merged, "format")) { return merged.format }
-  return asFragments((merged.allOf as unknown[] | undefined) ?? [])
+  const merged = mergeFormats(args, groupReport(ctx), lattice)
+  if (!merged) { return undefined }
+  return hasOwn(merged, "format") ? merged.format : dropKey()
 }
-// format (D-2, D-14, JSON Schema / GraphApi rules): equal formats are kept, differing formats as allOf fragments
+// format (D-14, Q1, JSON Schema / GraphApi rules): equal formats are kept, differing formats are a contradiction
 export const mergeFormat: MergeResolver = formatResolver(false)
 // format with the OpenAPI numeric lattice (D-14): int32 ∧ int64 → int32, float ∧ double → float, other differing
-// formats as allOf fragments
+// formats are a contradiction
 export const mergeOpenApiFormat: MergeResolver = formatResolver(true)
 // draft-04 boolean exclusive bounds as per-key fallbacks (numeric group handed back by a custom rule, VR-39, AM-10):
 // the flag travels with the selected bound value. The bound's own rule (custom or built-in) selects the value from
@@ -111,6 +134,8 @@ export const mergeSchemas: MergeResolver = (args) => ({ allOf: args })
 // backreferences and named groups cannot be combined into one expression
 const unsafePattern = /\\[1-9]|\\k<|\(\?<[^=!]/
 
+export const isUnsafePattern = (pattern: string): boolean => unsafePattern.test(pattern)
+
 const isValidPattern = (pattern: string): boolean => {
   try {
     new RegExp(pattern, "u")
@@ -140,8 +165,13 @@ export const mergePattern: MergeResolver = (args, ctx) => {
   if (!patterns.length) { return dropKey() }
   const conjunction = conjunctPatterns(patterns)
   if (conjunction !== undefined) { return conjunction }
-  malformed(ctx, patterns.filter((p) => !isValidPattern(p)))
-  return asFragments([...new Set(patterns)].map((pattern) => ({ pattern })))
+  const report = groupReport(ctx)
+  const unique = [...new Set(patterns)]
+  const invalid = unique.filter((p) => !isValidPattern(p))
+  if (invalid.length) { report?.("Invalid pattern is kept as an allOf fragment", invalid, { code: "pattern-invalid", keyword: "pattern" }) }
+  const unsafe = unique.filter((p) => isValidPattern(p) && unsafePattern.test(p))
+  if (unsafe.length) { report?.(ISSUE_MESSAGES["pattern-kept"]!, unsafe, { code: "pattern-kept", keyword: "pattern" }) }
+  return asFragments(unique.map((pattern) => ({ pattern })))
 }
 
 // enum intersection with structural equality, first-seen order; undefined (contradiction) when empty.
@@ -245,6 +275,7 @@ export const conditionalMergeResolver: MergeResolver = (args, ctx) => {
   if (conditionalEmitted.has(items)) { return dropKey() }
   conditionalEmitted.add(items)
   const owners = items.filter((item) => CONDITIONAL_KEYS.some((key) => hasOwn(item, key)))
+  if (owners.length > 1) { groupReport(ctx)?.(ISSUE_MESSAGES["conditional-kept"]!, owners.map((item) => item.if), { code: "conditional-kept", keyword: "if" }) }
   return asFragments(owners.map((item) => {
     const fragment: Record<string, unknown> = {}
     for (const key of CONDITIONAL_KEYS) {
@@ -253,3 +284,21 @@ export const conditionalMergeResolver: MergeResolver = (args, ctx) => {
     return fragment
   }))
 }
+
+// Q9 (user decision 2026-11-18): a lone value of a keyword whose resolver validates its values is validated too; a
+// malformed lone value is dropped and reported like a malformed value next to others. Resolver -> predicate of a
+// well-formed value
+export const singleValueValidators: ReadonlyMap<MergeResolver, (value: unknown) => boolean> = new Map<MergeResolver, (value: unknown) => boolean>([
+  [alternative, (v) => typeof v === "boolean"],
+  [and, (v) => typeof v === "boolean"],
+  [minValue, isFiniteNumber],
+  [maxValue, isFiniteNumber],
+  [mergeNot, isSchema],
+  [mergeMultipleOf, isValidMultipleOf],
+  [mergeFormat, (v) => typeof v === "string"],
+  [mergeOpenApiFormat, (v) => typeof v === "string"],
+  [mergePattern, (v) => typeof v === "string"],
+  [mergeEnum, Array.isArray],
+  [mergeTypes, (v) => asTypeArray(v) !== undefined],
+  [mergeStringItems, Array.isArray],
+])

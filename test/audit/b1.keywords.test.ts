@@ -417,13 +417,14 @@ describe("B1.10 annotations and OpenAPI-specific keywords", () => {
     expect(merge({ allOf: [{ readOnly: false }, { readOnly: false }] })).toEqual({ readOnly: false })
   })
 
-  it("B1.10.4 title, description, default and externalDocs: last wins; different formats are kept as fragments", () => {
+  it("B1.10.4 title, description, default and externalDocs: last wins; different formats are a contradiction", () => {
     const result = merge({ allOf: [
-      { title: "A", description: "a", format: "f1", default: 1, externalDocs: { url: "a" } },
-      { title: "B", description: "b", format: "f2", default: 2, externalDocs: { url: "b" } },
+      { title: "A", description: "a", format: "f", default: 1, externalDocs: { url: "a" } },
+      { title: "B", description: "b", format: "f", default: 2, externalDocs: { url: "b" } },
     ] })
-    // D-2 (contract change): different formats are no longer last-wins, they are kept as allOf fragments (+ onMergeError)
-    expect(result).toEqual({ title: "B", description: "b", allOf: [{ format: "f1" }, { format: "f2" }], default: 2, externalDocs: { url: "b" } })
+    expect(result).toEqual({ title: "B", description: "b", format: "f", default: 2, externalDocs: { url: "b" } })
+    // Q1 (2026-11-18, replaces D-2): two different formats make the schema false (and are reported)
+    expect(merge({ allOf: [{ title: "A", format: "f1" }, { title: "B", format: "f2" }] })).toBe(false)
   })
 
   it("B1.10.5 examples arrays are concatenated and example objects are deep merged", () => {

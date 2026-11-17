@@ -33,11 +33,11 @@ const collect = (items: Record<string, any>[], boundKey: string, exclusiveKey: s
     let value = hasOwn(item, boundKey) ? item[boundKey] : undefined
     let exclusive = hasOwn(item, exclusiveKey) ? item[exclusiveKey] : undefined
     if (value !== undefined && !isFiniteNumber(value)) {
-      report?.(`Malformed ${boundKey} value is ignored`, [value])
+      report?.(`Malformed ${boundKey} value is ignored`, [value], { code: "malformed-value", keyword: boundKey })
       value = undefined
     }
     if (exclusive !== undefined && !isFiniteNumber(exclusive) && typeof exclusive !== "boolean") {
-      report?.(`Malformed ${exclusiveKey} value is ignored`, [exclusive])
+      report?.(`Malformed ${exclusiveKey} value is ignored`, [exclusive], { code: "malformed-value", keyword: exclusiveKey })
       exclusive = undefined
     }
     if (typeof exclusive === "number") {
@@ -76,14 +76,14 @@ export const mergeMultipleOfValues = (values: unknown[], report?: Report): Recor
     if (isValidMultipleOf(value)) {
       if (!valid.includes(value)) { valid.push(value) }
     } else {
-      report?.("Malformed multipleOf value is ignored", [value])
+      report?.("Malformed multipleOf value is ignored", [value], { code: "malformed-value", keyword: "multipleOf" })
     }
   }
   if (!valid.length) { return {} }
   if (valid.length === 1) { return { multipleOf: valid[0] } }
   const lcm = lcmOf(valid)
   if (lcm !== undefined) { return { multipleOf: lcm } }
-  report?.("Could not compute the least common multiple of multipleOf values exactly, kept as allOf", valid)
+  report?.("Could not compute the least common multiple of multipleOf values exactly, kept as allOf", valid, { code: "multipleof-kept", keyword: "multipleOf" })
   return { allOf: valid.map((multipleOf) => ({ multipleOf })) }
 }
 

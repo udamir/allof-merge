@@ -10,16 +10,17 @@ type Report = GroupContext["report"]
 const NARROWER_FORMAT: Readonly<Record<string, string>> = Object.freeze({ int32: "int64", float: "double" })
 
 /**
- * format (D-2, D-14): equal formats are kept; with `lattice` (the OpenAPI rule sets) the numeric lattice picks the
- * narrower format (int32 ∧ int64 → int32, float ∧ double → float); any other combination of different formats
- * (without `lattice` also int32 ∧ int64) is kept as `allOf: [{ format: a }, …]` fragments and reported. Formats that
- * are not strings are ignored and reported.
+ * format (D-14, user decision Q1 of 2026-11-18): equal formats are kept; with `lattice` (the OpenAPI rule sets) the
+ * numeric lattice picks the narrower format (int32 ∧ int64 → int32, float ∧ double → float, a rule-defined outcome);
+ * any other combination of different formats (without `lattice` also int32 ∧ int64, overlapping pairs such as
+ * `uri` ∧ `uri-reference`, unknown formats) is a contradiction: `undefined`. Formats that are not strings are ignored
+ * and reported.
  */
-export const mergeFormats = (values: unknown[], report?: Report, lattice = false): Record<string, unknown> => {
+export const mergeFormats = (values: unknown[], report?: Report, lattice = false): Record<string, unknown> | undefined => {
   const formats: string[] = []
   for (const value of values) {
     if (typeof value !== "string") {
-      report?.("Malformed format value is ignored", [value])
+      report?.("Malformed format value is ignored", [value], { code: "malformed-value", keyword: "format" })
       continue
     }
     if (!formats.includes(value)) { formats.push(value) }
@@ -29,8 +30,6 @@ export const mergeFormats = (values: unknown[], report?: Report, lattice = false
   const minimal = lattice
     ? formats.filter((format) => !formats.some((other) => hasOwn(NARROWER_FORMAT, other) && NARROWER_FORMAT[other] === format))
     : formats
-  if (minimal.length === 1) { return { format: minimal[0] } }
-  report?.("Different formats cannot be merged, kept as allOf", minimal)
-  return { allOf: minimal.map((format) => ({ format })) }
+  return minimal.length === 1 ? { format: minimal[0] } : undefined
 }
 

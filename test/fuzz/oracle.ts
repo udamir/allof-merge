@@ -169,6 +169,25 @@ const firstDifference = (a: (x: unknown) => boolean, b: (x: unknown) => boolean,
 
 const runMerge = (schema: unknown, c: FuzzCase, rules: MergeRules) => merge(clone(schema), { ...c.options, rules })
 
+// the distinct `format` values anywhere in a value
+const formatsOf = (value: unknown, found = new Set<unknown>(), seen = new Set<object>()): Set<unknown> => {
+  if (typeof value !== "object" || value === null || seen.has(value)) { return found }
+  seen.add(value)
+  if (!Array.isArray(value) && typeof (value as any).format === "string") { found.add((value as any).format) }
+  for (const child of Object.values(value)) { formatsOf(child, found, seen) }
+  return found
+}
+
+const holdsFalse = (value: unknown): boolean => JSON.stringify(value).includes("false")
+
+/**
+ * User decision Q1 (2026-11-18): two different formats in one conjunction make the schema `false`. `format` only
+ * constrains strings, so for an asserting validator the decided output rejects non-string instances the original
+ * accepts: a deliberate deviation, not a defect. A case whose input holds two different formats and whose output holds
+ * a `false` is not checked.
+ */
+const decidedFormatDeviation = (schema: unknown, merged: unknown): boolean => formatsOf(schema).size > 1 && holdsFalse(merged)
+
 /**
  * Checks one case: merge does not throw, the output is serializable and accepted by cfworker, the merged schema gives
  * every generated instance the same verdict as the original, and merging the output again changes nothing.
@@ -186,6 +205,7 @@ export const checkCase = (c: FuzzCase, options: CheckOptions = {}): Failure | un
   }
   if (json === undefined) { return { kind: "invalid-output", message: "merge returned undefined", merged } }
   merged = JSON.parse(json)
+  if (decidedFormatDeviation(c.schema, merged)) { return undefined }
 
   let original: (x: unknown) => boolean
   let result: (x: unknown) => boolean

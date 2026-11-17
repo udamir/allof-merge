@@ -23,7 +23,7 @@ const mergeDependencies = (values: Record<string, any>[], report: Report): Recor
       if (isNameList(entry) || isSchemaValue(entry)) {
         entries.push(entry)
       } else {
-        report?.("Malformed dependencies member is ignored", [entry])
+        report?.("Malformed dependencies member is ignored", [entry], { code: "malformed-value", keyword: "dependencies" })
       }
     }
     if (!entries.length) { continue }
@@ -45,7 +45,7 @@ const mergeDependentRequired = (values: Record<string, any>[], report: Report): 
       if (isNameList(value[name])) {
         entries.push(value[name])
       } else {
-        report?.("Malformed dependentRequired member is ignored", [value[name]])
+        report?.("Malformed dependentRequired member is ignored", [value[name]], { code: "malformed-value", keyword: "dependentRequired" })
       }
     }
     if (entries.length) { safeSet(result, name, entries.length === 1 ? entries[0] : uniqueConcat(entries)) }
@@ -62,7 +62,7 @@ const mergeDependentSchemas = (values: Record<string, any>[], report: Report): R
       if (isSchemaValue(value[name])) {
         entries.push(value[name])
       } else {
-        report?.("Malformed dependentSchemas member is ignored", [value[name]])
+        report?.("Malformed dependentSchemas member is ignored", [value[name]], { code: "malformed-value", keyword: "dependentSchemas" })
       }
     }
     if (entries.length) { safeSet(result, name, combineSchemas(entries)) }
@@ -94,7 +94,7 @@ export const dependenciesGroup: KeywordGroup = {
         if (isPlainObject(value)) {
           list.push(value)
         } else {
-          report?.(`Malformed ${key} value is ignored`, [value])
+          report?.(`Malformed ${key} value is ignored`, [value], { code: "malformed-value", keyword: key })
         }
       }
       if (!list.length) { continue }

@@ -4,6 +4,7 @@ import { getAllOfItemsMap } from "./jsonschema"
 import type { JsonSchema, MergeContext, MergeResolver } from "../types"
 import { asFragments, type Fragments } from "../utils"
 import { hasOwn, safeSet } from "../safe"
+import { groupReport } from "./basic"
 
 // merged `properties` of the items as a one-element list (compatibility export; empty when no property survives)
 export const getPropertiesForMerge = (allOfItems: JsonSchema[]): any[] => {
@@ -26,10 +27,10 @@ export const getPatternPropertiesForMerge = (allOfItems: JsonSchema[]): any[] =>
  */
 const shapes = new WeakMap<object, { merged: Record<string, unknown>, emitted: boolean }>()
 
-const objectShapeOf = (items: Record<string, any>[], settings: MergeContext["settings"]) => {
+const objectShapeOf = (items: Record<string, any>[], ctx: MergeContext) => {
   let entry = shapes.get(items)
   if (!entry) {
-    entry = { merged: mergeObjectShape(items, settings), emitted: false }
+    entry = { merged: mergeObjectShape(items, ctx.settings, groupReport(ctx)), emitted: false }
     shapes.set(items, entry)
   }
   return entry
@@ -37,7 +38,7 @@ const objectShapeOf = (items: Record<string, any>[], settings: MergeContext["set
 
 const shapeKey = (key: string, args: any[], ctx: MergeContext | undefined, legacy: () => unknown): unknown | Fragments => {
   if (!ctx || !Array.isArray(ctx.allOfItems)) { return legacy() }
-  const entry = objectShapeOf(ctx.allOfItems, ctx.settings)
+  const entry = objectShapeOf(ctx.allOfItems, ctx)
   if (hasOwn(entry.merged, "allOf")) {
     if (entry.emitted) { return asFragments([]) }
     entry.emitted = true

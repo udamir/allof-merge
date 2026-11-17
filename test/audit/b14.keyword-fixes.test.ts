@@ -176,14 +176,15 @@ describe("B14.4 format (D-2, D-14, VR-16)", () => {
   it("B14.4.1 numeric lattice picks the narrower format (OpenAPI rule sets only, D-14)", () => {
     expect(oas30({ allOf: [{ type: "integer", format: "int64" }, { format: "int32" }] })).toEqual({ type: "integer", format: "int32" })
     expect(oas30({ allOf: [{ type: "number", format: "float" }, { format: "double" }] })).toEqual({ type: "number", format: "float" })
-    // D-14 (changed): the JSON Schema rules treat int32 vs int64 as a conflict
-    expect(merge({ allOf: [{ format: "int32" }, { format: "int64" }] })).toEqual({ allOf: [{ format: "int32" }, { format: "int64" }] })
+    // D-14 / Q1: the JSON Schema rules treat int32 vs int64 as a contradiction
+    expect(merge({ allOf: [{ format: "int32" }, { format: "int64" }] })).toBe(false)
   })
 
-  it("B14.4.2 other differing formats are kept as fragments and reported", () => {
+  it("B14.4.2 other differing formats are a contradiction and reported (Q1, replaces D-2)", () => {
     const { result, mergeErrors } = mergeReport({ allOf: [{ type: "string", format: "email" }, { format: "date" }] })
-    expect(result).toEqual({ type: "string", allOf: [{ format: "email" }, { format: "date" }] })
+    expect(result).toBe(false)
     expect(mergeErrors).toHaveLength(1)
+    expect(mergeErrors[0].values).toEqual(["email", "date"])
     expect(merge({ allOf: [{ format: "uuid" }, { format: "uuid" }] })).toEqual({ format: "uuid" })
   })
 })

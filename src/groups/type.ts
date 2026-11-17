@@ -1,6 +1,7 @@
 import type { GroupContext, KeywordGroup } from "../types"
 import { intersectTypes } from "../resolvers/basic"
 import { hasOwn } from "../safe"
+import { ISSUE_MESSAGES } from "../issues"
 
 // a well-formed `type` value as a list of type names; undefined when malformed (ignored and reported). Unknown
 // type names are kept: they match nothing, so they make the intersection empty as before
@@ -36,7 +37,7 @@ const resolveNullable = (ctx: GroupContext, types: (string[] | undefined)[]): Re
     const item = items[i]
     let nullable = hasOwn(item, "nullable") ? item.nullable : undefined
     if (nullable !== undefined && typeof nullable !== "boolean") {
-      ctx.report?.("Malformed nullable value is ignored", [nullable])
+      ctx.report?.("Malformed nullable value is ignored", [nullable], { code: "malformed-value", keyword: "nullable" })
       nullable = undefined
     }
     if (nullable === false) { explicitFalse = true }
@@ -60,6 +61,10 @@ const resolveNullable = (ctx: GroupContext, types: (string[] | undefined)[]): Re
   }
 
   if (allowed.length) {
+    // strict 3.0.3: an item's `nullable: true` next to a typed item without null has no effect (example A of the design)
+    if (!nullAllowed && items.some((item) => hasOwn(item, "nullable") && item.nullable === true)) {
+      ctx.report?.(ISSUE_MESSAGES["nullable-overridden"]!, [true], { code: "nullable-overridden", keyword: "nullable" })
+    }
     result.type = asType(allowed)
     if (nullAllowed) {
       result.nullable = true
@@ -95,7 +100,7 @@ export const typeGroup: KeywordGroup = {
       if (list) {
         originals.push(item.type)
       } else {
-        ctx.report?.("Malformed type value is ignored", [item.type])
+        ctx.report?.("Malformed type value is ignored", [item.type], { code: "malformed-value", keyword: "type" })
       }
       return list
     })

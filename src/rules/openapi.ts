@@ -7,11 +7,12 @@ export const openApiVersion = ["3.0.x", "3.1.x"] as const
 export type OpenApiVersion = typeof openApiVersion[number]
 
 const NO_CUSTOM_RULES: MergeRules = Object.freeze({})
-const schemaRulesCache = new Map<OpenApiVersion, WeakMap<object, MergeRules>>()
-const documentRulesCache = new Map<OpenApiVersion, WeakMap<object, MergeRules>>()
+// keyed by `${version}|${schema draft}`
+const schemaRulesCache = new Map<string, WeakMap<object, MergeRules>>()
+const documentRulesCache = new Map<string, WeakMap<object, MergeRules>>()
 
-// memoized per (version, customRules identity)
-const cached = (cache: Map<OpenApiVersion, WeakMap<object, MergeRules>>, version: OpenApiVersion, customRules: MergeRules, build: () => MergeRules): MergeRules => {
+// memoized per (version and schema draft, customRules identity)
+const cached = (cache: Map<string, WeakMap<object, MergeRules>>, version: string, customRules: MergeRules, build: () => MergeRules): MergeRules => {
   let byCustomRules = cache.get(version)
   if (!byCustomRules) {
     byCustomRules = new WeakMap()
@@ -54,17 +55,24 @@ const customJsonSchemaMergeRules = (version: JsonSchemaVersion, customRules: Mer
   return rules
 }
 
+// the JSON Schema draft of an OpenAPI version's schemas: 3.0 follows draft-04, 3.1 defaults to 2020-12 and may declare
+// another draft (`jsonSchemaDialect`)
+const schemaDraftOf = (version: OpenApiVersion, dialect?: JsonSchemaVersion): JsonSchemaVersion =>
+  version === "3.0.x" ? "draft-04" : dialect ?? "2020-12"
+
 /**
  * Schema rules of an OpenAPI version: 3.0 schemas follow draft-04 (boolean exclusive bounds), 3.1 schemas are JSON
- * Schema 2020-12. `customRules` are schema-level rules (like the second argument of jsonSchemaMergeRules) applied at
- * every schema location. Memoized per (version, customRules identity).
+ * Schema 2020-12 unless `dialect` (the document's `jsonSchemaDialect`) names another draft. `customRules` are
+ * schema-level rules (like the second argument of jsonSchemaMergeRules) applied at every schema location. Memoized
+ * per (version, dialect, customRules identity).
  */
-export const openApiJsonSchemaMergeRules = (version: OpenApiVersion, customRules: MergeRules = NO_CUSTOM_RULES): MergeRules => {
-  return cached(schemaRulesCache, version, customRules, () => customJsonSchemaMergeRules(version === "3.0.x" ? "draft-04" : "2020-12", customRules))
+export const openApiJsonSchemaMergeRules = (version: OpenApiVersion, customRules: MergeRules = NO_CUSTOM_RULES, dialect?: JsonSchemaVersion): MergeRules => {
+  const draft = schemaDraftOf(version, dialect)
+  return cached(schemaRulesCache, `${version}|${draft}`, customRules, () => customJsonSchemaMergeRules(draft, customRules))
 }
 
-const buildOpenApiMergeRules = (version: OpenApiVersion, customRules: MergeRules): MergeRules => {
-  const schema = openApiJsonSchemaMergeRules(version, customRules)
+const buildOpenApiMergeRules = (version: OpenApiVersion, customRules: MergeRules, dialect?: JsonSchemaVersion): MergeRules => {
+  const schema = openApiJsonSchemaMergeRules(version, customRules, dialect)
 
   // Parameter / Header objects: schema or content media types
   const parameter: MergeRules = {
@@ -141,8 +149,10 @@ const buildOpenApiMergeRules = (version: OpenApiVersion, customRules: MergeRules
 
 /**
  * Document rules of an OpenAPI version. `customRules` are schema-level rules applied at every schema location of the
- * document (see openApiJsonSchemaMergeRules). Memoized per (version, customRules identity).
+ * document (see openApiJsonSchemaMergeRules); `dialect` is the draft of 3.1 schemas (`jsonSchemaDialect`, default
+ * 2020-12). Memoized per (version, dialect, customRules identity).
  */
-export const openApiMergeRules = (version: OpenApiVersion = "3.0.x", customRules: MergeRules = NO_CUSTOM_RULES): MergeRules => {
-  return cached(documentRulesCache, version, customRules, () => buildOpenApiMergeRules(version, customRules))
+export const openApiMergeRules = (version: OpenApiVersion = "3.0.x", customRules: MergeRules = NO_CUSTOM_RULES, dialect?: JsonSchemaVersion): MergeRules => {
+  const draft = schemaDraftOf(version, dialect)
+  return cached(documentRulesCache, `${version}|${draft}`, customRules, () => buildOpenApiMergeRules(version, customRules, dialect))
 }

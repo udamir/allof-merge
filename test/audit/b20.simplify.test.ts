@@ -55,11 +55,14 @@ describe("B20.2 dedupeFragments (S2, F3.3)", () => {
     expect(exact(data, { dedupeFragments: false })).toEqual({ allOf: [{ contains: N }, { contains: S }, { contains: N }] })
   })
 
-  it("B20.2.2 identical if/then fragments and format conflicts", () => {
+  it("B20.2.2 identical if/then fragments; repeated formats", () => {
     const cond = { if: { minLength: 2 }, then: { maxLength: 4 } }
     const other = { if: { minLength: 5 }, then: { maxLength: 8 } }
     expect(exact({ allOf: [cond, other, cond] })).toEqual({ allOf: [cond, other] })
-    expect(exact({ allOf: [{ format: "date" }, { format: "email" }, { format: "date" }] })).toEqual({ allOf: [{ format: "date" }, { format: "email" }] })
+    expect(exact({ allOf: [{ format: "date" }, { format: "date" }] })).toEqual({ format: "date" })
+    // Q1: different formats are a contradiction (no longer kept as fragments; not equivalent for an annotation-only
+    // validator, which is why the oracle is not used here)
+    expect(merge({ allOf: [{ format: "date" }, { format: "email" }, { format: "date" }] })).toBe(false)
   })
 
   it("B20.2.3 identical { $ref } fragments (items with their own unevaluated*) are kept once", () => {

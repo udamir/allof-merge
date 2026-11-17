@@ -23,6 +23,9 @@ export const jsonSchemaMergeResolver: MergeResolver = (args, ctx) => {
   const { createMerger, defaultSchemaRules } = engine
   if (!createMerger || !defaultSchemaRules) { throw new Error("allof-merge: the engine is not initialized (import the package entry)") }
   const rules = isAllOfMergeRule(ctx?.mergeRules) ? ctx.mergeRules : defaultSchemaRules()
-  const merger = createMerger({ onMergeError: (_message, _path, values) => ctx?.mergeError?.(values) })
+  // issues of the nested merge are forwarded unchanged to the engine's node when it provides `forward` (which also
+  // calls the node's legacy onMergeError as mergeError did); direct callers get every problem through mergeError
+  const forward = ctx?.forward
+  const merger = createMerger(forward ? { onIssue: forward } : { onMergeError: (_message, _path, values) => ctx?.mergeError?.(values) })
   return merger.merge(items.length === 1 ? items[0] : { allOf: items }, { rules })
 }

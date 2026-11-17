@@ -26,19 +26,20 @@ const graphDoc = (schemas: Record<string, unknown>) => ({ graphapi: "0.1.2", com
 describe("B16.1 format lattice only under the OpenAPI rule sets (D-14)", () => {
   const conflict = (format: [string, string]) => ({ allOf: [{ type: "integer", format: format[0] }, { format: format[1] }] })
 
-  it.each(["draft-04", "draft-06", "draft-07", "2020-12"] as const)("B16.1.1 JSON Schema %s: int32 vs int64 and float vs double are conflicts", (draft) => {
+  // Q1 (2026-11-18): two different formats are a contradiction (false), outside the OpenAPI lattice
+  it.each(["draft-04", "draft-06", "draft-07", "2020-12"] as const)("B16.1.1 JSON Schema %s: int32 vs int64 and float vs double are contradictions", (draft) => {
     const rules = jsonSchemaMergeRules(draft)
     for (const pair of [["int32", "int64"], ["float", "double"]] as [string, string][]) {
       const { result, mergeErrors } = mergeReport(conflict(pair), { rules })
-      expect(result).toEqual({ type: "integer", allOf: [{ format: pair[0] }, { format: pair[1] }] })
+      expect(result).toBe(false)
       expect(mergeErrors).toHaveLength(1)
       expect(mergeErrors[0].values).toEqual(pair)
     }
   })
 
-  it("B16.1.2 GraphApi rule set: int32 vs int64 is a conflict", () => {
+  it("B16.1.2 GraphApi rule set: int32 vs int64 is a contradiction", () => {
     const { result, mergeErrors } = mergeReport(graphDoc({ A: conflict(["int32", "int64"]) }))
-    expect(result.components.schemas.A).toEqual({ type: "integer", allOf: [{ format: "int32" }, { format: "int64" }] })
+    expect(result.components.schemas.A).toBe(false)
     expect(mergeErrors).toHaveLength(1)
   })
 
@@ -51,15 +52,15 @@ describe("B16.1 format lattice only under the OpenAPI rule sets (D-14)", () => {
     const { result, mergeErrors } = mergeReport(doc)
     expect(result.components.schemas.A).toEqual({ type: "integer", format: "int32" })
     expect(result.components.schemas.B.properties.n).toEqual({ type: "number", format: "float" })
-    // other differing formats stay a conflict under OpenAPI too
-    expect(result.components.schemas.C).toEqual({ type: "string", allOf: [{ format: "date" }, { format: "date-time" }] })
+    // other differing formats are a contradiction under OpenAPI too (Q1)
+    expect(result.components.schemas.C).toBe(false)
     expect(mergeErrors).toHaveLength(1)
   })
 
   it("B16.1.4 openApiJsonSchemaMergeRules (3.0 and 3.1) narrow; the JSON Schema draft they build on does not", () => {
     expect(merge(conflict(["int32", "int64"]), { rules: openApiJsonSchemaMergeRules("3.0.x") })).toEqual({ type: "integer", format: "int32" })
     expect(merge(conflict(["int32", "int64"]), { rules: openApiJsonSchemaMergeRules("3.1.x") })).toEqual({ type: "integer", format: "int32" })
-    expect(merge(conflict(["int32", "int64"]), { rules: jsonSchemaMergeRules("2020-12") }).allOf).toHaveLength(2)
+    expect(merge(conflict(["int32", "int64"]), { rules: jsonSchemaMergeRules("2020-12") })).toBe(false)
   })
 
   it("B16.1.5 the lattice is opt-in for JSON Schema rules through resolvers.mergeOpenApiFormat (group and per-key mode)", () => {
@@ -68,9 +69,9 @@ describe("B16.1 format lattice only under the OpenAPI rule sets (D-14)", () => {
     // without the group tag the string group is handed back to the per-key table: same result
     const perKey = jsonSchemaMergeRules("draft-07", { "/format": { $: resolvers.mergeOpenApiFormat } })
     expect(merge({ allOf: [{ format: "int32", minLength: 1 }, { format: "int64", maxLength: 3 }] }, { rules: perKey })).toEqual({ format: "int32", minLength: 1, maxLength: 3 })
-    // and the strict resolver keeps fragments in per-key mode
+    // and the strict resolver is a contradiction in per-key mode too (Q1)
     const strict = jsonSchemaMergeRules("draft-07", { "/format": { $: resolvers.mergeFormat } })
-    expect(merge(conflict(["int32", "int64"]), { rules: strict })).toEqual({ type: "integer", allOf: [{ format: "int32" }, { format: "int64" }] })
+    expect(merge(conflict(["int32", "int64"]), { rules: strict })).toBe(false)
   })
 })
 

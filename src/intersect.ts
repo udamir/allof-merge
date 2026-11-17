@@ -2,11 +2,12 @@ import { type JsonPath, getNodeRules } from "json-crawl"
 
 import type { GroupContext, KeywordGroup, MergeContext, MergeOptions, MergeResolver, MergeRule, MergeRules, ResolvedMergeSettings, SimplifyOptions } from "./types"
 import { countCombinations, dedupeValues, fragmentsOf, fragmentsValue, isFragments, isPlainObject } from "./utils"
-import { last, mergeArray, mergeSchemas } from "./resolvers/basic"
+import { last, mergeArray, mergeSchemas, singleValueValidators } from "./resolvers/basic"
 import { keywordGroups } from "./groups"
 import { isAllOfMergeRule, jsonSchemaMergeResolver } from "./resolvers/conjunction"
 import { ErrorMessage } from "./errors"
-import { safeSet } from "./safe"
+import { hasOwn, safeSet } from "./safe"
+import type { IssueHint, MergeIssue } from "./issues"
 
 // key -> the group that owns it (built once)
 const groupOfKey = new Map<string, KeywordGroup>()
@@ -60,6 +61,15 @@ const resolveSimplify = (option: MergeOptions["simplify"]): Required<SimplifyOpt
 
 const DEFAULT_SETTINGS: ResolvedMergeSettings = resolveMergeSettings()
 
+// the `reason` of an unsatisfiable issue raised by a keyword group or a keyword's resolver
+const GROUP_REASONS: Readonly<Record<string, string>> = Object.freeze({ type: "type", numericBounds: "bounds", string: "format" })
+const KEY_REASONS: Readonly<Record<string, string>> = Object.freeze({ type: "type", enum: "enum", const: "const", format: "format" })
+
+const groupReason = (group: KeywordGroup, values: Record<string, any[]>): string | undefined => {
+  if (group.name === "enumConst") { return values.const && values.const.length > 1 ? "const" : "enum" }
+  return hasOwn(GROUP_REASONS, group.name) ? GROUP_REASONS[group.name] : undefined
+}
+
 export interface IntersectContext {
   mergeRules: MergeRules
   path: JsonPath
@@ -69,8 +79,11 @@ export interface IntersectContext {
   budget?: { remaining: number }
   // resolved merge options handed to the keyword groups (defaults when absent)
   settings?: ResolvedMergeSettings
-  // called for every contradiction (values are the conflicting keyword values) and for a budget overflow / malformed value
-  report: (values: any[], message?: string) => void
+  // called for every contradiction (values are the conflicting keyword values, no message) and for a budget overflow /
+  // malformed value / kept part (with a message); `hint` carries the issue code
+  report: (values: any[], message?: string, hint?: IssueHint) => void
+  // issues of nested merges run by resolvers, their path relative to the node
+  forward?: (issue: MergeIssue) => void
   // full (eager) merge of schema values whose location rules do not merge allOf (custom `$: jsonSchemaMergeResolver`)
   mergeNested?: (schemas: unknown[], rules: MergeRules) => unknown
 }
@@ -129,7 +142,8 @@ const itemsMap = (items: Record<string, any>[]): Record<string, any[]> => {
 export const intersect = (items: Record<string, any>[], ctx: IntersectContext): Record<string, any> | false | typeof UNCHANGED => {
   const { mergeRules, path } = ctx
   const settings = ctx.settings ?? DEFAULT_SETTINGS
-  const report: GroupContext["report"] = (message, values) => ctx.report(values, message)
+  // a group report without a hint is a custom group's conflict
+  const report: GroupContext["report"] = (message, values, hint) => ctx.report(values, message, hint ?? { code: "merge-conflict" })
   const map = itemsMap(items)
   const result: Record<string, any> = {}
   const allOfFragments: unknown[] = []
@@ -167,7 +181,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
     for (const key of present) { delete map[key] }
     const merged = group.resolve({ items, values, mergeRules, path, settings, report })
     if (merged === undefined) {
-      ctx.report(present.length === 1 ? values[present[0]] : present.flatMap((key) => values[key]))
+      ctx.report(present.length === 1 ? values[present[0]] : present.flatMap((key) => values[key]), undefined, { code: "unsatisfiable", keyword: present.length === 1 ? present[0] : undefined, reason: groupReason(group, values) })
       return false
     }
     for (const key of Object.keys(merged)) {
@@ -187,6 +201,12 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
     const resolver: MergeResolver = rule && typeof rule.$ === "function" ? rule.$ : last
 
     if (values.length === 1 && !handedBack?.has(key)) {
+      // Q9: a lone malformed value of a validated keyword is dropped and reported
+      const valid = singleValueValidators.get(resolver)
+      if (valid && !valid(values[0])) {
+        ctx.report(values, ErrorMessage.malformedValue(key), { code: "malformed-value", keyword: key })
+        continue
+      }
       safeSet(result, key, values[0])
       continue
     }
@@ -195,7 +215,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
       // oneOf / anyOf: a malformed (non-array) value is ignored and reported (VR-37, D-6)
       const arrays = values.filter(Array.isArray)
       if (arrays.length < values.length) {
-        ctx.report(values.filter((value) => !Array.isArray(value)), ErrorMessage.malformedValue(key))
+        ctx.report(values.filter((value) => !Array.isArray(value)), ErrorMessage.malformedValue(key), { code: "malformed-value", keyword: key })
         if (!arrays.length) { continue }
         if (arrays.length === 1) {
           safeSet(result, key, arrays[0])
@@ -214,10 +234,22 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
       const count = countCombinations(values)
       const limit = ctx.budget ? ctx.budget.remaining : ctx.branchBudget
       if (count > limit) {
-        ctx.report(values, ErrorMessage.branchBudgetExceeded(count, ctx.budget ? settings.branchBudget : ctx.branchBudget))
+        ctx.report(values, ErrorMessage.branchBudgetExceeded(count, ctx.budget ? settings.branchBudget : ctx.branchBudget), { code: "branch-budget", keyword: key })
         return UNCHANGED
       }
       if (ctx.budget) { ctx.budget.remaining -= count }
+    }
+
+    // the context of the key's resolver: `mergeError` is a custom resolver's conflict, `report` carries an issue code
+    const mergeContext: MergeContext = {
+      allOfItems: items,
+      mergeRules,
+      path,
+      settings,
+      key,
+      mergeError: (conflict) => ctx.report(conflict, undefined, { code: "merge-conflict", keyword: key }),
+      report: (code, conflict, details) => ctx.report(conflict, details?.message ?? (code === "malformed-value" ? ErrorMessage.malformedValue(key) : undefined), { code, keyword: details?.keyword ?? key, reason: details?.reason }),
+      forward: ctx.forward,
     }
 
     let merged: unknown
@@ -230,10 +262,9 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
         // rules of the node, as 0.6.8 did (VR-38)
         merged = ctx.mergeNested
           ? ctx.mergeNested(values, mergeRules)
-          : jsonSchemaMergeResolver(values, { allOfItems: items, mergeRules, path, settings, mergeError: (conflict) => ctx.report(conflict) })
+          : jsonSchemaMergeResolver(values, mergeContext)
       }
     } else {
-      const mergeContext: MergeContext = { allOfItems: items, mergeRules, path, settings, mergeError: (conflict) => ctx.report(conflict) }
       merged = resolver(values, mergeContext)
     }
 
@@ -246,7 +277,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
     }
 
     if (merged === undefined) {
-      ctx.report(values)
+      ctx.report(values, undefined, { code: "unsatisfiable", keyword: key, reason: hasOwn(KEY_REASONS, key) ? KEY_REASONS[key] : undefined })
       return false
     }
     safeSet(result, key, merged)
