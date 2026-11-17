@@ -9,4 +9,6 @@ import type { MergeOptions, MergeRules, Merger } from "./types"
 export const engine: {
   createMerger?: (options?: MergeOptions) => Merger
   defaultSchemaRules?: () => MergeRules
+  // internal: false turns the clean-subtree fast path off (tests compare the outputs with and without it)
+  fastPath?: boolean
 } = {}

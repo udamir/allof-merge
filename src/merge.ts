@@ -288,8 +288,7 @@ interface CallState {
   seen: Set<string>                             // issues raised in this call (and in its earlier D-17 rounds)
   prior?: Set<string>                           // issues raised by the earlier rounds of this merge (D-17)
   issues: MergeIssue[]                          // every issue raised or replayed in this call (result cache)
-  copies: WeakMap<object, object>               // input node of a clean subtree -> its copy (fast path, one output
-                                                // instance per input instance)
+  verified: WeakSet<object>                     // clean subtrees whose $refs keep their meaning (rule 6)
   unclean: WeakSet<object>                      // clean subtrees holding a $ref through a rewritten node (rule 6)
 }
 
@@ -418,10 +417,37 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   let callSink: ((issue: MergeIssue) => void) | undefined
   let hasCallSink = false
 
-  const sourcePointerOf = (c: CallState, node: unknown): string | undefined => {
-    if (typeof node !== "object" || node === null || c.index.source === undefined) { return undefined }
-    const pointer = c.index.pointerOf(node)
+  const activeSink = () => hasCallSink ? callSink : options.onIssue
+
+  const pointerIn = (index: ResolutionIndex, node: unknown): string | undefined => {
+    if (typeof node !== "object" || node === null || index.source === undefined) { return undefined }
+    const pointer = index.pointerOf(node)
     return pointer === undefined ? undefined : `#${pointer}`
+  }
+
+  // the source pointer is computed when a sink listens (pointerOf indexes the whole source once); otherwise the node
+  // is remembered, so that a later replay to a sink (memo hit, result cache) can still compute it
+  const pendingPointers = new WeakMap<MergeIssue, { index: ResolutionIndex, node: unknown }>()
+
+  const setPointer = (issue: MergeIssue, index: ResolutionIndex, node: unknown) => {
+    if (activeSink()) {
+      const pointer = pointerIn(index, node)
+      if (pointer === undefined) {
+        delete issue.sourcePointer
+      } else {
+        issue.sourcePointer = pointer
+      }
+    } else {
+      delete issue.sourcePointer
+      if (typeof node === "object" && node !== null) { pendingPointers.set(issue, { index, node }) }
+    }
+  }
+
+  // the source pointer of a recorded issue (computed now when it was pending)
+  const pointerOfIssue = (issue: MergeIssue): string | undefined => {
+    if (issue.sourcePointer !== undefined) { return issue.sourcePointer }
+    const pending = pendingPointers.get(issue)
+    return pending ? pointerIn(pending.index, pending.node) : undefined
   }
 
   const freezeIssue = (issue: MergeIssue): MergeIssue => {
@@ -470,8 +496,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     const path = d.path ?? (at ? at.path : [])
     const message = d.message ?? ISSUE_MESSAGES[code] ?? meta.description
     const issue: MergeIssue = { code, severity: meta.severity, category: meta.category, message, path: [...path] }
-    const sourcePointer = sourcePointerOf(c, d.node ?? c.stack[c.stack.length - 1]?.value)
-    if (sourcePointer !== undefined) { issue.sourcePointer = sourcePointer }
+    setPointer(issue, c.index, d.node ?? c.stack[c.stack.length - 1]?.value)
     if (d.keyword !== undefined) { issue.keyword = d.keyword }
     if (d.values !== undefined) { issue.values = d.values }
     if (d.ref !== undefined) { issue.ref = d.ref }
@@ -510,16 +535,20 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   const replay = (c: CallState, rec: RecordedIssues | undefined, at: At, node: unknown) => {
     if (!rec || !rec.issues.length) { return }
     const base = at.path
-    const here = sourcePointerOf(c, node)
     const sameSource = rec.source === c.index.source
     for (const issue of rec.issues) {
       const rel = issue.path.slice(rec.depth)
       const copy: MergeIssue = { ...issue, path: [...base, ...rel] }
-      const sourcePointer = rel.length ? (sameSource ? issue.sourcePointer : undefined) : here
-      if (sourcePointer === undefined) {
+      if (!rel.length) {
+        setPointer(copy, c.index, node)
+      } else if (!sameSource) {
         delete copy.sourcePointer
+      } else if (activeSink()) {
+        const pointer = pointerOfIssue(issue)
+        if (pointer !== undefined) { copy.sourcePointer = pointer }
       } else {
-        copy.sourcePointer = sourcePointer
+        const pending = pendingPointers.get(issue)
+        if (pending) { pendingPointers.set(copy, pending) }
       }
       freezeIssue(copy)
       record(c, copy)
@@ -676,7 +705,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     seen: new Set(carry?.seen),
     prior: carry?.seen,
     issues: [],
-    copies: new WeakMap(),
+    verified: new WeakSet(),
     unclean: new WeakSet(),
   })
 
@@ -859,114 +888,151 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return settings.dedupeAnyOf && !!anyOf && anyOf.length > 1 && dedupeValues(anyOf) !== anyOf
   }
 
-  // input node -> height of its subtree (0 for a leaf container), or DIRTY when the subtree needs work (a node of
-  // nodeNeedsWork, or a cycle: the clone must write cycle $refs). Inputs must not change while the merger is in use
-  const heights = new WeakMap<object, number>()
+  // input node -> its subtree: DIRTY when it needs work (a node of nodeNeedsWork, or a cycle: the clone must write
+  // cycle $refs), else (height << 1) | (1 when it holds a $ref). Inputs must not change while the merger is in use
+  const scanned = new WeakMap<object, number>()
+  // clean input node -> its copy, built by the scan bottom-up and shared by every call of the merger (one output
+  // instance per input instance, D-11)
+  const cleanCopies = new WeakMap<object, object>()
 
-  // iterative post-order scan, memoized per node
-  const subtreeHeight = (root: object): number => {
-    const known = heights.get(root)
+  const hasRefKey = (node: object): boolean => !Array.isArray(node) && typeof (node as Record<string, unknown>).$ref === "string"
+
+  /**
+   * One iterative post-order pass, memoized per node: decides which subtrees are clean and copies them (own
+   * enumerable string keys, `__proto__` as data, holes kept). A node is left as soon as it turns out to need work: its
+   * remaining children are scanned when the regular path visits them.
+   */
+  const scan = (root: object): number => {
+    const known = scanned.get(root)
     if (known !== undefined) { return known }
-    interface ScanFrame { node: Record<string | number, unknown>, keys: string[] | undefined, length: number, i: number, height: number }
+    interface ScanFrame {
+      node: Record<string | number, unknown>
+      keys: string[] | undefined
+      length: number
+      i: number
+      info: number                                // DIRTY or (height << 1) | ref bit
+      copy: Record<string | number, unknown> | undefined
+      key: string | number                        // the key of the child being scanned
+    }
     const stack: ScanFrame[] = []
     const onPath = new Set<object>()
     const enter = (node: object) => {
       onPath.add(node)
       const keys = Array.isArray(node) ? undefined : Object.keys(node)
-      stack.push({ node: node as Record<string | number, unknown>, keys, length: keys ? keys.length : (node as unknown[]).length, i: 0, height: nodeNeedsWork(node) ? DIRTY : 0 })
+      const dirty = nodeNeedsWork(node)
+      stack.push({
+        node: node as Record<string | number, unknown>,
+        keys,
+        length: keys ? keys.length : (node as unknown[]).length,
+        i: 0,
+        info: dirty ? DIRTY : hasRefKey(node) ? 1 : 0,
+        copy: dirty ? undefined : newContainer(node),
+        key: 0,
+      })
+    }
+    // a finished clean child of `frame`: its height and ref bit count, its copy is written under `key`
+    const adopt = (frame: ScanFrame, key: string | number, info: number, copy: object | undefined) => {
+      if (frame.info === DIRTY) { return }
+      if (info === DIRTY) {
+        frame.info = DIRTY
+        frame.copy = undefined
+        return
+      }
+      frame.info = (Math.max(frame.info >> 1, (info >> 1) + 1) << 1) | (frame.info & 1) | (info & 1)
+      safeSet(frame.copy!, key, copy)
     }
     enter(root)
     let result = DIRTY
     while (stack.length) {
       const top = stack[stack.length - 1]
-      if (top.height !== DIRTY && top.i < top.length) {
-        const child = top.keys ? top.node[top.keys[top.i++]] : top.node[top.i++]
-        if (typeof child !== "object" || child === null) { continue }
-        const height = heights.get(child)
-        if (height !== undefined) {
-          top.height = height === DIRTY ? DIRTY : Math.max(top.height, height + 1)
-        } else if (onPath.has(child)) {
-          top.height = DIRTY
+      if (top.info !== DIRTY && top.i < top.length) {
+        let key: string | number
+        if (top.keys) {
+          key = top.keys[top.i++]
         } else {
+          key = top.i++
+          if (!(key in top.node)) { continue }
+        }
+        const child = top.node[key]
+        if (typeof child !== "object" || child === null) {
+          safeSet(top.copy!, key, child)
+          continue
+        }
+        const info = scanned.get(child)
+        if (info !== undefined) {
+          adopt(top, key, info, cleanCopies.get(child))
+        } else if (onPath.has(child)) {
+          adopt(top, key, DIRTY, undefined)
+        } else {
+          top.key = key
           enter(child)
         }
         continue
       }
       stack.pop()
       onPath.delete(top.node)
-      heights.set(top.node, top.height)
+      scanned.set(top.node, top.info)
+      if (top.copy) { cleanCopies.set(top.node, top.copy) }
       const parent = stack[stack.length - 1]
-      if (!parent) {
-        result = top.height
-      } else if (parent.height !== DIRTY) {
-        parent.height = top.height === DIRTY ? DIRTY : Math.max(parent.height, top.height + 1)
+      if (parent) {
+        adopt(parent, parent.key, top.info, top.copy)
+      } else {
+        result = top.info
       }
     }
     return result
+  }
+
+  // height of a clean subtree (0 for a container of primitives), DIRTY when it needs work
+  const subtreeHeight = (node: object): number => {
+    const info = scan(node)
+    return info === DIRTY ? DIRTY : info >> 1
   }
 
   // a container of the same kind as `value` (array length kept: holes stay holes)
   const newContainer = (value: object): Record<string | number, unknown> =>
     (Array.isArray(value) ? new Array(value.length) : {}) as Record<string | number, unknown>
 
-  // a whole-document $ref whose pointer runs through a node the merge rewrites (rule 6): D-22 replaces it
-  const isOwnedRef = (c: CallState, node: object): boolean =>
-    c.wholeDocument && !Array.isArray(node) && isRefNode(node) && ownersOf(c, (node as Record<string, string>).$ref).length > 0
-
   /**
-   * The copy of a clean subtree: own enumerable string keys (`__proto__` as data), holes kept, one copy per input
-   * instance (registered in the call). In a whole-document merge a $ref through a rewritten node stops the copy: the
-   * nodes on the path to it are marked unclean for the call and the regular path takes over (undefined).
+   * Rule 6, whole-document merges only: a clean subtree holding a $ref whose pointer runs through a node the merge
+   * rewrites must take the regular path (D-22 replaces that $ref). Walks only into subtrees that hold a $ref; verified
+   * nodes are remembered per call, the nodes on the path to an owned $ref are marked unclean for the call.
    */
-  const cleanCopy = (c: CallState, root: object): object | undefined => {
-    if (isOwnedRef(c, root)) {
-      c.unclean.add(root)
-      return undefined
+  const refsKeepMeaning = (c: CallState, root: object): boolean => {
+    interface WalkFrame { node: Record<string | number, unknown>, keys: (string | number)[], i: number }
+    const children = (node: object): (string | number)[] => Array.isArray(node) ? node.map((_, i) => i) : Object.keys(node)
+    const stack: WalkFrame[] = []
+    const enter = (node: object): boolean => {
+      if (hasRefKey(node) && ownersOf(c, (node as Record<string, string>).$ref).length) {
+        c.unclean.add(node)
+        for (const frame of stack) { c.unclean.add(frame.node) }
+        return false
+      }
+      stack.push({ node: node as Record<string | number, unknown>, keys: children(node), i: 0 })
+      return true
     }
-    const created: object[] = [root]
-    const rootCopy = newContainer(root)
-    c.copies.set(root, rootCopy)
-    interface CopyFrame { source: Record<string | number, unknown>, copy: Record<string | number, unknown>, keys: string[] | undefined, length: number, i: number }
-    const frameOf = (source: object, copy: Record<string | number, unknown>): CopyFrame => {
-      const keys = Array.isArray(source) ? undefined : Object.keys(source)
-      return { source: source as Record<string | number, unknown>, copy, keys, length: keys ? keys.length : (source as unknown[]).length, i: 0 }
-    }
-    const stack: CopyFrame[] = [frameOf(root, rootCopy)]
+    if (!enter(root)) { return false }
     while (stack.length) {
       const top = stack[stack.length - 1]
-      if (top.i >= top.length) {
+      if (top.i >= top.keys.length) {
         stack.pop()
+        c.verified.add(top.node)
         continue
       }
-      let key: string | number
-      if (top.keys) {
-        key = top.keys[top.i++]
-      } else {
-        key = top.i++
-        if (!(key in top.source)) { continue }
+      const child = top.node[top.keys[top.i++]]
+      if (typeof child !== "object" || child === null || c.verified.has(child) || !((scanned.get(child) ?? 0) & 1)) { continue }
+      if (c.unclean.has(child) || !enter(child)) {
+        for (const frame of stack) { c.unclean.add(frame.node) }
+        return false
       }
-      const child = top.source[key]
-      if (typeof child !== "object" || child === null) {
-        safeSet(top.copy, key, child)
-        continue
-      }
-      const existing = c.copies.get(child)
-      if (existing) {
-        safeSet(top.copy, key, existing)
-        continue
-      }
-      if (isOwnedRef(c, child)) {
-        for (const frame of stack) { c.unclean.add(frame.source) }
-        for (const node of created) { c.copies.delete(node) }
-        return undefined
-      }
-      const copy = newContainer(child)
-      c.copies.set(child, copy)
-      created.push(child)
-      safeSet(top.copy, key, copy)
-      stack.push(frameOf(child, copy))
     }
-    return rootCopy
+    return true
+  }
+
+  // the shared copy of a clean subtree, or undefined when a whole-document $ref inside it needs the regular path
+  const cleanCopy = (c: CallState, root: object): object | undefined => {
+    if (c.wholeDocument && ((scanned.get(root) ?? 0) & 1) && !c.verified.has(root) && !refsKeepMeaning(c, root)) { return undefined }
+    return cleanCopies.get(root)
   }
 
   // the merge can change `value` (or report about it): §3.6 rules on the input, and the depth limit
@@ -1412,12 +1478,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
     // fast path (§3.6): a subtree that needs no work is copied without frames, rule resolution or link checks; one
     // output instance per input instance (D-11)
-    if (!rewalk && !forceNoMerge && !parent?.noMerge) {
-      const copied = c.copies.get(value)
-      if (copied) {
-        safeSet(state.node, nodeKey, copied)
-        return { done: true }
-      }
+    if (!rewalk && !forceNoMerge && !parent?.noMerge && engine.fastPath !== false) {
       if (!c.unclean.has(value)) {
         const height = subtreeHeight(value)
         if (height !== DIRTY && depth + height <= settings.maxDepth) {
@@ -2011,7 +2072,10 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         const hit = cachedResult(configuredSource, value, rules)
         if (hit) {
           const keys = new Set<string>()
-          for (const issue of hit.issues) { offer(keys, issue) }
+          for (const issue of hit.issues) {
+            const pointer = issue.sourcePointer === undefined && activeSink() ? pointerOfIssue(issue) : undefined
+            offer(keys, pointer === undefined ? issue : freezeIssue({ ...issue, path: [...issue.path], sourcePointer: pointer }))
+          }
           completed = true
           return hit.output
         }
