@@ -64,18 +64,18 @@ const fastifyDeep = deepAllOf((schemas) => fastifyMergeSchemas(schemas as any[])
 
 export const ADAPTERS: Adapter[] = [
   {
-    name: "allof-merge",
-    version: `${require("../package.json").version} (this repository)`,
+    name: "allof-merge 1.0 (this branch)",
+    version: `${require("../package.json").version} (unreleased, this repository)`,
     mergeSchema: (schema, profile) => allofMerge10.merge(schema, { rules: allofMerge10.jsonSchemaMergeRules(profile) }),
     mergeDocument: (document) => allofMerge10.merge(document),
     notes: "deep merge, local $refs (also circular), OpenAPI / AsyncAPI / GraphApi rule sets, issues reported",
   },
   {
-    name: "allof-merge@0.6",
+    name: "allof-merge 0.6.8 (released)",
     version: versionOf("allof-merge-0.6"),
     mergeSchema: (schema) => allofMerge06.merge(schema, { rules: allofMerge06.jsonSchemaMergeRules() }),
     mergeDocument: (document) => allofMerge06.merge(document),
-    notes: "the published 0.6.8: deep merge, local $refs, OpenAPI / GraphApi rule sets",
+    notes: "the current npm release (latest dist-tag): deep merge, local $refs, OpenAPI / GraphApi rule sets",
   },
   {
     name: "@redocly/allof-merge",

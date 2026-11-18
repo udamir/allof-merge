@@ -400,15 +400,15 @@ A resolver gets the values of the key in item order and returns the merged value
 
 ## Benchmark
 
-`yarn benchmark` builds the package and compares it with the other JSON Schema allOf mergers on npm with more than 100 000 weekly downloads: json-schema-merge-allof, @stoplight/json-schema-merge-allof, @x0k/json-schema-merge, @fastify/merge-json-schemas, @redocly/allof-merge and allof-merge 0.6.8 (`benchmark/`, with its own dependencies). Full tables, method and caveats: [benchmark/RESULTS.md](benchmark/RESULTS.md). Highlights (Node 26, Intel i9-9880H, json-crawl 1.0.0 `a8bab8a`):
+`yarn benchmark` builds the package and compares it with the current npm release of allof-merge (0.6.8) and the other JSON Schema allOf mergers on npm with more than 100 000 weekly downloads: json-schema-merge-allof, @stoplight/json-schema-merge-allof, @x0k/json-schema-merge, @fastify/merge-json-schemas and @redocly/allof-merge (`benchmark/`, with its own dependencies). Full tables, method and caveats: [benchmark/RESULTS.md](benchmark/RESULTS.md). Highlights (Node 26, Intel i9-9880H, json-crawl 1.0.0):
 
-| | allof-merge 1.0 | allof-merge 0.6.8 | @redocly/allof-merge | json-schema-merge-allof | @stoplight/… | @x0k/json-schema-merge | @fastify/merge-json-schemas |
+| | allof-merge 1.0 (this branch) | allof-merge 0.6.8 (released) | @redocly/allof-merge | json-schema-merge-allof | @stoplight/… | @x0k/json-schema-merge | @fastify/merge-json-schemas |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Corpus cases without `$ref`: equivalent result | 99.2 % | 78.9 % | 80.9 % | 72.7 % | 64.0 % | 90.8 % | 68.7 % |
 | Corpus cases with `$ref`: equivalent result | 100 % | 82.6 % | 85.8 % | 94.0 % | 82.1 % | 93.6 % | 86.2 % |
-| GitHub REST API (12 MB OpenAPI), ms | 120 | 1 495 | 553 | n/a | n/a | n/a | n/a |
-| 200 levels of nested allOf, ms | 3.5 | 88 | 15 | 9 332 | 527 | 3.7 | 0.4 |
-| 586 small real-world schemas, ms | 11.8 | 82 | 83 | 39 | 29 | 8.9 | 40 |
+| GitHub REST API (12 MB OpenAPI), ms | 120 | 1 464 | 580 | n/a | n/a | n/a | n/a |
+| 200 levels of nested allOf, ms | 3.5 | 85 | 15 | 9 111 | 524 | 3.7 | 0.4 |
+| 586 small real-world schemas, ms | 11.5 | 79 | 84 | 39 | 30 | 9.3 | 42 |
 
 The correctness rows check every result against the input with a JSON Schema validator on generated instances (the oracle of the test suite); the other libraries mostly fail by throwing on conflicts or unsupported keywords, or by changing what the schema accepts. allof-merge's 8 non-equivalent results are the deliberate format rule (two different `format`s → `false`). On plain schemas without `$ref` @fastify/merge-json-schemas and @x0k/json-schema-merge are faster than allof-merge (they do less: no `$ref` resolution, no document rule sets, no issue tracking), but they throw on 23 % / 5 % of the corpus. The libraries that do not resolve `$ref` cannot merge OpenAPI documents directly (n/a).
 

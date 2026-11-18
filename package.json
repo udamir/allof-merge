@@ -90,6 +90,6 @@
     "collectCoverage": true
   },
   "dependencies": {
-    "json-crawl": "file:./vendor/json-crawl-1.0.0-a8bab8a.tgz"
+    "json-crawl": "^1.0.0"
   }
 }

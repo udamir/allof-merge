@@ -606,7 +606,7 @@ Implemented in this repository (steps 1–8 of §7; the api-smart-diff steps 9�
 | F-10 | done | single-item exit hook in `visit` |
 | §3.9 rule auto-selection, `schemaMergeRulesFor` | done (`$schema`, `jsonSchemaDialect`, exact OpenAPI versions; `jsonSchemaDraftOf`) | `selectMergeRules` |
 | Lazy whole-document call state, `mergeObjectShape` plain path | not done (the targets are met without them) | — |
-| json-crawl rule memo | done in json-crawl 1.0.0 by its own work (rules resolved without per-node closures, `a8bab8a`) | `vendor/json-crawl-1.0.0-a8bab8a.tgz` |
+| json-crawl rule memo | done in json-crawl 1.0.0 by its own work (rules resolved without per-node closures) | dependency `json-crawl` `^1.0.0` (published 2026-11-18) |
 | Tests (§6 I1–I11, P1–P3, F10, S1) | done | `test/audit/b21.issues.test.ts`, `test/audit/b22.fast-path.test.ts` |
 
 Measurements (esbuild bundles of `src`, Node 26.13, min of 15, the asd bench fixtures): GraphApi github whole document 46 → 17 ms (target ≤ 24.5), oas-github 232 → 120 ms (target ≤ 150), js-allof-200 per node 6.5 → 3.6 ms (the target 3.4 ms was set on a machine where the baseline was 4.8–5.1 ms; relative to the baseline the target is met), 200 warm per-node calls 1.2 → 0.04 ms; identical outputs on all three documents.
