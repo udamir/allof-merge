@@ -54,7 +54,6 @@
     "typecheck": "tsc",
     "lint": "vp lint",
     "check": "tsc && vp lint",
-    "benchmark": "vp pack && pnpm --dir benchmark install --frozen-lockfile --ignore-workspace && node benchmark/index.ts",
     "prepublishOnly": "pnpm run check && pnpm test && pnpm run build"
   },
   "dependencies": {

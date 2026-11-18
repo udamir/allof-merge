@@ -232,7 +232,7 @@ AsyncAPI documents are detected by their `asyncapi` version. Message payloads an
 
 ## Benchmark
 
-Compared with allof-merge 0.6.8 and the other popular `allOf` mergers on npm (`pnpm benchmark`; full tables and method in [benchmark/RESULTS.md](benchmark/RESULTS.md)). The test cases come from the test suites and issue trackers of these libraries and from fuzzing; a result is equivalent when a validator gives it the same verdict as the input on generated instances.
+Compared with allof-merge 0.6.8 and the other popular `allOf` mergers on npm (full tables and method in [benchmark/RESULTS.md](benchmark/RESULTS.md)). The test cases come from the test suites and issue trackers of these libraries and from fuzzing; a result is equivalent when a validator gives it the same verdict as the input on generated instances.
 
 | | allof-merge 1.0 | allof-merge 0.6.8 | @redocly/allof-merge | json-schema-merge-allof | @x0k/json-schema-merge | @fastify/merge-json-schemas |
 |---|---:|---:|---:|---:|---:|---:|
@@ -258,6 +258,8 @@ pnpm test:fuzz     # property-based equivalence tests (FUZZ_RUNS=5000 for more c
 pnpm check         # type check (TypeScript 7) and lint
 pnpm build         # dist/
 ```
+
+The benchmark is a separate project with its own dependencies: `cd benchmark && pnpm install && pnpm start` (it builds the package first).
 
 Please add tests for your change. The package should stay free of additional runtime dependencies.
 

@@ -20,11 +20,13 @@ import * as x0kArray from "@x0k/json-schema-merge/lib/array"
 import * as allofMerge06 from "allof-merge-0.6"
 import * as redocly from "@redocly/allof-merge"
 
-// allof-merge 1.0 is loaded from the build of this repository (`pnpm build` first)
-import * as allofMerge10 from "../dist/index.js"
-import pkg from "../package.json" with { type: "json" }
+// allof-merge 1.0: the build of this repository, linked as a dependency (`pnpm start` builds it first)
+import * as allofMerge10 from "allof-merge"
+import pkg from "allof-merge/package.json" with { type: "json" }
 
-export type Profile = "draft-07" | "2020-12"
+import type { Profile } from "./oracle.ts"
+
+export type { Profile }
 
 export interface Adapter {
   name: string            // package name as published

@@ -9,7 +9,7 @@ export default defineConfig({
     dts: true,
   },
   lint: {
-    ignorePatterns: ["dist/**", "temp/**", "benchmark/node_modules/**"],
+    ignorePatterns: ["dist/**", "temp/**", "benchmark/**"],
     rules: {
       // `then` is a JSON Schema keyword, not a thenable
       "unicorn/no-thenable": "off",

@@ -2,8 +2,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { execFileSync } from "node:child_process"
 
-import { loadCorpus } from "../test/fuzz/corpus.ts"
-import type { Profile } from "./adapters.ts"
+import { loadCorpus, type Profile } from "./oracle.ts"
 
 /*
  * Workloads. Schema workloads have no $ref, so every library can merge them; document workloads hold local $refs and
