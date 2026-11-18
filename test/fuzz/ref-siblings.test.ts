@@ -1,10 +1,9 @@
 /*
- * `$ref` siblings apply in every draft (author intent). Formerly the fuzz: draft-07 (and
+ * `$ref` siblings apply in every draft (author intent). Found by the fuzz test: draft-07 (and
  * draft-06/04, OpenAPI 3.0) validators ignore every sibling of `$ref`, while the merge conjoins the siblings of a `$ref`
  * with its target — inside an allOf item, at a node that has both `$ref` and `allOf`, with or without mergeRefSibling.
  * This is the documented reading now; the oracle reads draft-07 `$ref` siblings the same way (withRefSiblingsApplied).
- * Found by the corpus replay (amr-verify/p8.ts, GitHub issue #32, datamodel-code-generator
- * allof_member_parts_draft07.json).
+ * Found by the corpus replay.
  */
 import { describe, it, expect } from "vite-plus/test"
 import { Validator } from "@cfworker/json-schema"

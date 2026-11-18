@@ -1,24 +1,14 @@
 /*
- * Committed replay corpus, replayed by corpus.test.ts with the same oracle as the random
- * property. Provenance: built once (2026-11-17) from the scratch probe runs of the 1.0.0 verification, which are not in
- * the repository:
- *   real-world.json   — allOf cases ported from other projects' test suites (/tmp/amr-similar2/cases, /tmp/amr-replay):
- *                       datamodel-code-generator, hypothesis-jsonschema, json-schema-intersect, oasdiff (non-OpenAPI-3.0
- *                       schema cases), qubership-apihub, x0k/json-schema-merge, json-schema-merge-allof (mokka) and
- *                       @stoplight/json-schema-merge-allof
- *   probes.json       — inputs recorded from the hand-written probe scripts (/tmp/amr-verify p*.ts, /tmp/amr-sec
- *                       issues*.ts = GitHub issue reproductions, proto*.ts, lcm2.ts, /tmp/amr-feat p*.ts) and the probe
- *                       case files (/tmp/amr-similar2/cases/probe*.json)
- *   fuzz-history.json — random cases of the earlier scratch fuzz runs (/tmp/amr-similar2/cases/fuzz*.json,
- *                       /tmp/amr-replay/s2/nf*.cases.json) that were interesting there: an ajv disagreement or crash,
- *                       an allOf fragment left in the output, or a contradiction report; ajv disagreements first, then smallest, ≤ 350
- * Filter: a JSON Schema object (no OpenAPI/AsyncAPI/GraphApi document, no `nullable`, no draft-04 booleans, no external
- * or `$id`-based refs), valid against the profile meta-schema (malformed-value robustness cases live in test/audit),
- * contains an allOf, ≤ 3 000 characters, loadable and evaluable by cfworker, deduplicated (canonical JSON of
- * schema + profile + options). Profile: 2020-12 when the case uses a 2019-09/2020-12 keyword or `$schema`, else draft-07.
- * Merge options other than mergeCombinarySibling / mergeRefSibling (e.g. the other libraries' own options) are dropped.
- * The 3 draft-07 `$ref`-sibling cases (former) were left out at first and are in probes.json since
- * (`$ref` siblings apply in every draft; the oracle reads draft-07 `$ref` siblings the same way).
+ * Committed replay corpus, replayed by corpus.test.ts with the same oracle as the random property:
+ *   real-world.json   — allOf schemas collected from public JSON Schema and OpenAPI test suites
+ *   probes.json       — hand-written probes and reproductions of reported issues
+ *   fuzz-history.json — random cases of earlier fuzz runs that were interesting (a validator disagreement or crash, an
+ *                       allOf fragment left in the output, or a contradiction report)
+ * Every case is a JSON Schema object (no OpenAPI / AsyncAPI / GraphApi document, no `nullable`, no draft-04 booleans,
+ * no external or `$id`-based refs), valid against the meta-schema of its profile (malformed-value robustness cases live
+ * in test/audit), contains an allOf, has at most 3 000 characters, is loadable and evaluable by the oracle, and is
+ * unique (canonical JSON of schema + profile + options). Profile: 2020-12 when the case uses a 2019-09 / 2020-12 keyword
+ * or `$schema`, else draft-07. Options: only mergeCombinarySibling and mergeRefSibling.
  */
 import * as fs from "fs"
 import * as path from "path"

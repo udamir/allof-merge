@@ -195,7 +195,7 @@
 {"id":"probe.uneval.addl","source":"probe","profile":"2020-12","schema":{"allOf":[{"type":"object","unevaluatedProperties":false,"properties":{"s":{}}},{"additionalProperties":true}]}},
 {"id":"probe.uneval.items","source":"probe","profile":"2020-12","schema":{"allOf":[{"prefixItems":[{}],"unevaluatedItems":false},{"prefixItems":[{},{}]}]}},
 {"id":"probe.uneval.props","source":"probe","profile":"2020-12","schema":{"allOf":[{"properties":{"a":{}},"unevaluatedProperties":false},{"properties":{"b":{}}}]}},
-{"id":"known-issues/KI-1a","source":"amr-verify/p8.ts","profile":"draft-07","schema":{"definitions":{"a":{"type":"string"}},"allOf":[{"$ref":"#/definitions/a","maxLength":3},{"minLength":1}]}},
+{"id":"known-issues/KI-1a","source":"probe","profile":"draft-07","schema":{"definitions":{"a":{"type":"string"}},"allOf":[{"$ref":"#/definitions/a","maxLength":3},{"minLength":1}]}},
 {"id":"known-issues/KI-1b","source":"github-issue #32","profile":"draft-07","schema":{"$ref":"#/definitions/MySchema","allOf":[{"$ref":"#/definitions/Other"}],"definitions":{"Other":{"properties":{"b":{"type":"number"}}},"MySchema":{"type":"object","properties":{"a":{"type":"string"}}}}}},
-{"id":"known-issues/KI-1c","source":"datamodel-code-generator allof_member_parts_draft07.json","profile":"draft-07","options":{"mergeRefSibling":true},"schema":{"definitions":{"A":{"type":"object","properties":{"id":{"type":"string"}}}},"allOf":[{"$ref":"#/definitions/A","required":["extra"]},{"type":"object"}]}}
+{"id":"known-issues/KI-1c","source":"probe","profile":"draft-07","options":{"mergeRefSibling":true},"schema":{"definitions":{"A":{"type":"object","properties":{"id":{"type":"string"}}}},"allOf":[{"$ref":"#/definitions/A","required":["extra"]},{"type":"object"}]}}
 ]

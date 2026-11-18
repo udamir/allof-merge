@@ -69,7 +69,7 @@ export const KNOWN_AJV_ISSUES: { id: string, test: (json: string) => boolean, de
   {
     id: "ajv-contains-tuple-items",
     test: (json) => json.includes("\"contains\"") && /"items":\[/.test(json),
-    description: "ajv 8 accepts [] for { items: [S], contains: C } (cfworker, hyperjump and schemasafe reject it)",
+    description: "ajv 8 accepts [] for { items: [S], contains: C } (@cfworker/json-schema rejects it)",
   },
   {
     id: "ajv-contains-prefixItems",
