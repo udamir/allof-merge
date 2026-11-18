@@ -584,3 +584,31 @@ Q11. **Identity keywords after the anchor fix.** Before `q: { $ref: "#foo" }` (t
 | Q11 anchor refs in asd | Treat like pointer refs: ignore the target's `$anchor`/`$id` at usages, report changes inside the target once at its declaration. |
 
 Severity consequences to settle in implementation (self-decided unless the user objects): errors — contradictions (incl. format conflicts and impossible combinators), malformed values, broken/cyclic `$ref`; warnings — anything kept unmerged as `allOf` parts (backreference patterns, several `contains`, several if/then/else, `unevaluated*` items, patternProperties × additionalProperties fallbacks, multipleOf without exact LCM, 2020-12 array `items`, non-JSON schemaFormat wrappers), limits hit (branch budget, ref expansion, expansion budget, max depth, pattern-matching caps), impossible branches removed (the branch itself was a contradiction → reported as warning at the branch since the combinator stays satisfiable), nodes kept unmerged for `$ref` validity, copies made instead of links.
+
+## 10. Implementation status in allof-merge (2026-11-18)
+
+Implemented in this repository (steps 1–8 of §7; the api-smart-diff steps 9–13 are not part of this repository and are not started). The §9 decisions supersede §3 where they differ: two severities only (`error`, `warning`), no info-level codes, no `formatConflict` option.
+
+| Design item | Status | Where |
+|---|---|---|
+| Issue type, `onIssue`, `issueLevel`, `mergeWithIssues`, `MERGE_ISSUES`, per-call `onIssue` | done | `src/issues.ts`, `src/merge.ts` (`emit`, `offer`, `mergeWithIssues`) |
+| Codes | 28 codes (§3.3 without the info codes and `format-conflict`, plus `reason: "invalid-pattern"` for `object-shape-kept`) | `MERGE_ISSUES`, README "Issues" |
+| Legacy callbacks | fire for the M / R codes with the old messages; new codes never reach them; the D-17 double report and the generic per-key message are fixed | `emit`, `test/audit/b21.issues.test.ts` B21.2 |
+| Replay and de-duplication | issues recorded per output (frames, memo entries, result cache) and replayed with the current path; one issue per (code, node, keyword, ref, reason) per call; D-17 rounds share their keys, so each issue (and legacy call) is delivered once per merge | `record`, `replay`, `carry` |
+| Q1 formats | different formats → `false` + `unsatisfiable` (`reason: "format"`); OpenAPI lattice unchanged, no issue | `src/groups/format.ts` |
+| Q3 contradiction severity | `error` | `MERGE_ISSUES` |
+| Q9 lone malformed value | dropped + `malformed-value` for the validated per-key keywords | `singleValueValidators`, `src/intersect.ts` |
+| `nullable-overridden` | warning (kept: an input value without effect is "ignored" in the sense of decision B) | `src/groups/type.ts` |
+| `link-copied` | warning (§9 last paragraph); `link-rewritten` is not an issue (Q8) | `relink` |
+| Fast path (§3.6, rules 1–8) and `needsMerge` | done; scan and copy fused in one post-order pass, copies shared per merger | `scan`, `cleanCopy`, `refsKeepMeaning` |
+| P1 `ownersOf` guard | done (only nodes whose subtree needs work are owners; the visit-time check runs in whole-document mode only) | `ownersOf` |
+| Per-merger result cache (fragment mode) | done | `results` in `createMerger` |
+| F-10 | done | single-item exit hook in `visit` |
+| §3.9 rule auto-selection, `schemaMergeRulesFor` | done (`$schema`, `jsonSchemaDialect`, exact OpenAPI versions; `jsonSchemaDraftOf`) | `selectMergeRules` |
+| Lazy whole-document call state, `mergeObjectShape` plain path | not done (the targets are met without them) | — |
+| json-crawl rule memo | done in json-crawl 1.0.0 by its own work (rules resolved without per-node closures, `a8bab8a`) | `vendor/json-crawl-1.0.0-a8bab8a.tgz` |
+| Tests (§6 I1–I11, P1–P3, F10, S1) | done | `test/audit/b21.issues.test.ts`, `test/audit/b22.fast-path.test.ts` |
+
+Measurements (esbuild bundles of `src`, Node 26.13, min of 15, the asd bench fixtures): GraphApi github whole document 46 → 17 ms (target ≤ 24.5), oas-github 232 → 120 ms (target ≤ 150), js-allof-200 per node 6.5 → 3.6 ms (the target 3.4 ms was set on a machine where the baseline was 4.8–5.1 ms; relative to the baseline the target is met), 200 warm per-node calls 1.2 → 0.04 ms; identical outputs on all three documents.
+
+Deviation to note: `format` constrains strings only, so with a format-asserting validator the Q1 output `false` rejects non-string instances that `{ allOf: [{ format: date }, { format: email }] }` accepts when no `type` excludes them. The fuzz oracle skips such cases (`decidedFormatDeviation` in `test/fuzz/oracle.ts`).

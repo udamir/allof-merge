@@ -22,7 +22,7 @@
     "test": "jest --verbose",
     "test:coverage": "jest --verbose --coverage",
     "test:fuzz": "jest test/fuzz",
-    "benchmark": "yarn build && node benchmark"
+    "benchmark": "yarn build && cd benchmark && npm install --no-audit --no-fund --silent && TS_NODE_PROJECT=tsconfig.json TS_NODE_TRANSPILE_ONLY=true node -r ts-node/register index.ts"
   },
   "keywords": [
     "json",
@@ -53,13 +53,11 @@
     "@types/jest": "^29.5.2",
     "@types/js-yaml": "^4.0.5",
     "ajv": "^8.17.1",
-    "benchmark": "^2.1.4",
     "fast-check": "^4.10.2",
     "gqlapi": "^0.5.1",
     "graphql": "^16.8.1",
     "jest": "^29.5.0",
     "js-yaml": "^4.1.0",
-    "json-schema-merge-allof": "^0.8.1",
     "rimraf": "^5.0.5",
     "rollup": "^4.22.5",
     "rollup-plugin-filesize": "^9.1.0",
@@ -92,6 +90,6 @@
     "collectCoverage": true
   },
   "dependencies": {
-    "json-crawl": "file:./vendor/json-crawl-1.0.0.tgz"
+    "json-crawl": "file:./vendor/json-crawl-1.0.0-a8bab8a.tgz"
   }
 }
