@@ -8,6 +8,7 @@ import { isAllOfMergeRule, jsonSchemaMergeResolver } from "./resolvers/conjuncti
 import { ErrorMessage } from "./errors.ts"
 import { hasOwn, safeSet } from "./safe.ts"
 import type { IssueHint, MergeIssue } from "./issues.ts"
+import { freshNode } from "./fresh.ts"
 import { EMPTY_PATH, isKeyOnlyRule, lazyPath, nodeRule, pathOfSource, type PathSource } from "./rule-lookup.ts"
 
 // key -> the group that owns it (built once)
@@ -344,7 +345,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
     if (resolver === jsonSchemaMergeResolver || resolver === mergeSchemas) {
       if (isAllOfMergeRule(rule)) {
         // schema-valued keyword: merged lazily by the clone pass with the rules of its location
-        merged = { allOf: values }
+        merged = freshNode({ allOf: values })
       } else {
         // the location has no allOf rule (e.g. a custom `"/x": { $: jsonSchemaMergeResolver }`): merge eagerly with the
         // rules of the node, as 0.6.8 did (VR-38)

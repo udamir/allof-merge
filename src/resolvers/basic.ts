@@ -5,6 +5,7 @@ import { ErrorMessage } from "../errors.ts"
 import { ISSUE_MESSAGES } from "../issues.ts"
 import { getOwn, hasOwn, safeSet } from "../safe.ts"
 import { EMPTY_PATH, nodeRule } from "../rule-lookup.ts"
+import { freshNode } from "../fresh.ts"
 import { mergeMultipleOfValues, mergeNumericBounds } from "../groups/numeric.ts"
 import { mergeFormats } from "../groups/format.ts"
 
@@ -74,7 +75,7 @@ export const mergeObjects: MergeResolver = ([a, ...args]) => args.reduce((r, v) 
 export const productBranches = new WeakSet<object>()
 // cartesian product of oneOf/anyOf lists; values that are not arrays are ignored
 export const mergeArray: MergeResolver = (args) => findCombinations(args).map((v) => {
-  const branch = { allOf: v }
+  const branch = freshNode({ allOf: v })
   productBranches.add(branch)
   return branch
 })

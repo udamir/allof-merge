@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vite-plus/test"
 
-import { jsonSchemaMergeRules, merge, mergeWithIssues, type MergeContext, type MergeRules } from "../../src/index.ts"
+import { jsonSchemaMergeResolver, jsonSchemaMergeRules, merge, mergeWithIssues, type MergeContext, type MergeRules } from "../../src/index.ts"
 import { keyOnlyRule } from "../../src/rule-lookup.ts"
 
 // B23 - the contracts that the performance work must keep: paths seen by rules and resolvers, rule lookup caching,
@@ -114,5 +114,38 @@ describe("B23.4 scan termination", () => {
     shared.properties = { self: shared, other: { allOf: [shared, { required: ["self"] }] } }
     const result = merge({ allOf: [{ properties: { a: shared, b: shared } }, { type: "object" }] })
     expect(() => JSON.stringify(result)).not.toThrow()
+  })
+})
+
+describe("B23.5 nodes created by the merge", () => {
+  it("B23.5.1 a nested merge started by a resolver does not take over the nodes of the outer merge", () => {
+    // `x-nested` merges its values eagerly with a merger of its own while the outer node is intersected; the outer
+    // schema-valued keywords (properties, items) are merged afterwards by the outer clone pass
+    const rules = jsonSchemaMergeRules("draft-07", { "/x-nested": { $: jsonSchemaMergeResolver } })
+    const input = {
+      allOf: [
+        { properties: { a: { type: "string" } }, items: { minimum: 1 }, "x-nested": { allOf: [{ type: "number" }, { minimum: 2 }] } },
+        { properties: { a: { minLength: 1 } }, items: { maximum: 5 }, "x-nested": { maximum: 9 } },
+      ],
+    }
+    expect(merge(input, { rules })).toEqual({
+      properties: { a: { type: "string", minLength: 1 } },
+      items: { minimum: 1, maximum: 5 },
+      "x-nested": { type: "number", minimum: 2, maximum: 9 },
+    })
+  })
+
+  it("B23.5.2 product branches and merged property schemas are merged once per position", () => {
+    const shared = { oneOf: [{ required: ["a"] }, { required: ["b"] }] }
+    const input = { properties: { p: { allOf: [shared, { oneOf: [{ minProperties: 1 }, { maxProperties: 3 }] }] }, q: { allOf: [shared, { type: "object" }] } } }
+    const result = merge(input) as any
+    expect(result.properties.p.oneOf).toEqual([
+      { required: ["a"], minProperties: 1 },
+      { required: ["a"], maxProperties: 3 },
+      { required: ["b"], minProperties: 1 },
+      { required: ["b"], maxProperties: 3 },
+    ])
+    expect(result.properties.q).toEqual({ type: "object", oneOf: [{ required: ["a"] }, { required: ["b"] }] })
+    expect(merge(result)).toEqual(result)
   })
 })

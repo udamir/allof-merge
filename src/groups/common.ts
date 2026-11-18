@@ -1,5 +1,6 @@
 import { isPlainObject } from "../utils.ts"
 import { safeClone } from "../safe.ts"
+import { freshNode } from "../fresh.ts"
 
 // conjunction of schema values: `false` wins, `true` is absorbed, a single schema is kept by instance,
 // several schemas become an allOf node that the clone pass merges with the rules of its location
@@ -12,7 +13,7 @@ export const combineSchemas = (schemas: unknown[]): unknown => {
   }
   if (!list.length) { return true }
   if (list.length === 1) { return list[0] }
-  return { allOf: list }
+  return freshNode({ allOf: list })
 }
 
 export const isSchemaValue = (value: unknown): boolean => typeof value === "boolean" || isPlainObject(value)

@@ -8,13 +8,14 @@ import { buildPointer, parsePointer } from "./pointer.ts"
 import { type ResolutionIndex, type ResolveResult, createResolutionIndex } from "./resolve.ts"
 import { mergeCombinarySibling } from "./resolvers/combinary.ts"
 import { productBranches } from "./resolvers/basic.ts"
-import { UNCHANGED, intersect, isAllOfMergeRule, resolveMergeSettings } from "./intersect.ts"
+import { type IntersectContext, UNCHANGED, intersect, isAllOfMergeRule, resolveMergeSettings } from "./intersect.ts"
 import { containerOrigin } from "./groups/common.ts"
 import { ErrorMessage } from "./errors.ts"
 import { simplifySchema } from "./simplify.ts"
 import { engine } from "./engine.ts"
 import { hasOwn, safeClone, safeSet } from "./safe.ts"
 import { LazyWeakMap, LazyWeakSet } from "./lazy.ts"
+import { enterFreshScope } from "./fresh.ts"
 
 export { DEFAULT_BRANCH_BUDGET } from "./intersect.ts"
 
@@ -173,6 +174,17 @@ interface SplitNode {
   hasSibling: boolean
 }
 
+const splitNode = (node: Record<string, any>): SplitNode => {
+  const sibling: Record<string, any> = {}
+  let hasSibling = false
+  for (const key of Object.keys(node)) {
+    if (key === "allOf") { continue }
+    safeSet(sibling, key, node[key])
+    hasSibling = true
+  }
+  return { allOf: Array.isArray(node.allOf) ? node.allOf : undefined, sibling, hasSibling }
+}
+
 interface MemoEntry {
   origin: object                 // the input node whose merge created the entry
   source: unknown                // the document of the call that created the entry
@@ -245,6 +257,7 @@ interface Frame {
   at: At                                        // the hook context (its path is the output location of the node)
   rules: unknown                                // the node's rules (the done memo is per rules)
   site?: Site                                   // the node is a $ref replaced by a copy of its target (D-22)
+  fresh?: boolean                               // an `{ allOf }` node the engine created: no identity bookkeeping
   issues?: MergeIssue[]                         // issues raised in the subtree (recorded for replay)
 }
 
@@ -274,6 +287,7 @@ class CallState {
   wholeDocument = false                         // refs resolve against the value being cloned (no other source)
   readonly prior?: Set<string>                  // issues raised by the earlier rounds of this merge (D-17)
   readonly issues: MergeIssue[] = []            // every issue raised or replayed in this call (result cache)
+  readonly fresh = new Set<object>()            // `{ allOf }` nodes the engine created in this call (src/fresh.ts)
   #carried?: { seen: Set<string>, reported: Set<unknown> }
   #outputCounts?: WeakMap<object, Map<object, number>>
   #finished?: WeakSet<object>
@@ -334,6 +348,16 @@ class CallState {
 
 // the call state of a merger before its first clone pass (never written to)
 const IDLE_CALL = new CallState(createResolutionIndex(undefined), new TupleMemo(), 0)
+
+// intersect, recording the `{ allOf }` nodes it creates as fresh nodes of the call
+const intersectIn = (c: CallState, items: Record<string, any>[], ctx: IntersectContext): ReturnType<typeof intersect> => {
+  const previous = enterFreshScope(c.fresh)
+  try {
+    return intersect(items, ctx)
+  } finally {
+    enterFreshScope(previous)
+  }
+}
 
 // finished outputs of one input node, per rules identity (usually one)
 interface DoneEntry {
@@ -735,14 +759,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   const split = (node: Record<string, any>): SplitNode => {
     let cached = splitCache.get(node)
     if (!cached) {
-      const sibling: Record<string, any> = {}
-      let hasSibling = false
-      for (const key of Object.keys(node)) {
-        if (key === "allOf") { continue }
-        safeSet(sibling, key, node[key])
-        hasSibling = true
-      }
-      cached = { allOf: Array.isArray(node.allOf) ? node.allOf : undefined, sibling, hasSibling }
+      cached = splitNode(node)
       splitCache.set(node, cached)
     }
     return cached
@@ -839,9 +856,9 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       const top = stack[stack.length - 1]
       if (top.holder[top.key] === container) { break }
       const frame = stack.pop() as Frame
-      if (!frame.rewalk) { c.active.delete(frame.value) }
+      if (!frame.rewalk && !frame.fresh) { c.active.delete(frame.value) }
       const output = frame.holder[frame.key]
-      if (!frame.rewalk && !frame.noMerge) { doneSet(c.done, frame.value, frame.rules, output) }
+      if (!frame.rewalk && !frame.noMerge && !frame.fresh) { doneSet(c.done, frame.value, frame.rules, output) }
       // the inlining counts belong to the output instance the frame created; a frame that wrote an already finished
       // (shared) instance must not replace that instance's counts, or every reuse would count the chain again
       const owned = typeof output === "object" && output !== null && !c.finished.has(output)
@@ -1481,8 +1498,13 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     const depth = parent ? parent.depth + 1 : 0
     let rewalk = false
     let forceNoMerge = false
+    // an `{ allOf }` node created by this call's merges: met once, not part of the input
+    const fresh = c.fresh.has(value)
+    let done: unknown
 
-    if (c.active.has(value)) {
+    if (fresh) {
+      // nothing to look up: it cannot be on the current path or finished before
+    } else if (c.active.has(value)) {
       // cycle re-entry (D-4b): a schema becomes a $ref to its source location; a container (properties map, …) is
       // cloned again, its members then meet the cycle themselves
       if (Array.isArray(value) || !rules || isAllOfMergeRule(rules)) {
@@ -1491,8 +1513,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         return { done: true }
       }
       rewalk = true
-    } else if (doneGet(c.done, value, rules) !== NOT_DONE) {
-      const output = doneGet(c.done, value, rules)
+    } else if ((done = doneGet(c.done, value, rules)) !== NOT_DONE) {
+      const output = done
       if (share(c, output, parent, ctx)) {
         replayOutput(c, output, ctx, value)
         safeSet(state.node, nodeKey, output)
@@ -1506,7 +1528,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
     // fast path: a subtree that needs no work is copied without frames, rule resolution or link checks; one
     // output instance per input instance (D-11)
-    if (!rewalk && !forceNoMerge && !parent?.noMerge && engine.fastPath !== false) {
+    if (!fresh && !rewalk && !forceNoMerge && !parent?.noMerge && engine.fastPath !== false) {
       if (!c.hasUnclean || !c.unclean.has(value)) {
         const height = subtreeHeight(value)
         if (height !== DIRTY && depth + height <= settings.maxDepth) {
@@ -1523,9 +1545,9 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     if (tooDeep && !parent?.noMerge) {
       emitOnce(c, "maxDepth", "max-depth", ctx, { message: ErrorMessage.maxDepthExceeded(settings.maxDepth), values: [] })
     }
-    const frame: Frame = { value, holder: state.node, key: nodeKey, depth, rewalk, noMerge: forceNoMerge || tooDeep || !!parent?.noMerge, at: ctx, rules }
+    const frame: Frame = { value, holder: state.node, key: nodeKey, depth, rewalk, noMerge: forceNoMerge || tooDeep || !!parent?.noMerge, at: ctx, rules, fresh }
     c.stack.push(frame)
-    if (!rewalk) { c.active.set(value, frame) }
+    if (!rewalk && !fresh) { c.active.set(value, frame) }
 
     // a $ref of the output whose pointer runs through a rewritable node (also one copied without merging): checked
     // after the clone pass of a whole-document merge (D-17)
@@ -1582,8 +1604,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     if (hasOwn(node, "allOf")) {
       // D-17: a $ref of the output points through this allOf, the node is kept unmerged (its members are merged)
       if (keepUnmerged?.has(node)) { return }
-      c.rewritten.add(node)
-      const parts = split(node)
+      if (!fresh) { c.rewritten.add(node) }
+      const parts = fresh ? splitNode(node) : split(node)
       if (!parts.allOf) {
         // allOf of a wrong type is ignored and reported (D-6); the rest of the node is kept
         emit(c, "malformed-allof", ctx, { message: ErrorMessage.malformedValue("allOf"), values: [node.allOf], keyword: "allOf" })
@@ -1783,7 +1805,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     } else {
       const merged = schemas.length === 1
         ? safeClone(schemas[0] as Record<string, any>)
-        : intersect(schemas, {
+        : intersectIn(c, schemas, {
             mergeRules: rules,
             // json-crawl keeps paths up to this depth as arrays (free to read); deeper ones are built on first read
             path: frame.depth <= EAGER_PATH_DEPTH ? ctx.path : undefined,
