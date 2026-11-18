@@ -13,8 +13,7 @@ export type AsyncApiVersion = typeof asyncApiVersion[number]
 /**
  * The schema language a `schemaFormat` names (2.x message `schemaFormat`, 3.0 Multi Format Schema Object): the
  * AsyncAPI schema (the default, a JSON Schema draft-07 superset), a JSON Schema draft, an OpenAPI schema object, or
- * `undefined` for a format that is not JSON Schema (Avro, RAML, Protobuf, unknown, non-string). Same mapping as
- * api-smart-diff (`schemaDialect`), so both libraries agree.
+ * `undefined` for a format that is not JSON Schema (Avro, RAML, Protobuf, unknown, non-string).
  */
 export type AsyncApiSchemaDialect = "asyncapi" | JsonSchemaVersion | "openapi-3.0" | "openapi-3.1"
 
@@ -43,8 +42,8 @@ export const asyncApiSchemaDialect = (schemaFormat: unknown): AsyncApiSchemaDial
 const NO_CUSTOM_RULES: MergeRules = Object.freeze({})
 const EMPTY_RULES: MergeRules = Object.freeze({})
 
-// binding fields the AsyncAPI bindings specifications define as Schema Objects, per protocol (the list of
-// api-smart-diff, POLICY-19 (b) / ISSUE-139); bindings of other protocols are left untouched
+// binding fields the AsyncAPI bindings specifications define as Schema Objects, per protocol; bindings of other
+// protocols are left untouched
 export const asyncApiBindingSchemaFields: Readonly<Record<string, readonly string[]>> = Object.freeze({
   ws: Object.freeze(["query", "headers"]),
   http: Object.freeze(["query", "headers"]),
@@ -149,7 +148,7 @@ export type SchemaFormatUnwrap =
   | { ok: false, schemaFormat: unknown, message: string }
 
 /**
- * Engine hook for a `$ref` allOf item of an AsyncAPI 3.0 document (decision Q2-4): a target that is a Multi Format
+ * Engine hook for a `$ref` allOf item of an AsyncAPI 3.0 document: a target that is a Multi Format
  * Schema Object (`{ schemaFormat, schema }`) is unwrapped when the format is the AsyncAPI schema or a JSON Schema
  * draft (its inner `schema` is merged); any other format (OpenAPI, Avro, Protobuf, RAML, unknown, non-string) or a
  * wrapper without `schema` is not inlined. Any other target is returned as it is.

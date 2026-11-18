@@ -19,7 +19,7 @@ const asType = (types: string[]): string | string[] => types.length === 1 ? type
  *
  * OAS 3.0.3: "A true value adds null to the allowed types specified by the type keyword, only if type is
  * explicitly defined within the same Schema Object". So an item with a `type` allows `type ∪ {null}` when its
- * `nullable` is true and only `type` when it is false or absent (strict, D-1); an item without `type` does not
+ * `nullable` is true and only `type` when it is false or absent (strict); an item without `type` does not
  * restrict the type at all, whatever its `nullable` says. The conjunction keeps the types every typed item
  * allows; when only null is left the result is `{ type: T, nullable: true, enum: [null] }` (valid OAS 3.0; `T` is
  * the first type of the first typed item), with `enum: [null]` as an allOf fragment when an `enum`/`const` is

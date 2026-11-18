@@ -56,7 +56,7 @@ describe("B11.3 parseRef / createRef", () => {
 
   it("B11.3.2 parses root references", () => {
     expect(parseRef("#")).toEqual({ filePath: "", pointer: "", normalized: "#", jsonPath: [] })
-    // VR-36: `#/` is the member "" of the root (RFC 6901), not the root
+    // `#/` is the member "" of the root (RFC 6901), not the root
     expect(parseRef("#/")).toEqual({ filePath: "", pointer: "/", normalized: "#/", jsonPath: [""] })
   })
 
@@ -65,7 +65,7 @@ describe("B11.3 parseRef / createRef", () => {
     expect(parseRef("file.json")).toEqual({ filePath: "file.json", pointer: "", normalized: "file.json", jsonPath: [] })
   })
 
-  // AM-22 (fixed): the basePath parameter is only applied when the file part is undefined, but "#/x".split("#") yields "" so basePath is never used for local refs
+  // 0.x bug, fixed: the basePath parameter is only applied when the file part is undefined, but "#/x".split("#") yields "" so basePath is never used for local refs
   test("B11.3.3b applies basePath to local references", () => {
     expect(parseRef("#/x", "base.json").filePath).toBe("base.json")
     expect(parseRef("#/x", "base.json").normalized).toBe("base.json#/x")
@@ -110,13 +110,13 @@ describe("B11.4 resolvePointer", () => {
     expect(resolvePointer({ a: null }, "/a/b")).toBeUndefined()
   })
 
-  // AM-16 (fixed): when an intermediate node is a $ref the remaining path segments are not applied to the resolved target
+  // 0.x bug, fixed: when an intermediate node is a $ref the remaining path segments are not applied to the resolved target
   test("B11.4.3 resolves through an intermediate $ref and applies the remaining path", () => {
     expect(resolvePointer(data, "/r/e~0f")).toBe("x")
     expect(resolvePointer({ a: { $ref: "#/b" }, b: { c: 1 } }, "/a/c")).toBe(1)
   })
 
-  // AM-16 (fixed): a self-referencing $ref returns the $ref node itself instead of undefined
+  // 0.x bug, fixed: a self-referencing $ref returns the $ref node itself instead of undefined
   test("B11.4.4 returns undefined for a path through a self-referencing $ref", () => {
     expect(resolvePointer(data, "/self/x")).toBeUndefined()
     expect(resolvePointer(data, "/cyc1/x")).toBeUndefined()

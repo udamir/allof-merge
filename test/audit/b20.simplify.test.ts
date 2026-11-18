@@ -1,9 +1,9 @@
 /*
  * B20 — simplifications. The four always-safe ones are options of their own,
- * default true: dedupeAnyOf (S1, never oneOf), dedupeFragments (S2), dedupeCombinaryGroups (S3, order-sensitive),
- * dropFalseBranches (S10/S11). `simplify` (default off) adds the exact, type-guarded, form-changing rules S4b, S4c, S5,
- * S6a, S6b, S7, S9. Every case is checked for equivalence with the cfworker oracle of test/fuzz (draft-07 / 2020-12
- * profiles; draft-07 `$ref` siblings read as applying, D-24).
+ * default true: dedupeAnyOf (never oneOf), dedupeFragments, dedupeCombinaryGroups (order-sensitive),
+ * dropFalseBranches. `simplify` (default off) adds the exact, type-guarded, form-changing rules. Every case is
+ * checked for equivalence with the cfworker oracle of test/fuzz (draft-07 / 2020-12 profiles; draft-07 `$ref` siblings
+ * read as applying).
  */
 import { describe, it, expect } from "vite-plus/test"
 import { createMerger, jsonSchemaMergeRules, openApiMergeRules, graphapiMergeRules, type MergeOptions } from "../../src/index.ts"
@@ -26,7 +26,7 @@ const exact = (schema: unknown, options: CaseOptions = {}, profile: Profile = "d
 
 const SIMPLIFY: CaseOptions = { simplify: true }
 
-describe("B20.1 dedupeAnyOf (S1, F3.1, F3.2)", () => {
+describe("B20.1 dedupeAnyOf", () => {
   it("B20.1.1 identical anyOf branches of the input are kept once, first-seen order", () => {
     expect(exact({ allOf: [{ anyOf: [S, N, S] }, { minLength: 1 }] })).toEqual({ minLength: 1, anyOf: [S, N] })
     expect(exact({ anyOf: [S, S] })).toEqual({ anyOf: [S] })
@@ -49,7 +49,7 @@ describe("B20.1 dedupeAnyOf (S1, F3.1, F3.2)", () => {
   })
 })
 
-describe("B20.2 dedupeFragments (S2, F3.3)", () => {
+describe("B20.2 dedupeFragments", () => {
   it("B20.2.1 identical contains fragments are kept once", () => {
     const data = { allOf: [{ contains: N }, { contains: S }, { contains: N }] }
     expect(exact(data)).toEqual({ allOf: [{ contains: N }, { contains: S }] })
@@ -61,7 +61,7 @@ describe("B20.2 dedupeFragments (S2, F3.3)", () => {
     const other = { if: { minLength: 5 }, then: { maxLength: 8 } }
     expect(exact({ allOf: [cond, other, cond] })).toEqual({ allOf: [cond, other] })
     expect(exact({ allOf: [{ format: "date" }, { format: "date" }] })).toEqual({ format: "date" })
-    // Q1: different formats are a contradiction (no longer kept as fragments; not equivalent for an annotation-only
+    // different formats are a contradiction (no longer kept as fragments; not equivalent for an annotation-only
     // validator, which is why the oracle is not used here)
     expect(merge({ allOf: [{ format: "date" }, { format: "email" }, { format: "date" }] })).toBe(false)
   })
@@ -75,7 +75,7 @@ describe("B20.2 dedupeFragments (S2, F3.3)", () => {
   })
 })
 
-describe("B20.3 dedupeCombinaryGroups (S3, F3.4–F3.6)", () => {
+describe("B20.3 dedupeCombinaryGroups", () => {
   it("B20.3.1 three identical oneOf groups merge into the group (was 27 branches, 24 false)", () => {
     // three equal copies (a bundler inlined the same schema three times; one shared instance is collected once anyway)
     const G = () => ({ oneOf: [S, N, B] })
@@ -95,7 +95,7 @@ describe("B20.3 dedupeCombinaryGroups (S3, F3.4–F3.6)", () => {
     expect(off.mergeErrors.map((e) => e.message)).toEqual(["Could not merge combinaries: 4096 combinations exceed the branch budget of 1024"])
   })
 
-  it("B20.3.3 groups equal up to order are different groups (order-sensitive, Q3-3)", () => {
+  it("B20.3.3 groups equal up to order are different groups (order-sensitive)", () => {
     const result = exact({ allOf: [{ oneOf: [S, N] }, { oneOf: [N, S] }] })
     expect(result).toEqual({ oneOf: [S, N] })
     // the product was computed: four branches, the two impossible ones dropped
@@ -115,13 +115,13 @@ describe("B20.3 dedupeCombinaryGroups (S3, F3.4–F3.6)", () => {
   })
 })
 
-describe("B20.4 dropFalseBranches (S10, S11, F3.13)", () => {
+describe("B20.4 dropFalseBranches", () => {
   it("B20.4.1 impossible branches are removed, also impossible branches written in the input", () => {
     expect(exact({ oneOf: [S, false, { allOf: [S, N] }, N] })).toEqual({ oneOf: [S, N] })
     expect(exact({ allOf: [{ anyOf: [S, false] }, { minLength: 1 }] })).toEqual({ minLength: 1, anyOf: [S] })
   })
 
-  it("B20.4.2 every branch impossible: the node is a contradiction, container siblings kept (D-10), reported once", () => {
+  it("B20.4.2 every branch impossible: the node is a contradiction, container siblings kept, reported once", () => {
     const data = { $defs: { d: S }, allOf: [{ oneOf: [S, N] }, { oneOf: [B] }] }
     const { result, mergeErrors } = mergeReport(clone(data), { rules: rulesOf("2020-12") })
     expect(result).toEqual({ allOf: [false], $defs: { d: S } })
@@ -130,7 +130,7 @@ describe("B20.4 dropFalseBranches (S10, S11, F3.13)", () => {
     expect(exact({ oneOf: [{ allOf: [S, N] }, { allOf: [B, N] }] })).toBe(false)
   })
 
-  it("B20.4.3 an input combinary that is already all-false is a contradiction, not reported (VR-41)", () => {
+  it("B20.4.3 an input combinary that is already all-false is a contradiction, not reported", () => {
     const { result, mergeErrors } = mergeReport({ anyOf: [false, false], title: "t" })
     expect(result).toBe(false)
     expect(mergeErrors).toEqual([])
@@ -145,7 +145,7 @@ describe("B20.4 dropFalseBranches (S10, S11, F3.13)", () => {
     expect(exact({ oneOf: [S, false, { allOf: [S, N] }, N] }, { dropFalseBranches: false })).toEqual({ oneOf: [S, false, false, N] })
   })
 
-  it("B20.4.6 a $ref into a branch whose index shifts keeps its meaning (a link to the branch's new index, D-27)", () => {
+  it("B20.4.6 a $ref into a branch whose index shifts keeps its meaning (a link to the branch's new index)", () => {
     const doc = {
       definitions: { X: { oneOf: [{ allOf: [S, N] }, { type: "integer" }, B] } },
       properties: { p: { $ref: "#/definitions/X/oneOf/2" }, q: { $ref: "#/definitions/X/oneOf/1" } },
@@ -161,7 +161,7 @@ describe("B20.4 dropFalseBranches (S10, S11, F3.13)", () => {
   })
 })
 
-describe("B20.5 simplify: enum / const by type (S5, F3.9)", () => {
+describe("B20.5 simplify: enum / const by type", () => {
   it("B20.5.1 string / integer members", () => {
     expect(exact({ allOf: [{ type: "string" }, { enum: ["a", 1, null] }] }, SIMPLIFY)).toEqual({ type: "string", enum: ["a"] })
     expect(exact({ allOf: [{ type: "integer" }, { enum: [1.5, 2, "2"] }] }, SIMPLIFY, "draft-07", [2, 1.5])).toEqual({ type: "integer", enum: [2] })
@@ -178,7 +178,7 @@ describe("B20.5 simplify: enum / const by type (S5, F3.9)", () => {
     expect(exact({ allOf: [{ enum: ["a", 1] }, { minLength: 1 }] }, SIMPLIFY)).toEqual({ enum: ["a", 1], minLength: 1 })
   })
 
-  it("B20.5.4 OpenAPI 3.0: nullable: true admits a null member; without it null is filtered (D-13)", () => {
+  it("B20.5.4 OpenAPI 3.0: nullable: true admits a null member; without it null is filtered", () => {
     const doc = (schema: unknown) => ({ openapi: "3.0.3", info: { title: "t", version: "1" }, paths: {}, components: { schemas: { A: schema } } })
     const a = merge(doc({ allOf: [{ type: "string", nullable: true }, { enum: ["a", null, 1], nullable: true }] }), { simplify: true }).components.schemas.A
     expect(a).toEqual({ type: "string", nullable: true, enum: ["a", null] })
@@ -192,7 +192,7 @@ describe("B20.5 simplify: enum / const by type (S5, F3.9)", () => {
   })
 })
 
-describe("B20.6 simplify: bounds contradictions (S6a, S6b, S6c, F3.10)", () => {
+describe("B20.6 simplify: bounds contradictions", () => {
   it("B20.6.1 numeric interval empty with a number-only type: false, reported", () => {
     const { result, mergeErrors } = mergeReport({ allOf: [{ type: "number", minimum: 15 }, { maximum: 10 }] }, { simplify: true })
     expect(result).toBe(false)
@@ -223,13 +223,13 @@ describe("B20.6 simplify: bounds contradictions (S6a, S6b, S6c, F3.10)", () => {
     expect(exact({ allOf: [{ type: "array", contains: N, minContains: 3 }, { maxContains: 2 }] }, SIMPLIFY, "2020-12")).toEqual({ type: "array", contains: N, minContains: 3 })
   })
 
-  it("B20.6.5 multi-type: the impossible kind is removed with its bounds (S6b)", () => {
+  it("B20.6.5 multi-type: the impossible kind is removed with its bounds", () => {
     expect(exact({ allOf: [{ type: ["number", "string"], minimum: 15 }, { maximum: 10 }] }, SIMPLIFY)).toEqual({ type: "string" })
     expect(exact({ allOf: [{ type: ["integer", "string", "null"], minimum: 1.2 }, { maximum: 1.8, minLength: 1 }] }, SIMPLIFY)).toEqual({ type: ["string", "null"], minLength: 1 })
     expect(exact({ allOf: [{ type: ["string", "array"], minLength: 3, minItems: 2 }, { maxLength: 1, maxItems: 1 }] }, SIMPLIFY)).toBe(false)
   })
 
-  it("B20.6.6 untyped contradictions are kept silently (S6c, Q3-4)", () => {
+  it("B20.6.6 untyped contradictions are kept silently", () => {
     const { result, mergeErrors } = mergeReport({ allOf: [{ minimum: 15 }, { maximum: 10 }] }, { simplify: true })
     expect(result).toEqual({ minimum: 15, maximum: 10 })
     expect(mergeErrors).toEqual([])
@@ -256,7 +256,7 @@ describe("B20.6 simplify: bounds contradictions (S6a, S6b, S6c, F3.10)", () => {
   })
 })
 
-describe("B20.7 simplify: required + false property (S7, F3.11) and contains (S4b, S4c, F3.7, F3.8)", () => {
+describe("B20.7 simplify: required + false property and contains", () => {
   it("B20.7.1 typed object: false; untyped: unchanged", () => {
     expect(exact({ allOf: [{ type: "object", required: ["a"] }, { properties: { a: false } }] }, SIMPLIFY)).toBe(false)
     expect(exact({ allOf: [{ type: "object", required: ["a"] }, { properties: { a: { allOf: [S, N] } } }] }, SIMPLIFY)).toBe(false)
@@ -269,13 +269,13 @@ describe("B20.7 simplify: required + false property (S7, F3.11) and contains (S4
     expect(exact(withPatterns, SIMPLIFY, "draft-07", [{ b: "x" }])).not.toBe(false)
   })
 
-  it("B20.7.3 S4b: contains: true / {} → minItems ≥ 1 under draft-07; unchanged under 2020-12 (unevaluatedItems)", () => {
+  it("B20.7.3 contains: true / {} → minItems ≥ 1 under draft-07; unchanged under 2020-12 (unevaluatedItems)", () => {
     expect(exact({ allOf: [{ type: "array", contains: true }, { minItems: 0 }] }, SIMPLIFY)).toEqual({ type: "array", minItems: 1 })
     expect(exact({ allOf: [{ contains: {} }, { minItems: 2 }] }, SIMPLIFY)).toEqual({ minItems: 2 })
     expect(exact({ allOf: [{ type: "array", contains: true }, { minItems: 0 }] }, SIMPLIFY, "2020-12")).toEqual({ type: "array", contains: true, minItems: 0 })
   })
 
-  it("B20.7.4 S4c: contains: false with an array-only type → false; with minContains: 0 or untyped unchanged", () => {
+  it("B20.7.4 contains: false with an array-only type → false; with minContains: 0 or untyped unchanged", () => {
     expect(exact({ allOf: [{ type: "array" }, { contains: false }] }, SIMPLIFY)).toBe(false)
     expect(exact({ allOf: [{ type: "array" }, { contains: { allOf: [S, N] } }] }, SIMPLIFY)).toBe(false)
     expect(exact({ allOf: [{ type: "array" }, { contains: false, minContains: 0 }] }, SIMPLIFY, "2020-12", [[], [1]])).toEqual({ type: "array", contains: false, minContains: 0 })
@@ -283,7 +283,7 @@ describe("B20.7 simplify: required + false property (S7, F3.11) and contains (S4
   })
 })
 
-describe("B20.8 simplify: redundant bounds (S9, F3.12)", () => {
+describe("B20.8 simplify: redundant bounds", () => {
   it.each([
     [{ minimum: 5, exclusiveMinimum: 3 }, { minimum: 5 }],
     [{ minimum: 3, exclusiveMinimum: 5 }, { exclusiveMinimum: 5 }],
@@ -305,7 +305,7 @@ describe("B20.8 simplify: redundant bounds (S9, F3.12)", () => {
   })
 })
 
-describe("B20.9 options and counterexamples (F3.14, F3.15)", () => {
+describe("B20.9 options and counterexamples", () => {
   it("B20.9.1 simplify selections: only the selected rules run", () => {
     const data = { allOf: [{ type: ["number", "string"], minimum: 15, exclusiveMinimum: 3 }, { maximum: 10, enum: ["a", 12, 20, true] }] }
     expect(exact(data, { simplify: { enumByType: true } })).toEqual({ type: ["number", "string"], minimum: 15, exclusiveMinimum: 3, maximum: 10, enum: ["a", 12, 20] })

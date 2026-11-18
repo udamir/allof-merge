@@ -31,7 +31,7 @@ describe("cycle $refs", () => {
 
 		const result: any = merge(data);
 
-		// D-4b: a cycle re-entry is a $ref to the source location of the re-entered node, never a cyclic object
+		// a cycle re-entry is a $ref to the source location of the re-entered node, never a cyclic object
 		const baz = {
 			type: "object",
 			description: "2-st parent",
@@ -114,7 +114,7 @@ describe("cycle $refs", () => {
 
 		const result: any = merge(data);
 
-		// D-4b: a cycle re-entry is a $ref to the source location of the re-entered node, never a cyclic object
+		// a cycle re-entry is a $ref to the source location of the re-entered node, never a cyclic object
 		const baz = {
 			type: "object",
 			description: "2-st parent",
@@ -175,7 +175,7 @@ describe("cycle $refs", () => {
 							type: "string",
 							description: "1-st parent",
 							properties: {
-								// D-4: the in-progress conjunction started at a node that is not in the source: kept as allOf
+								// the in-progress conjunction started at a node that is not in the source: kept as allOf
 								test: {
 									allOf: [{ type: "string" }, { $ref: "#/properties/foo" }],
 								},

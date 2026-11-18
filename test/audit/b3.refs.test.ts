@@ -93,7 +93,7 @@ describe("B3.2 broken and external references", () => {
     expect(result).toEqual({ allOf: [{ $ref: "#/definitions/A" }, { minLength: 1 }] })
   })
 
-  // AM-15 (fixed): on a broken $ref the sibling keys of the node (here "definitions") are moved into a new allOf item, which changes the document structure and breaks every "#/definitions/..." pointer
+  // 0.x bug, fixed: on a broken $ref the sibling keys of the node (here "definitions") are moved into a new allOf item, which changes the document structure and breaks every "#/definitions/..." pointer
   test("B3.2.4 keeps root siblings in place when a $ref inside allOf is broken", () => {
     const data = { definitions: { A: { type: "string" } }, allOf: [{ $ref: "#/nope" }, { type: "string" }] }
     const { result } = mergeReport(data)
@@ -128,7 +128,7 @@ describe("B3.3 cyclic references", () => {
     expect(merge({ properties: { a: { allOf: [{ $ref: "#/properties/a" }, { type: "string" }] } } })).toEqual({ properties: { a: { type: "string" } } })
   })
 
-  // D-4b: the cycle re-entry is a $ref to the source location of the re-entered node (serializable output)
+  // the cycle re-entry is a $ref to the source location of the re-entered node (serializable output)
   it("B3.3.2 resolves $ref: '#' inside allOf, the re-entry is a $ref", () => {
     const data = { type: "object", properties: { a: { allOf: [{ $ref: "#" }, { description: "x" }] } } }
     const result = merge(data)
@@ -186,7 +186,7 @@ describe("B3.3 cyclic references", () => {
     expect(isJsonSerializable(result)).toBe(true)
   })
 
-  // AM-07 (fixed): cycle detection stringifies the allOf items (normalize.ts) as soon as one of them is a $ref, which throws on cyclic JavaScript input
+  // 0.x bug, fixed: cycle detection stringifies the allOf items (normalize.ts) as soon as one of them is a $ref, which throws on cyclic JavaScript input
   test("B3.3.9 handles cyclic JavaScript references mixed with $ref items", () => {
     const data: any = { properties: { a: { allOf: [{ $ref: "#/properties/b" }] }, b: { type: "string" } } }
     data.properties.a.allOf.push(data)

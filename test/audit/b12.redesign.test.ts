@@ -169,7 +169,7 @@ describe("B12.4 draft-07 and 2020-12 rule sets", () => {
   })
 
   it("B12.4.4 unevaluatedProperties: false wins, schemas are conjoined (2020-12)", () => {
-    // D-8 (VR-12): items carrying their own unevaluated* stay whole allOf fragments
+    //: items carrying their own unevaluated* stay whole allOf fragments
     expect(merge({ allOf: [{ unevaluatedProperties: false }, { unevaluatedProperties: { type: "string" } }] }, { rules: rules2020 })).toEqual({ allOf: [{ unevaluatedProperties: false }, { unevaluatedProperties: { type: "string" } }] })
     expect(merge({ allOf: [{ unevaluatedItems: { type: "string" } }, { unevaluatedItems: { minLength: 1 } }] }, { rules: rules2020 })).toEqual({ allOf: [{ unevaluatedItems: { type: "string" } }, { unevaluatedItems: { minLength: 1 } }] })
     // node-level unevaluated* (the node's own sibling) is still merged with the items
@@ -286,7 +286,7 @@ describe("B12.6 resolution index", () => {
   it("B12.6.4 caches results per index and per normalized ref", () => {
     expect(index.resolve("#/definitions/A")).toBe(index.resolve("#/definitions/A"))
     expect(index.resolve("#")).toBe(index.resolve("#"))
-    // VR-36: `#/` is the member "" (absent here), not the root
+    // `#/` is the member "" (absent here), not the root
     expect(index.resolve("#/")).toEqual({ ok: false, reason: "not-found" })
   })
 })

@@ -7,7 +7,7 @@ import { groupReport } from "./basic.ts"
 
 /*
  * Per-key fallbacks, used when a custom `$` on one of the array-shape keys hands the group back to the per-key
- * table (VR-39). The whole item list is consulted (`items` cannot be merged without the other items'
+ * table. The whole item list is consulted (`items` cannot be merged without the other items'
  * `additionalItems`, `minContains` belongs to its `contains`), so the result is the group's for the keys without
  * a custom rule.
  */
@@ -24,7 +24,7 @@ const arrayShapeKey = (key: string, args: any[], ctx: MergeContext | undefined, 
     merged = mergeArrayShape(items, tupleKeywordOf(ctx?.mergeRules), groupReport(ctx))
     shaped.set(items, merged)
   }
-  // 2020-12 legacy tuple fragments (D-18) travel with `items` (present whenever an item has an array `items`)
+  // 2020-12 legacy tuple fragments travel with `items` (present whenever an item has an array `items`)
   const fragments = key === "items" && Array.isArray(merged.allOf) ? merged.allOf : []
   if (hasOwn(merged, key)) { return fragments.length ? asFragments(fragments, { value: merged[key] }) : merged[key] }
   return asFragments(fragments)

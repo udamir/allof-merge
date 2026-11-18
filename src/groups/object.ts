@@ -87,25 +87,25 @@ const objectShapeFragments = (shapes: ObjectShape[], report: Report | undefined,
 }
 
 /**
- * properties x patternProperties x additionalProperties (D-5, D-3)
+ * properties x patternProperties x additionalProperties
  *
  * The result is exact (validates the same instances as the conjunction of the items):
  *
  * - patterns are kept in the merged `patternProperties`; identical patterns conjoin their schemas. For an item that
  *   lacks a pattern `p` nothing is needed when its additionalProperties is absent/true/{}; when the item has an
  *   additionalProperties schema and no patterns (and none of its listed names matches `p`), that schema is
- *   conjoined into `p`'s schema (VR-10).
+ *   conjoined into `p`'s schema.
  * - when some item has `additionalProperties: false` and no patterns, nothing outside its listed names is allowed:
  *   no pattern is kept and the pattern schemas are applied to the listed names directly.
  * - every other interaction of patterns with another item's additionalProperties (`false` or a schema next to
- *   other patterns, VR-11) has no closed form without synthesized lookahead/difference patterns, so the object
+ *   other patterns) has no closed form without synthesized lookahead/difference patterns, so the object
  *   shapes are kept as `allOf` fragments.
  * - a listed name receives, per item, its own property schema, the item's matching pattern schemas when those
  *   are not kept, else the item's additionalProperties schema; a name forbidden by an item is dropped (the merged
  *   additionalProperties is `false` and no kept pattern matches it).
  *
  * Property names are matched against patterns only within the limits of `settings.matchPatterns` and never for
- * patterns with nested quantifiers (ReDoS, VR-02); when a needed match cannot be run, the shapes are kept as
+ * patterns with nested quantifiers (ReDoS); when a needed match cannot be run, the shapes are kept as
  * `allOf` fragments too.
  */
 export const mergeObjectShape = (
@@ -119,7 +119,7 @@ export const mergeObjectShape = (
   if (!shapes.length) { return result }
   const limits: false | Required<PatternMatchLimits> = patternLimits(settings)
 
-  // at most MAX_PATTERN_TESTS name x pattern tests per node (VR-07); beyond that the shapes are kept as fragments
+  // at most MAX_PATTERN_TESTS name x pattern tests per node; beyond that the shapes are kept as fragments
   let tests = 0
   // the cause of the last UNKNOWN match
   let unknownReason = "match-limit"
@@ -168,7 +168,7 @@ export const mergeObjectShape = (
   }
 
   // properties: per name only the items that list it and the items whose additionalProperties (or, in the closed
-  // case, whose patterns) can affect it are visited, so many single-property items merge in linear time (VR-07)
+  // case, whose patterns) can affect it are visited, so many single-property items merge in linear time
   const listing = new Map<string, number[]>()
   for (let i = 0; i < shapes.length; i++) {
     const shape = shapes[i]

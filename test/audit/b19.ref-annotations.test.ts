@@ -2,8 +2,8 @@
  * B19 — refAnnotations (#222): node-level annotations that arrive only
  * through a `$ref` are dropped with "omit" / a key list; the node's own values always stay; default "merge" keeps the
  * 0.x / 1.0.0 output. With mergeCombinarySibling a oneOf/anyOf branch that is a `$ref` keeps its target's
- * annotations (decision Q1-2: doc viewers label branches by them); a branch of a oneOf/anyOf product keeps the
- * annotations of its `$ref` components, combined by the keyword's merge rule (D-26).
+ * annotations (: doc viewers label branches by them); a branch of a oneOf/anyOf product keeps the
+ * annotations of its `$ref` components, combined by the keyword's merge rule.
  */
 import { describe, it, expect } from "vite-plus/test"
 import { createMerger, DEFAULT_OMITTED_ANNOTATIONS, graphapiMergeRules, jsonSchemaMergeRules, openApiMergeRules, type RefAnnotations } from "../../src/index.ts"
@@ -57,7 +57,7 @@ const annotationsOf = (schema: Record<string, unknown>) => {
 const BASE_ANNOTATIONS = { title: "Base", description: "Base entity", $comment: "base note", "x-go-name": "BaseEntity", examples: [{ id: "1" }], deprecated: true }
 const KEPT_BY_OMIT = { "x-go-name": "BaseEntity", examples: [{ id: "1" }], deprecated: true }
 
-describe("B19.1 default \"merge\": output unchanged (F1.1)", () => {
+describe("B19.1 default \"merge\": output unchanged", () => {
   it("B19.1.1 the #222 document: inherited annotations are promoted as before", () => {
     const merged = schemasOf()
     expect(merged).toEqual(schemasOf("merge"))
@@ -71,10 +71,10 @@ describe("B19.1 default \"merge\": output unchanged (F1.1)", () => {
   })
 })
 
-describe("B19.2 \"omit\" (F1.2–F1.9)", () => {
+describe("B19.2 \"omit\"", () => {
   const merged = schemasOf("omit")
 
-  it("B19.2.1 Derived / Alias / Two lose title, description, $comment; other promoted keys stay (F1.2)", () => {
+  it("B19.2.1 Derived / Alias / Two lose title, description, $comment; other promoted keys stay", () => {
     expect(annotationsOf(merged.Derived)).toEqual(KEPT_BY_OMIT)
     expect(annotationsOf(merged.Alias)).toEqual(KEPT_BY_OMIT)
     expect(annotationsOf(merged.Two)).toEqual(KEPT_BY_OMIT)
@@ -82,24 +82,24 @@ describe("B19.2 \"omit\" (F1.2–F1.9)", () => {
     expect(merged.Derived.type).toBe("object")
   })
 
-  it("B19.2.2 the node's own title / description stay (F1.3)", () => {
+  it("B19.2.2 the node's own title / description stay", () => {
     expect(annotationsOf(merged.Titled)).toEqual({ ...KEPT_BY_OMIT, title: "Titled" })
     expect(annotationsOf(merged.Prop.properties.owner)).toEqual({ ...KEPT_BY_OMIT, description: "The owner" })
   })
 
-  it("B19.2.3 a sibling of the $ref allOf item is the node's own (F1.4)", () => {
+  it("B19.2.3 a sibling of the $ref allOf item is the node's own", () => {
     expect(annotationsOf(merged.RefSibT)).toEqual({ ...KEPT_BY_OMIT, title: "Explicit" })
   })
 
-  it("B19.2.4 inline allOf members are the node's own: last wins as before (F1.5)", () => {
+  it("B19.2.4 inline allOf members are the node's own: last wins as before", () => {
     expect(merged.Inline).toEqual({ type: "object", title: "B" })
   })
 
-  it("B19.2.5 nested property annotations of the target stay (F1.8)", () => {
+  it("B19.2.5 nested property annotations of the target stay", () => {
     expect(merged.Derived.properties.id.title).toBe("Id")
   })
 
-  it("B19.2.6 mergeRefSibling: the target's title is dropped, the own description stays (F1.9)", () => {
+  it("B19.2.6 mergeRefSibling: the target's title is dropped, the own description stays", () => {
     expect(annotationsOf(merged.RefSib)).toEqual({ ...KEPT_BY_OMIT, description: "override" })
   })
 
@@ -109,7 +109,7 @@ describe("B19.2 \"omit\" (F1.2–F1.9)", () => {
   })
 })
 
-describe("B19.3 key lists (F1.6)", () => {
+describe("B19.3 key lists", () => {
   it("B19.3.1 [\"title\", \"x-*\"]: title and every x- key of the target dropped, description kept", () => {
     const merged = schemasOf(["title", "x-*"])
     expect(annotationsOf(merged.Derived)).toEqual({ description: "Base entity", $comment: "base note", examples: [{ id: "1" }], deprecated: true })
@@ -134,7 +134,7 @@ describe("B19.3 key lists (F1.6)", () => {
 })
 
 describe("B19.4 nesting, aliases, combinaries", () => {
-  it("B19.4.1 nested target: A = allOf [$ref B, { title: A }] used through $ref drops both titles (F1.7)", () => {
+  it("B19.4.1 nested target: A = allOf [$ref B, { title: A }] used through $ref drops both titles", () => {
     const doc = {
       definitions: {
         B: { title: "B", type: "object" },
@@ -148,7 +148,7 @@ describe("B19.4 nesting, aliases, combinaries", () => {
     expect(result.definitions.A).toEqual({ type: "object", title: "A", description: "a" })
   })
 
-  it("B19.4.2 mergeCombinarySibling: a $ref branch keeps its target's annotations (Q1-2), the node-level ones are dropped (F1.10)", () => {
+  it("B19.4.2 mergeCombinarySibling: a $ref branch keeps its target's annotations, the node-level ones are dropped", () => {
     const merged = schemasOf("omit")
     const [base, other] = merged.OneOfT.oneOf
     expect(base.title).toBe("Base")
@@ -173,7 +173,7 @@ describe("B19.4 nesting, aliases, combinaries", () => {
     expect(merged.OneOfT).toEqual(doc222().components.schemas.OneOfT)
   })
 
-  it("B19.4.5 a oneOf product of two $ref groups: the branch keeps its components' annotations, the title rule decides (D-26)", () => {
+  it("B19.4.5 a oneOf product of two $ref groups: the branch keeps its components' annotations, the title rule decides", () => {
     const doc = {
       definitions: { A: { title: "A", type: "string" }, B: { title: "B", minLength: 1 } },
       properties: { p: { allOf: [{ oneOf: [{ $ref: "#/definitions/A" }] }, { oneOf: [{ $ref: "#/definitions/B" }] }] } },
@@ -183,7 +183,7 @@ describe("B19.4 nesting, aliases, combinaries", () => {
   })
 })
 
-describe("B19.5 reference resolutions keep the target's annotations (F1.11)", () => {
+describe("B19.5 reference resolutions keep the target's annotations", () => {
   it("B19.5.1 a bare $ref into an allOf member that is copied keeps its target's annotations", () => {
     const doc = {
       definitions: {
@@ -224,7 +224,7 @@ describe("B19.5 reference resolutions keep the target's annotations (F1.11)", ()
 })
 
 describe("B19.6 memo, caches, cycles", () => {
-  it("B19.6.1 one document with two mergers (\"merge\" / \"omit\") and one merger twice: each result follows its own option (F1.12)", () => {
+  it("B19.6.1 one document with two mergers (\"merge\" / \"omit\") and one merger twice: each result follows its own option", () => {
     const shared = doc222()
     const omit = createMerger({ ...FLAGS, refAnnotations: "omit" })
     const keep = createMerger({ ...FLAGS })
@@ -237,7 +237,7 @@ describe("B19.6 memo, caches, cycles", () => {
     expect(sharesReferences(a, b)).toBe(false)
   })
 
-  it("B19.6.2 createMerger reuse across documents with freezeOutput: the cached stripped copies are not mutated (F1.13)", () => {
+  it("B19.6.2 createMerger reuse across documents with freezeOutput: the cached stripped copies are not mutated", () => {
     const merger = createMerger({ refAnnotations: "omit", freezeOutput: true })
     const source = deepFreeze(doc222())
     const first = merger.merge(source) as any
@@ -248,7 +248,7 @@ describe("B19.6 memo, caches, cycles", () => {
     expect(first.components.schemas.Derived.title).toBeUndefined()
   })
 
-  it("B19.6.3 a cycle through allOf and $ref: cycle $ref placeholder as with \"merge\", serializable (F1.14)", () => {
+  it("B19.6.3 a cycle through allOf and $ref: cycle $ref placeholder as with \"merge\", serializable", () => {
     const doc = {
       definitions: {
         Node: { title: "Node", allOf: [{ properties: { next: { $ref: "#/definitions/Next" } } }, { type: "object" }] },
@@ -273,7 +273,7 @@ describe("B19.6 memo, caches, cycles", () => {
   })
 })
 
-describe("B19.7 rule sets and equivalence (F1.15, F1.16)", () => {
+describe("B19.7 rule sets and equivalence", () => {
   it.each(["3.0.x", "3.1.x"] as const)("B19.7.1 OpenAPI %s rules: same behaviour", (version) => {
     const doc = doc222()
     doc.openapi = version === "3.0.x" ? "3.0.3" : "3.1.0"
@@ -314,7 +314,7 @@ describe("B19.7 rule sets and equivalence (F1.15, F1.16)", () => {
   })
 })
 
-describe("B19.8 product branches keep the annotations of their $ref components (D-26)", () => {
+describe("B19.8 product branches keep the annotations of their $ref components", () => {
   const R = (name: string) => ({ $ref: `#/definitions/${name}` })
   const defs = () => ({
     Cat: { title: "Cat", description: "a cat", type: "object", required: ["meow"] },

@@ -42,7 +42,7 @@ const isFiniteNumber = (value: unknown): value is number => typeof value === "nu
 
 export const first: MergeResolver = ([a]) => a
 export const last: MergeResolver = (args) => args[args.length - 1]
-// boolean OR / AND; values that are not booleans are ignored and reported (D-6)
+// boolean OR / AND; values that are not booleans are ignored and reported
 const booleans = (args: unknown[], ctx: MergeContext | undefined): boolean[] => {
   malformed(ctx, args.filter((v) => typeof v !== "boolean"))
   return args.filter((v): v is boolean => typeof v === "boolean")
@@ -55,7 +55,7 @@ export const and: MergeResolver = (args, ctx) => {
   const flags = booleans(args, ctx)
   return flags.length ? flags.every(Boolean) : dropKey()
 }
-// smallest / largest number; values that are not finite numbers are ignored and reported (D-6)
+// smallest / largest number; values that are not finite numbers are ignored and reported
 export const minValue: MergeResolver = (args, ctx) => {
   const numbers = args.filter(isFiniteNumber)
   malformed(ctx, args.filter((v) => !isFiniteNumber(v)))
@@ -71,7 +71,7 @@ export const intersectItems: MergeResolver = ([a, ...args]) => args.reduce((r, v
 export const equal: MergeResolver = ([a, ...args]) => args.some((v) => !deepEqual(v, a)) ? undefined : a
 export const mergeObjects: MergeResolver = ([a, ...args]) => args.reduce((r, v) => mergeValues(r, v), a)
 // the branches mergeArray creates: a product branch's components are branches of their own, so a `$ref` component
-// keeps its target's annotations under refAnnotations (D-26)
+// keeps its target's annotations under refAnnotations
 export const productBranches = new WeakSet<object>()
 // cartesian product of oneOf/anyOf lists; values that are not arrays are ignored
 export const mergeArray: MergeResolver = (args) => findCombinations(args).map((v) => {
@@ -80,14 +80,14 @@ export const mergeArray: MergeResolver = (args) => findCombinations(args).map((v
   return branch
 })
 const isSchema = (value: unknown): boolean => typeof value === "boolean" || (typeof value === "object" && value !== null && !Array.isArray(value))
-// not A ∧ not B = not (A ∨ B); values that are not schemas are ignored and reported (D-6)
+// not A ∧ not B = not (A ∨ B); values that are not schemas are ignored and reported
 export const mergeNot: MergeResolver = (args, ctx) => {
   const schemas = args.filter(isSchema)
   malformed(ctx, args.filter((v) => !isSchema(v)))
   if (!schemas.length) { return dropKey() }
   return schemas.length === 1 ? schemas[0] : { anyOf: schemas }
 }
-// least common multiple, or allOf fragments when it cannot be computed exactly (VR-01)
+// least common multiple, or allOf fragments when it cannot be computed exactly
 export const mergeMultipleOf: MergeResolver = (args, ctx) => {
   const merged = mergeMultipleOfValues(args, groupReport(ctx))
   if (hasOwn(merged, "multipleOf")) { return merged.multipleOf }
@@ -98,12 +98,12 @@ const formatResolver = (lattice: boolean): MergeResolver => (args, ctx) => {
   if (!merged) { return undefined }
   return hasOwn(merged, "format") ? merged.format : dropKey()
 }
-// format (D-14, Q1, JSON Schema / GraphApi rules): equal formats are kept, differing formats are a contradiction
+// format (JSON Schema / GraphApi rules): equal formats are kept, differing formats are a contradiction
 export const mergeFormat: MergeResolver = formatResolver(false)
-// format with the OpenAPI numeric lattice (D-14): int32 ∧ int64 → int32, float ∧ double → float, other differing
+// format with the OpenAPI numeric lattice: int32 ∧ int64 → int32, float ∧ double → float, other differing
 // formats are a contradiction
 export const mergeOpenApiFormat: MergeResolver = formatResolver(true)
-// draft-04 boolean exclusive bounds as per-key fallbacks (numeric group handed back by a custom rule, VR-39, AM-10):
+// draft-04 boolean exclusive bounds as per-key fallbacks (numeric group handed back by a custom rule):
 // the flag travels with the selected bound value. The bound's own rule (custom or built-in) selects the value from
 // the items' bounds; the flag is the one of the item(s) carrying that value (exclusive if any of them is - tightest).
 // Without a usable bound rule/value the group algorithm decides (the flag of the tightest bound).
@@ -176,7 +176,7 @@ export const mergePattern: MergeResolver = (args, ctx) => {
 }
 
 // enum intersection with structural equality, first-seen order; undefined (contradiction) when empty.
-// Linear: members are looked up in a structural set per list (VR-07). Values that are not arrays are ignored.
+// Linear: members are looked up in a structural set per list. Values that are not arrays are ignored.
 export const mergeEnum: MergeResolver = (args, ctx) => {
   const lists: unknown[][] = args.filter(Array.isArray)
   malformed(ctx, args.filter((v) => !Array.isArray(v)))
@@ -221,7 +221,7 @@ export const intersectTypes = (a: string[], b: string[]): string[] => {
 }
 
 // undefined (contradiction) when no type is left
-// malformed `type` values are ignored and reported (D-6)
+// malformed `type` values are ignored and reported
 export const mergeTypes: MergeResolver = (args, ctx) => {
   const lists = args.map(asTypeArray)
   malformed(ctx, args.filter((_, i) => !lists[i]))
@@ -268,7 +268,7 @@ export const mergeConjunction: MergeResolver = (args) => {
 const CONDITIONAL_KEYS = ["if", "then", "else"]
 const conditionalEmitted = new WeakSet<object>()
 
-// per-key fallback of the conditional group (if/then/else handed back by a custom rule, VR-39): two conditionals
+// per-key fallback of the conditional group (if/then/else handed back by a custom rule): two conditionals
 // have no closed conjunction, so every item's triple is kept as an allOf fragment (emitted once per node)
 export const conditionalMergeResolver: MergeResolver = (args, ctx) => {
   const items: Record<string, any>[] | undefined = ctx && Array.isArray(ctx.allOfItems) ? ctx.allOfItems : undefined
@@ -286,7 +286,7 @@ export const conditionalMergeResolver: MergeResolver = (args, ctx) => {
   }))
 }
 
-// Q9 (user decision 2026-11-18): a lone value of a keyword whose resolver validates its values is validated too; a
+// a lone value of a keyword whose resolver validates its values is validated too; a
 // malformed lone value is dropped and reported like a malformed value next to others. Resolver -> predicate of a
 // well-formed value
 export const singleValueValidators: ReadonlyMap<MergeResolver, (value: unknown) => boolean> = new Map<MergeResolver, (value: unknown) => boolean>([

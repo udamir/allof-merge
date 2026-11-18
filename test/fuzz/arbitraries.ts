@@ -77,7 +77,7 @@ export interface SchemaArbitraries {
   root: fc.Arbitrary<unknown>
 }
 
-// `$ref`s, bare or with siblings; the siblings apply next to the reference in every draft (D-24; the oracle reads
+// `$ref`s, bare or with siblings; the siblings apply next to the reference in every draft (the oracle reads
 // draft-07 `$ref` siblings the same way, see withRefSiblingsApplied)
 const refLeaves = (profile: Profile) => {
   const container = profile === "2020-12" ? "$defs" : "definitions"

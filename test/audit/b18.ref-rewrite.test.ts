@@ -31,7 +31,7 @@ const expectContract = (input: unknown, output: unknown, names: string[], draft:
 
 const draftOf = (version: string): "07" | "2020" => version.startsWith("3.1") ? "2020" : "07"
 
-describe("B18.1 links into merged schemas stay links (D-22)", () => {
+describe("B18.1 links into merged schemas stay links", () => {
   // the user's example: Order.petId points into a member of Pet's allOf; merging Pet leaves id unchanged
   const petDoc = (version: string, petId: unknown) => oasDoc(version, {
     Base: { type: "object", required: ["id"] },
@@ -137,7 +137,7 @@ describe("B18.1 links into merged schemas stay links (D-22)", () => {
   })
 })
 
-describe("B18.2 copies where the merged location is stricter (D-22)", () => {
+describe("B18.2 copies where the merged location is stricter", () => {
   const strictDoc = (version: string, petId: unknown) => oasDoc(version, {
     Pet: { allOf: [{ properties: { id: { type: "integer" } } }, { properties: { id: { minimum: 1 } } }] },
     Order: { properties: { petId } },
@@ -151,14 +151,14 @@ describe("B18.2 copies where the merged location is stricter (D-22)", () => {
     expectContract(doc, result, ["petId"], draftOf(version))
   })
 
-  it("B18.2.2 OpenAPI 3.0: every sibling applies next to the $ref (D-24), the copy is their conjunction, nothing is reported", () => {
+  it("B18.2.2 OpenAPI 3.0: every sibling applies next to the $ref, the copy is their conjunction, nothing is reported", () => {
     const doc = strictDoc("3.0.3", { $ref: "#/components/schemas/Pet/allOf/0/properties/id", description: "d", "x-internal": true, maximum: 100 })
     const { result, mergeErrors } = mergeReport(clone(doc))
-    // was { type, description, x-internal } with maximum dropped + reported (changed by D-24)
+    // was { type, description, x-internal } with maximum dropped + reported
     expect(result.components.schemas.Order.properties.petId).toEqual({ type: "integer", maximum: 100, description: "d", "x-internal": true })
     expect(mergeErrors).toEqual([])
     expectRefsResolve(doc, result)
-    // author-intent reading (D-24): the siblings apply, as ajv 8 applies them in every draft
+    // author-intent reading: the siblings apply, as ajv 8 applies them in every draft
     const wrap = (d: any) => ({ ...d, properties: { o: { $ref: "#/components/schemas/Order" } } })
     expectSameValidation(wrap(doc), wrap(result), instances(["petId"]).map((value) => ({ o: value })))
   })
@@ -183,7 +183,7 @@ describe("B18.2 copies where the merged location is stricter (D-22)", () => {
     expectSameValidation(wrap(doc), wrap(result), instances(["petId"]).map((value) => ({ o: value })), "2020")
   })
 
-  it("B18.2.5 2020-12 and the default rule set (draft-06): siblings apply in both (D-24)", () => {
+  it("B18.2.5 2020-12 and the default rule set (draft-06): siblings apply in both", () => {
     const doc = {
       $defs: { A: { properties: { x: { type: "string" } }, allOf: [{ properties: { x: { minLength: 3 } } }] } },
       properties: { p: { $ref: "#/$defs/A/properties/x", maxLength: 5 } },
@@ -191,14 +191,14 @@ describe("B18.2 copies where the merged location is stricter (D-22)", () => {
     const modern = merge(clone(doc), { rules: jsonSchemaMergeRules("2020-12") })
     expect(modern.properties.p).toEqual({ type: "string", maxLength: 5 })
     expectSameValidation(doc, modern, instances(["p"]), "2020")
-    // was { type: string } + one report (changed by D-24)
+    // was { type: string } + one report
     const { result, mergeErrors } = mergeReport(clone(doc))
     expect(result.properties.p).toEqual({ type: "string", maxLength: 5 })
     expect(mergeErrors).toEqual([])
     expectSameValidation(doc, result, instances(["p"]))
   })
 
-  it("B18.2.6 refs into a schema that became false keep being copies (D-20)", () => {
+  it("B18.2.6 refs into a schema that became false keep being copies", () => {
     const doc = oasDoc("3.0.3", {
       LegacyId: { allOf: [{ type: "string" }, { type: "number" }], properties: { code: { type: "string", maxLength: 8 } } },
       Order: { properties: { code: { $ref: "#/components/schemas/LegacyId/properties/code", description: "c" }, other: { $ref: "#/components/schemas/LegacyId/allOf/0" } } },
@@ -250,7 +250,7 @@ describe("B18.7 copies of targets with their own unevaluated* and pointers into 
     expectContract(doc, result, ["p", "x", "y"], "2020")
   })
 
-  it("B18.7.3 a memo re-entry (D-4) whose source pointer runs through a merged node points to the output location", () => {
+  it("B18.7.3 a memo re-entry whose source pointer runs through a merged node points to the output location", () => {
     const pair = () => ({ allOf: [{ $ref: "#/definitions/A/allOf/0" }, { $ref: "#/definitions/R" }] })
     const doc = { definitions: { R: { required: ["v"] }, A: { allOf: [{ properties: { next: pair(), other: pair() } }, { type: "object" }] } } }
     const result = merge(clone(doc))
@@ -282,7 +282,7 @@ describe("B18.7 copies of targets with their own unevaluated* and pointers into 
   })
 })
 
-describe("B18.3 cycles (D-4, D-4b with D-22)", () => {
+describe("B18.3 cycles through merged nodes", () => {
   it("B18.3.1 a member that refers to itself through its allOf location: the copy re-enters itself", () => {
     const doc = {
       definitions: { Node: { allOf: [{ properties: { child: { $ref: "#/definitions/Node/allOf/0" }, v: { type: "string" } } }, { required: ["v"] }] } },
@@ -425,7 +425,7 @@ describe("B18.4 options, reuse, modes", () => {
     }))
   })
 
-  it("B18.4.7 limits: a $ref that is not copied keeps the node it points through unmerged (D-17 fallback)", () => {
+  it("B18.4.7 limits: a $ref that is not copied keeps the node it points through unmerged (keep-unmerged fallback)", () => {
     const limited = {
       definitions: { A: { allOf: [{ properties: { x: { type: "string" } } }, { properties: { x: { minLength: 3 } } }] } },
       properties: { p: { $ref: "#/definitions/A/allOf/0/properties/x" }, q: { $ref: "#/definitions/A/allOf/0/properties/x" } },
@@ -493,7 +493,7 @@ describe("B18.6 the done memo is per rules (shared instances under different rul
   })
 })
 
-describe("B18.8 links into oneOf/anyOf branches whose index shifts (D-27)", () => {
+describe("B18.8 links into oneOf/anyOf branches whose index shifts", () => {
   const S = { type: "string" }
   const N = { type: "number" }
   const B = { type: "boolean" }

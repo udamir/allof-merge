@@ -51,23 +51,23 @@ describe("B10.2 degenerate allOf", () => {
     expect(merge({ allOf: [{ type: "string" }, true] })).toEqual({ type: "string" })
   })
 
-  // AM-09 (fixed): jsonSchemaMergeResolver returns undefined when the merged object has no keys, so allOf of empty schemas yields undefined instead of {}
+  // 0.x bug, fixed: jsonSchemaMergeResolver returns undefined when the merged object has no keys, so allOf of empty schemas yields undefined instead of {}
   test("B10.2.6 allOf of empty schemas is the empty schema", () => {
     expect(merge({ allOf: [{}, {}] })).toEqual({})
   })
 
-  // AM-09 (fixed): the undefined result removes the property from "properties"
+  // 0.x bug, fixed: the undefined result removes the property from "properties"
   test("B10.2.7 a property with allOf of empty schemas is kept", () => {
     expect(merge({ properties: { a: { allOf: [{}, {}] } } })).toEqual({ properties: { a: {} } })
   })
 
-  // AM-09 (fixed): tuple positions that merge to the empty schema become null
+  // 0.x bug, fixed: tuple positions that merge to the empty schema become null
   test("B10.2.8 tuple positions that merge to the empty schema are kept as {}", () => {
     const result = merge({ allOf: [{ items: [{}], additionalItems: { type: "string" } }, { items: [{}], additionalItems: { minLength: 1 } }] })
     expect(result.items).toEqual([{}])
   })
 
-  // AM-05 (fixed): false inside allOf is dropped
+  // 0.x bug, fixed: false inside allOf is dropped
   test("B10.2.9 allOf containing false rejects everything", () => {
     const result = merge({ allOf: [false] })
     expectRejects(result, [1, "a", {}])
@@ -170,7 +170,7 @@ describe("B10.3 large inputs terminate and produce correct output", () => {
     expect(result.definitions.N0.properties.next).toMatchObject({ type: "object", description: "d0" })
   })
 
-  it("B10.3.8 merge called on every node of a tree (api-smart-diff usage) gives the same result as a single merge", () => {
+  it("B10.3.8 merge called on every node of a tree gives the same result as a single merge", () => {
     const build = (d: number): any => d === 0
       ? { allOf: [{ type: "string" }, { minLength: 1 }] }
       : { type: "object", properties: Object.fromEntries(Array.from({ length: 3 }, (_, i) => ["p" + i, build(d - 1)])) }

@@ -121,7 +121,7 @@ export type MergeRule = {
   "$"?: MergeResolver
   sibling?: string[]
   group?: string
-  // schema rules only: the tuple keyword of the rule set (D-18) — "items" (draft-04/06/07) or "prefixItems" (2020-12)
+  // schema rules only: the tuple keyword of the rule set — "items" (draft-04/06/07) or "prefixItems" (2020-12)
   tuple?: "items" | "prefixItems"
   // schema rules only: the draft of the keyword table ("draft-04" | "draft-06" | "draft-07" | "2020-12")
   draft?: string

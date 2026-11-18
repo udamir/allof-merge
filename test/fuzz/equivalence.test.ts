@@ -22,7 +22,7 @@ const countAllOf = (value: unknown): number => {
 
 describe("fuzz: merged ≡ allOf (cfworker oracle)", () => {
   for (const profile of PROFILES) {
-    it(`F4.3 ${profile}: random allOf pairs/triples are merged equivalently`, () => {
+    it(`${profile}: random allOf pairs/triples are merged equivalently`, () => {
       const outcome = runProperty(profile)
       if (outcome.ajvDisagreements.length) {
         const unknown = outcome.ajvDisagreements.filter((d) => !d.known)
@@ -36,14 +36,14 @@ describe("fuzz: merged ≡ allOf (cfworker oracle)", () => {
 })
 
 describe("fuzz: oracle and harness self-tests", () => {
-  it("F4.1 the ajv `contains` + tuple `items` defect is allowlisted and cfworker is right", () => {
+  it("the ajv `contains` + tuple `items` defect is allowlisted and cfworker is right", () => {
     const schema = { items: [{ type: "string" }], contains: true }
     expect(cfValidator(schema, "draft-07")([])).toBe(false)
     expect(ajvValidator(schema, "draft-07")([])).toBe(true)
     expect(KNOWN_AJV_ISSUES.some((issue) => issue.test(JSON.stringify(schema)))).toBe(true)
   })
 
-  it("F4.2 an injected bug (maxLength merged with max) is found and minimized to a small case", () => {
+  it("an injected bug (maxLength merged with max) is found and minimized to a small case", () => {
     const rules = jsonSchemaMergeRules("draft-07", { "/maxLength": { $: maxValue } })
     const outcome = runProperty("draft-07", { seed: 42, numRuns: 1000, path: undefined, rules })
     expect(outcome.failed).toBe(true)
@@ -55,7 +55,7 @@ describe("fuzz: oracle and harness self-tests", () => {
     expect(outcome.report).toMatch(/seed: 42, path: /)
   })
 
-  it("F4.4 the same seed generates the same cases", () => {
+  it("the same seed generates the same cases", () => {
     for (const profile of PROFILES) {
       const a = fc.sample(caseArbitrary(profile), { seed: 99, numRuns: 30 })
       const b = fc.sample(caseArbitrary(profile), { seed: 99, numRuns: 30 })
@@ -63,7 +63,7 @@ describe("fuzz: oracle and harness self-tests", () => {
     }
   })
 
-  it("F4.6 generated cases are mostly merged away (no allOf left) and the oracle is not vacuous", () => {
+  it("generated cases are mostly merged away (no allOf left) and the oracle is not vacuous", () => {
     const cases = fc.sample(caseArbitrary("draft-07"), { seed: 5, numRuns: 200 })
     let leftAllOf = 0
     let rejectsSomething = 0

@@ -42,19 +42,19 @@ describe("B2.1 onMergeError reporting", () => {
 })
 
 describe("B2.2 result of an impossible merge", () => {
-  // AM-01 (fixed): the conflicting "type" is dropped from the result, which turns an impossible schema into an unconstrained one (validates more than the original)
+  // 0.x bug, fixed: the conflicting "type" is dropped from the result, which turns an impossible schema into an unconstrained one (validates more than the original)
   test("B2.2.1 string ∧ number yields a schema that rejects everything", () => {
     const { result } = mergeReport({ allOf: [{ type: "string", description: "x" }, { type: "number" }] })
     expectImpossibleSchema(result, ["s", 1, true, null, {}, []])
   })
 
-  // AM-01 (fixed): when the conflict leaves no other keyword the whole node becomes undefined
+  // 0.x bug, fixed: when the conflict leaves no other keyword the whole node becomes undefined
   test("B2.2.2 the root result is still a schema when the whole node is impossible", () => {
     const { result } = mergeReport({ allOf: [{ type: "string" }, { type: "number" }] })
     expectImpossibleSchema(result, ["s", 1])
   })
 
-  // AM-01 (fixed): the property is removed from "properties" so the merged schema accepts any value for it
+  // 0.x bug, fixed: the property is removed from "properties" so the merged schema accepts any value for it
   test("B2.2.3 an impossible property schema is kept as an impossible schema", () => {
     const data = { type: "object", properties: { a: { allOf: [{ type: "string" }, { type: "number" }] } } }
     const { result } = mergeReport(data)
@@ -63,13 +63,13 @@ describe("B2.2 result of an impossible merge", () => {
     expect(compile(result)({})).toBe(true)
   })
 
-  // AM-01 (fixed) / ISSUE-AM-09: "enum: []" is not a valid schema (enum must be non-empty) and ajv refuses to compile it
+  // (fixed) / ISSUE-: "enum: []" is not a valid schema (enum must be non-empty) and ajv refuses to compile it
   test("B2.2.4 disjoint enums yield a schema that rejects everything", () => {
     const { result } = mergeReport({ allOf: [{ enum: [1] }, { enum: [2] }] })
     expectImpossibleSchema(result, [1, 2, 3])
   })
 
-  // AM-01 (fixed): "const" is dropped and the result becomes undefined
+  // 0.x bug, fixed: "const" is dropped and the result becomes undefined
   test("B2.2.5 different const values yield a schema that rejects everything", () => {
     const { result } = mergeReport({ allOf: [{ const: 1 }, { const: 2 }] })
     expectImpossibleSchema(result, [1, 2])
@@ -83,13 +83,13 @@ describe("B2.2 result of an impossible merge", () => {
     expectMergeEquivalent({ allOf: [{ minimum: 10 }, { maximum: 5 }] }, [0, 5, 7, 10, 11])
   })
 
-  // AM-05 (fixed): boolean schema "false" inside allOf is silently dropped, the merged schema accepts "abc"
+  // 0.x bug, fixed: boolean schema "false" inside allOf is silently dropped, the merged schema accepts "abc"
   test("B2.2.8 allOf with false yields a schema that rejects everything", () => {
     const { result } = mergeReport({ allOf: [{ type: "string" }, false] })
     expectImpossibleSchema(result, ["abc", 1])
   })
 
-  // AM-05 (fixed): same for a property schema
+  // 0.x bug, fixed: same for a property schema
   test("B2.2.9 allOf with false inside a property rejects every value of that property", () => {
     const data = { properties: { a: { allOf: [false, { type: "string" }] } } }
     const result = merge(data)
@@ -127,7 +127,7 @@ describe("B2.3 impossible branches inside oneOf / anyOf", () => {
     expect(merge(clone(data), { mergeCombinarySibling: true, dropFalseBranches: false })).toEqual({ oneOf: [{ type: "string" }, false] })
   })
 
-  // AM-08 (fixed): when two branches are impossible the "nodeToDelete" map keeps only one index per parent, the other branch is written as null
+  // 0.x bug, fixed: when two branches are impossible the "nodeToDelete" map keeps only one index per parent, the other branch is written as null
   // impossible branches stay as `false`
   test("B2.3.4 drops several impossible branches [bad, bad, ok] (false each with dropFalseBranches: false)", () => {
     const data = { oneOf: [
@@ -139,7 +139,7 @@ describe("B2.3 impossible branches inside oneOf / anyOf", () => {
     expect(mergeReport(clone(data), { dropFalseBranches: false }).result).toEqual({ oneOf: [false, false, { type: "boolean" }] })
   })
 
-  // AM-08 (fixed): same with the good branch in the middle
+  // 0.x bug, fixed: same with the good branch in the middle
   test("B2.3.5 drops several impossible branches [bad, ok, bad] (false each with dropFalseBranches: false)", () => {
     const data = { oneOf: [
       { allOf: [{ type: "string" }, { type: "number" }] },
@@ -150,7 +150,7 @@ describe("B2.3 impossible branches inside oneOf / anyOf", () => {
     expect(mergeReport(clone(data), { dropFalseBranches: false }).result).toEqual({ oneOf: [false, { type: "boolean" }, false] })
   })
 
-  // AM-08 (fixed): when every branch is impossible the result is { oneOf: [null] }, which is not a schema
+  // 0.x bug, fixed: when every branch is impossible the result is { oneOf: [null] }, which is not a schema
   test("B2.3.6 all branches impossible yields a schema without null entries that rejects everything", () => {
     const { result } = mergeReport({ oneOf: [
       { allOf: [{ type: "string" }, { type: "number" }] },
@@ -178,7 +178,7 @@ describe("B2.3 impossible branches inside oneOf / anyOf", () => {
     expect(mergeReport(clone(data), { dropFalseBranches: false }).result).toEqual({ oneOf: [{ oneOf: [false, { type: "boolean" }] }, { type: "null" }] })
   })
 
-  // AM-09 (fixed): a tuple position whose schemas conflict is written as null
+  // 0.x bug, fixed: a tuple position whose schemas conflict is written as null
   test("B2.3.8 a conflicting tuple position does not produce null in items", () => {
     const { result } = mergeReport({ allOf: [
       { items: [{ type: "string" }], additionalItems: { type: "boolean" } },

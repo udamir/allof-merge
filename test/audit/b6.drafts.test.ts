@@ -40,7 +40,7 @@ describe("B6.2 draft-04 rule set", () => {
     expect(merge({ allOf: [{ $defs: { A: {} }, definitions: { C: {} } }, { $defs: { B: {} }, definitions: { D: {} } }] }, { rules })).toEqual({ $defs: { B: {} }, definitions: { C: {}, D: {} } })
   })
 
-  // AM-17 (fixed): "dependencies" exists in draft-04 but the rule is only registered for draft-06+, so the generic last-wins rule drops the first dependency list (the merged schema accepts { a: 1, c: 1 })
+  // 0.x bug, fixed: "dependencies" exists in draft-04 but the rule is only registered for draft-06+, so the generic last-wins rule drops the first dependency list (the merged schema accepts { a: 1, c: 1 })
   test("B6.2.4 merges dependencies under draft-04", () => {
     const data = { allOf: [{ dependencies: { a: ["b"] } }, { dependencies: { a: ["c"] } }] }
     const result = merge(data, { rules })
@@ -56,16 +56,16 @@ describe("B6.2 draft-04 rule set", () => {
 })
 
 describe("B6.3 draft 2020-12 keywords", () => {
-  // AM-20 (fixed): 2020-12 keywords (prefixItems, dependentRequired, dependentSchemas, unevaluated*) have no rule and fall back to last-wins, silently dropping constraints
+  // 0.x bug, fixed: 2020-12 keywords (prefixItems, dependentRequired, dependentSchemas, unevaluated*) have no rule and fall back to last-wins, silently dropping constraints
   test("B6.3.1 merges prefixItems position by position", () => {
     const data = { allOf: [{ prefixItems: [{ type: "string" }] }, { prefixItems: [{ minLength: 1 }, { type: "number" }] }] }
-    // D-18 (contract change): prefixItems is a tuple keyword under the 2020-12 rules only (draft-06 default: unknown keyword)
+    // (contract change): prefixItems is a tuple keyword under the 2020-12 rules only (draft-06 default: unknown keyword)
     const result = merge(data, { rules: jsonSchemaMergeRules("2020-12") })
     expect(result).toEqual({ prefixItems: [{ type: "string", minLength: 1 }, { type: "number" }] })
     expectSameValidation(data, result, [["a", 1], ["", 1], [1, 1]], "2020")
   })
 
-  // AM-20 (fixed)
+  // (fixed)
   test("B6.3.2 unions dependentRequired", () => {
     const data = { allOf: [{ dependentRequired: { a: ["b"] } }, { dependentRequired: { a: ["c"] } }] }
     const result = merge(data)

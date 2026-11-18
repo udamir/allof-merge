@@ -21,7 +21,7 @@ import { loadCorpus } from "../fuzz/corpus.ts"
 import { profileRules } from "../fuzz/oracle.ts"
 import { clone, collectObjects, merge } from "./helpers.ts"
 
-// fast path, F-10 (single-item allOf simplified like a merged node), rule auto-selection
+// fast path (single-item allOf simplified like a merged node), rule auto-selection
 
 const s = { type: "string" }
 const n = { type: "number" }
@@ -79,7 +79,7 @@ describe("B22.1 fast path equivalence (P1)", () => {
     expect(count).toBeGreaterThan(500)
   })
 
-  it("B22.1.4 one output instance per input instance (D-11, B9.2.17)", () => {
+  it("B22.1.4 one output instance per input instance (B9.2.17)", () => {
     const shared = { type: "object", properties: { x: { type: "string" } } }
     const data = { definitions: { A: shared }, properties: { a: { allOf: [{ $ref: "#/definitions/A" }, { description: "a" }] }, b: { allOf: [{ $ref: "#/definitions/A" }, { description: "b" }] }, c: shared } }
     const result = merge(data)
@@ -163,7 +163,7 @@ describe("B22.3 needsMerge (P3)", () => {
   })
 })
 
-describe("B22.4 F-10: a single-item allOf gets the merged-node simplifications", () => {
+describe("B22.4 a single-item allOf gets the merged-node simplifications", () => {
   it.each([
     [{ allOf: [{ anyOf: [s, s, n] }] }, { anyOf: [s, n] }],
     [{ allOf: [{ anyOf: [s, s, n] }, {}] }, { anyOf: [s, n] }],
@@ -176,7 +176,7 @@ describe("B22.4 F-10: a single-item allOf gets the merged-node simplifications",
   })
 })
 
-describe("B22.5 rule auto-selection (S1)", () => {
+describe("B22.5 rule auto-selection", () => {
   const tuple = (schema: string | undefined) => ({ ...schema ? { $schema: schema } : {}, allOf: [{ items: [s] }, { items: [{ minLength: 1 }, n] }] })
 
   it.each([
@@ -222,7 +222,7 @@ describe("B22.5 rule auto-selection (S1)", () => {
   })
 })
 
-describe("B22.6 fragment-mode result cache (F-11)", () => {
+describe("B22.6 fragment-mode result cache", () => {
   it("B22.6.1 a repeated call returns the same output and replays its issues", () => {
     const doc = { definitions: { A: { allOf: [s, { minLength: 1 }] }, B: { properties: { a: { $ref: "#/definitions/A" }, x: { allOf: [s, n] } } } } }
     const merger = createMerger({ source: doc })

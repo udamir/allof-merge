@@ -76,7 +76,7 @@ const CASES: CodeCase[] = [
   },
 ]
 
-describe("B21.1 one issue per code (I1)", () => {
+describe("B21.1 one issue per code", () => {
   it.each(CASES.map((c, i) => [`${c.code}${c.reason ? ` (${c.reason})` : ""} #${i}`, c] as const))("B21.1.1 %s", (_label, c) => {
     const { result, issues } = issuesOf(c.input, c.options)
     const issue = only(issues, c.code)
@@ -99,7 +99,7 @@ describe("B21.1 one issue per code (I1)", () => {
     expect(only(issues, "cyclic-value").path).toEqual(["properties", "self"])
   })
 
-  it("B21.1.3 external-ref next to $ref siblings (mergeRefSibling) is reported without the legacy callback (D-9)", () => {
+  it("B21.1.3 external-ref next to $ref siblings (mergeRefSibling) is reported without the legacy callback", () => {
     const input = { $ref: "ext.json#/X", minLength: 1 }
     expect(only(issuesOf(input, { mergeRefSibling: true }).issues, "external-ref").ref).toBe("ext.json#/X")
     expect(mergeReport(clone(input), { mergeRefSibling: true }).refErrors).toEqual([])
@@ -138,7 +138,7 @@ describe("B21.1 one issue per code (I1)", () => {
     expect(only(issuesOf(deep, { maxDepth: 3 }).issues, "max-depth").code).toBe("max-depth")
   })
 
-  it("B21.1.7 link-copied: a $ref into a member the merge makes stricter is replaced by a copy (D-22)", () => {
+  it("B21.1.7 link-copied: a $ref into a member the merge makes stricter is replaced by a copy", () => {
     const doc = {
       definitions: { A: { allOf: [{ properties: { id: { type: "string" } } }, { properties: { id: { minLength: 1 } } }] } },
       properties: { x: { $ref: "#/definitions/A/allOf/0/properties/id" } },
@@ -150,7 +150,7 @@ describe("B21.1 one issue per code (I1)", () => {
     expect(issue.ref).toBe("#/definitions/A/allOf/0/properties/id")
   })
 
-  it("B21.1.8 kept-for-link: the D-17 fallback keeps a node unmerged and reports its limit once", () => {
+  it("B21.1.8 kept-for-link: the fallback keeps a node unmerged and reports its limit once", () => {
     const limited = {
       definitions: { A: { allOf: [{ properties: { x: { type: "string" } } }, { properties: { x: { minLength: 3 } } }] } },
       properties: { p: { $ref: "#/definitions/A/allOf/0/properties/x" }, q: { $ref: "#/definitions/A/allOf/0/properties/x" } },
@@ -176,7 +176,7 @@ describe("B21.1 one issue per code (I1)", () => {
   })
 })
 
-describe("B21.2 legacy callbacks (I2, I3)", () => {
+describe("B21.2 legacy callbacks", () => {
   it("B21.2.1 legacy codes keep their messages, paths and values", () => {
     const { mergeErrors, refErrors } = mergeReport({ properties: { a: { allOf: [s, n] }, b: { allOf: [{ $ref: "#/definitions/X" }, s] }, c: { allOf: [{ minLength: -1 }, s] } } })
     expect(mergeErrors).toEqual([
@@ -186,7 +186,7 @@ describe("B21.2 legacy callbacks (I2, I3)", () => {
     expect(refErrors).toEqual([{ message: ErrorMessage.refResolveError(), path: ["properties", "b"], ref: "#/definitions/X" }])
   })
 
-  it("B21.2.2 per-key malformed values report the specific message (fix) and a lone malformed value is dropped (Q9)", () => {
+  it("B21.2.2 per-key malformed values report the specific message (fix) and a lone malformed value is dropped", () => {
     const pair = mergeReport({ allOf: [{ required: true }, { required: ["a"] }] })
     expect(pair.result).toEqual({ required: ["a"] })
     expect(pair.mergeErrors.map((error) => error.message)).toEqual([ErrorMessage.malformedValue("required")])
@@ -219,7 +219,7 @@ describe("B21.2 legacy callbacks (I2, I3)", () => {
   })
 })
 
-describe("B21.3 delivery (I4-I7)", () => {
+describe("B21.3 delivery", () => {
   it("B21.3.1 issueLevel error filters warnings", () => {
     const input = { properties: { a: { allOf: [s, n] }, b: { oneOf: [false, n] } } }
     expect(issuesOf(input).issues.map((issue) => issue.code).sort()).toEqual(["branch-removed", "unsatisfiable"])
@@ -277,7 +277,7 @@ describe("B21.3 delivery (I4-I7)", () => {
   })
 })
 
-describe("B21.4 formats (Q1, I8)", () => {
+describe("B21.4 formats", () => {
   const conj = (a: string, b: string, type = "string") => ({ allOf: [{ type, format: a }, { format: b }] })
 
   it.each([["date-time", "date"], ["x-sku", "x-ean"], ["email", "idn-email"], ["uri", "uri-reference"]])("B21.4.1 %s and %s are a contradiction", (a, b) => {
@@ -303,7 +303,7 @@ describe("B21.4 formats (Q1, I8)", () => {
   })
 })
 
-describe("B21.5 rule-defined outcomes are not issues (Q2, Q8)", () => {
+describe("B21.5 rule-defined outcomes are not issues", () => {
   it.each([
     ["last-wins annotations", { allOf: [{ title: "A", description: "a" }, { title: "B", description: "b" }] }],
     ["vendor keys", { allOf: [{ "x-owner": "a" }, { "x-owner": "b" }] }],

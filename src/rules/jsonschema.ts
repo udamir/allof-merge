@@ -18,7 +18,7 @@ const siblingKeys = ["definitions", "$defs", "$id", "$schema"]
 const fastFrozen = <T extends object>(value: T): T => Object.freeze(Object.fromEntries(Object.entries(value))) as T
 
 /**
- * Deep-freezes a rule tree (VR-26): every plain object / array reachable through object values is frozen;
+ * Deep-freezes a rule tree: every plain object / array reachable through object values is frozen;
  * functions (resolvers and lazy rule thunks) are not entered, so recursive rule trees built with thunks are safe.
  * Thunks must return frozen objects themselves (the built-in ones do). An object that is already frozen is not
  * entered: it is a finished rule set (e.g. jsonSchemaMergeRules with caller-owned custom rules, which are only
@@ -48,7 +48,7 @@ const buildJsonSchemaMergeRules = (draft: JsonSchemaVersion, customRules: MergeR
   // draft-04 has its own keyword table (boolean exclusive bounds, no const/propertyNames/contains/$defs);
   // draft-06, draft-07 and 2020-12 share one table that is the superset of their keywords, so a document
   // using a newer keyword than its declared draft is still merged instead of falling back to last-wins, except for
-  // the tuple keywords, which are read per draft (D-18)
+  // the tuple keywords, which are read per draft
   const draft04 = draft === "draft-04"
   const modern = !draft04
 
@@ -125,7 +125,7 @@ const buildJsonSchemaMergeRules = (draft: JsonSchemaVersion, customRules: MergeR
       "/contentMediaType": { $: resolvers.last },
       "/contentEncoding": { $: resolvers.last },
     } : {},
-    // D-18: `prefixItems` is the tuple keyword of 2020-12 only; draft-04/06/07 read an array `items` as the tuple and
+    // `prefixItems` is the tuple keyword of 2020-12 only; draft-04/06/07 read an array `items` as the tuple and
     // `prefixItems` as an unknown keyword (the `/?` rule)
     ...draft === "2020-12" ? {
       "/prefixItems": {
@@ -170,7 +170,7 @@ const buildJsonSchemaMergeRules = (draft: JsonSchemaVersion, customRules: MergeR
     ...customRules,
 
     $: resolvers.jsonSchemaMergeResolver,
-    // the tuple keyword of the draft (D-18), read by the array-shape group
+    // the tuple keyword of the draft, read by the array-shape group
     tuple: draft === "2020-12" ? "prefixItems" : "items",
     // the draft of the keyword table, read by the `simplify` rules
     draft,

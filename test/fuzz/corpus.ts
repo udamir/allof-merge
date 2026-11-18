@@ -17,8 +17,8 @@
  * contains an allOf, ≤ 3 000 characters, loadable and evaluable by cfworker, deduplicated (canonical JSON of
  * schema + profile + options). Profile: 2020-12 when the case uses a 2019-09/2020-12 keyword or `$schema`, else draft-07.
  * Merge options other than mergeCombinarySibling / mergeRefSibling (e.g. the other libraries' own options) are dropped.
- * The 3 draft-07 `$ref`-sibling cases (former known issue KI-1) were left out at first and are in probes.json since
- * D-24 (`$ref` siblings apply in every draft; the oracle reads draft-07 `$ref` siblings the same way).
+ * The 3 draft-07 `$ref`-sibling cases (former) were left out at first and are in probes.json since
+ * (`$ref` siblings apply in every draft; the oracle reads draft-07 `$ref` siblings the same way).
  */
 import * as fs from "fs"
 import * as path from "path"

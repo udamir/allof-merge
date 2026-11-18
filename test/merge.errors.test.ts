@@ -57,7 +57,7 @@ describe("merge errors handling", function () {
 
     const result = merge(schema, { mergeCombinarySibling: true, mergeRefSibling: true })
 
-    // D-9 (VR-35): a broken $ref with siblings is left as it is
+    //: a broken $ref with siblings is left as it is
     expect(result).toEqual(schema)
   })
 })

@@ -42,9 +42,9 @@ const decodeName = (name: string): string => {
  * Every distinct ref is parsed and resolved once; results (incl. failures) are cached per index instance.
  * A pointer walk continues through intermediate `$ref` nodes with the remaining segments and
  * detects ref -> ref cycles with an identity set, so it always terminates. Only own members are followed:
- * `#/__proto__` or `#/definitions/constructor` never resolve to `Object.prototype` / `Object` (VR-22, VR-23).
+ * `#/__proto__` or `#/definitions/constructor` never resolve to `Object.prototype` / `Object`.
  * Plain-name fragments (`#foo`) resolve to the node with `$anchor`/`$dynamicAnchor: "foo"` or `$id`/`id: "#foo"`
- * (VR-36); an unknown name is `not-found`, never the root.
+ * an unknown name is `not-found`, never the root.
  */
 export const createResolutionIndex = (source: unknown): ResolutionIndex => {
   const cache = new Map<string, ResolveResult>()

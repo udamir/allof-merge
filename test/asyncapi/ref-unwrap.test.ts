@@ -15,7 +15,7 @@ const doc3 = (wrapper: unknown) => ({
   },
 })
 
-describe("$ref to a 3.0 Multi Format Schema Object inside allOf (F2.10, Q2-4)", () => {
+describe("$ref to a 3.0 Multi Format Schema Object inside allOf", () => {
   it.each([
     AA,
     "application/vnd.aai.asyncapi;version=3.0.0",

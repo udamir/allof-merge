@@ -281,7 +281,7 @@ const report = (speed: ReturnType<typeof runSpeed> | undefined, quality: Quality
       for (const q of quality) {
         const g = q.groups[group]
         if (!g) { continue }
-        const fr = g.formatRule ? `, ${g.formatRule} by the format rule Q1` : ""
+        const fr = g.formatRule ? `, ${g.formatRule} by the format rule` : ""
         lines.push(`| ${q.adapter} | ${g.cases} | ${pct(g.equivalent, g.cases)} | ${pct(g.allOfFree, g.cases)} | ${g.mismatch} (${g.lax} / ${g.strict}${fr}) | ${g.throws} | ${g.invalid} | ${g.timeout} |`)
       }
       lines.push("")

@@ -1,5 +1,5 @@
 /*
- * `$ref` siblings apply in every draft (D-24, author intent). Formerly the fuzz known issue KI-1: draft-07 (and
+ * `$ref` siblings apply in every draft (author intent). Formerly the fuzz: draft-07 (and
  * draft-06/04, OpenAPI 3.0) validators ignore every sibling of `$ref`, while the merge conjoins the siblings of a `$ref`
  * with its target — inside an allOf item, at a node that has both `$ref` and `allOf`, with or without mergeRefSibling.
  * This is the documented reading now; the oracle reads draft-07 `$ref` siblings the same way (withRefSiblingsApplied).
@@ -13,11 +13,11 @@ import { merge } from "../../src/index.ts"
 import { checkCase, clone, profileRules, withRefSiblingsApplied, type FuzzCase } from "./oracle.ts"
 
 const mergeCase = (c: FuzzCase) => merge(clone(c.schema), { ...c.options, rules: profileRules(c.profile) })
-// a plain draft-07 validator (siblings of $ref ignored) and the D-24 reading
+// a plain draft-07 validator (siblings of $ref ignored) and the reading
 const plainDraft07 = (schema: unknown) => (instance: unknown) => new Validator(clone(schema) as any, "7", true).validate(instance).valid
 const d24 = (schema: unknown) => plainDraft07(withRefSiblingsApplied(schema))
 
-describe("fuzz: $ref siblings apply in every draft (D-24, formerly KI-1)", () => {
+describe("fuzz: $ref siblings apply in every draft", () => {
   const ki1a: FuzzCase = {
     profile: "draft-07",
     schema: { definitions: { a: { type: "string" } }, allOf: [{ $ref: "#/definitions/a", maxLength: 3 }, { minLength: 1 }] },

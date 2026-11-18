@@ -5,7 +5,7 @@ import { loadAsyncApi } from "./utils.ts"
 const twoParts = () => ({ allOf: [{ type: "object" }, { properties: { id: { type: "string" } } }] })
 const merged = { type: "object", properties: { id: { type: "string" } } }
 
-describe("AsyncAPI auto-detection (F2.11)", () => {
+describe("AsyncAPI auto-detection", () => {
   it.each([
     ["2.0.0", "2.x"],
     ["2.6.0", "2.x"],

@@ -32,11 +32,11 @@ const customJsonSchemaMergeRules = (version: JsonSchemaVersion, customRules: Mer
   const child = keyOnlyRule(() => rules)
   rules = jsonSchemaMergeRules(version, {
     ...freezeRules({
-      // OpenAPI 3.0 `nullable` is merged with `type` by the type group (D-1): absent on a typed item = false, an
+      // OpenAPI 3.0 `nullable` is merged with `type` by the type group: absent on a typed item = false, an
       // item without `type` does not restrict null; OpenAPI 3.1 has no nullable keyword (annotation, AND)
       ...version === "draft-04" ? { "/nullable": { $: resolvers.and, group: "type" } } : {},
       "/discriminator": { $: resolvers.mergeObjects },
-      // int32 ⊂ int64 / float ⊂ double narrowing is OpenAPI-only (D-14)
+      // int32 ⊂ int64 / float ⊂ double narrowing is OpenAPI-only
       "/format": { $: resolvers.mergeOpenApiFormat, group: "string" },
       "/oneOf": {
         "/*": child,

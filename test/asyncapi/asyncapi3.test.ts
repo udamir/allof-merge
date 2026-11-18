@@ -121,7 +121,7 @@ describe("AsyncAPI 3.0 rules: Multi Format Schema Object", () => {
     }
   })
 
-  it("OpenAPI 3.0 wrapper uses the OpenAPI 3.0 schema rules (nullable D-1, int32/int64)", () => {
+  it("OpenAPI 3.0 wrapper uses the OpenAPI 3.0 schema rules (nullable, int32/int64)", () => {
     const schema = () => ({
       type: "object",
       properties: {

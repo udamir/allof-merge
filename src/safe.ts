@@ -1,4 +1,4 @@
-// Own-property-safe object helpers (VR-20..VR-23). Keys such as `__proto__`, `constructor` and `prototype`
+// Own-property-safe object helpers. Keys such as `__proto__`, `constructor` and `prototype`
 // come from user documents; plain assignment `obj[key] = v` with `key === "__proto__"` would set the prototype,
 // and `key in obj` sees inherited members. Every dynamic-key write / lookup in the engine goes through these.
 

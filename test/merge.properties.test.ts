@@ -3,7 +3,7 @@ import { merge as mergeSource } from "../src/index.ts"
 import { clone } from "./audit/helpers.ts"
 import { expectSameObjectValidation } from "./audit/b14.oracle.ts"
 
-// VR-10/VR-11 oracle sweep: every merge of this file is checked for validation equivalence (ajv) on generated
+// oracle sweep: every merge of this file is checked for validation equivalence (ajv) on generated
 // object instances, in addition to the structural expectation of each test
 const merge = (schema: any): any => {
   const original = clone(schema)
@@ -189,7 +189,7 @@ describe('properties', function() {
       const result = merge(schema)
       expect(result).not.toEqual(schema)
 
-      // VR-11 / D-5 (contract change): the old expectation `{ properties: { bar, foo123, bar123 }, additionalProperties: false }`
+      // (contract change): the old expectation `{ properties: { bar, foo123, bar123 }, additionalProperties: false }`
       // rejected `{ barx1: 1 }`, which both items accept ("^bar" in the first, ".+\\d+$" in the second). The patterns of
       // the two items interact with each other's `additionalProperties: false`, which has no exact single-shape form
       // without synthesized lookahead patterns, so the object shapes are kept as allOf fragments
@@ -233,7 +233,7 @@ describe('properties', function() {
       const result = merge(schema)
       expect(result).not.toEqual(schema)
 
-      // AM-04 (fixed): `foo` is not forbidden by any item (additionalProperties is absent in both), so it is kept
+      // 0.x bug, fixed: `foo` is not forbidden by any item (additionalProperties is absent in both), so it is kept
       expect(result).toEqual({
         type: 'object',
         properties: {
@@ -433,7 +433,7 @@ describe('properties', function() {
             type: 'string',
             minLength: 6
           },
-          // AM-04 (fixed): `root` is allowed by every item (the third item has neither patternProperties nor additionalProperties),
+          // 0.x bug, fixed: `root` is allowed by every item (the third item has neither patternProperties nor additionalProperties),
           // so it is kept with the additionalProperties schemas of the items that do not list it
           root: {
             type: ['string', 'null', 'integer'],
@@ -448,7 +448,7 @@ describe('properties', function() {
             maxLength: 10
           }
         },
-        // VR-10 / D-5 (contract change): the first allOf item has no patterns and an additionalProperties schema, so names
+        // (contract change): the first allOf item has no patterns and an additionalProperties schema, so names
         // matching the pattern are constrained by that schema there; it is conjoined into the pattern schema
         // (the old expectation `{ minLength: 9 }` accepted `{ x12: "a".repeat(11) }`, which the first item rejects)
         patternProperties: {

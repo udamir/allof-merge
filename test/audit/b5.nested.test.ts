@@ -35,7 +35,7 @@ describe("B5.1 allOf inside schema keywords", () => {
     }
   })
 
-  // AM-18 (fixed): the "/not" rule has no child rules, so allOf under "not" is never merged
+  // 0.x bug, fixed: the "/not" rule has no child rules, so allOf under "not" is never merged
   test("B5.1.14 merges allOf nested in not", () => {
     const result = merge({ not: inner })
     expect(result).toEqual({ not: merged })

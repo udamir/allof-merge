@@ -102,11 +102,11 @@ const asKnownRule = (rule: any): MergeRule | undefined => rule && typeof rule ==
 export const knownKeyRule = (rules: MergeRules, key: string, path: JsonPath, value: unknown): MergeRule | undefined =>
   asKnownRule(nodeRule(rules, key, () => path, value))
 
-// last-wins: the resolver of an unknown keyword when the rule set has no `/?` fallback either (D-19; 0.6.8 threw)
+// last-wins: the resolver of an unknown keyword when the rule set has no `/?` fallback either (0.6.8 threw)
 const UNKNOWN_KEY_RULE: MergeRule = Object.freeze({ $: last })
 
 // rule of a key: the rule the rule set defines for it (exact > longest prefix > `/*`), else the `/?` fallback, else
-// last-wins (D-19)
+// last-wins
 export const findKeyRule = (rules: MergeRules, key: string, path: JsonPath, value: unknown): MergeRule | undefined =>
   findRule(rules, key, () => path, value)
 
@@ -168,7 +168,7 @@ class NodeMergeContext implements MergeContext {
 }
 
 // key -> values of that key in every item that carries it (item order of first appearance); a Map, so that
-// `__proto__` / `constructor` are ordinary keys (VR-21). Integer-like keys come first in ascending order, as in the
+// `__proto__` / `constructor` are ordinary keys. Integer-like keys come first in ascending order, as in the
 // key order of an object
 const itemsMap = (items: Record<string, any>[]): Map<string, any[]> => {
   const map = new Map<string, any[]>()
@@ -250,7 +250,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
       const list = map.get(key)
       if (list === undefined) { continue }
       const rule = asKnownRule(nodeRule(mergeRules, key, pathOf, list[0]))
-      // a key the rule set has no rule for is an unknown keyword there (e.g. `prefixItems` under draft-07, D-18): it
+      // a key the rule set has no rule for is an unknown keyword there (e.g. `prefixItems` under draft-07): it
       // is left to the `/?` fallback instead of taking the group away from the other keys
       if (!rule) { continue }
       present.push(key)
@@ -289,7 +289,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
     const resolver: MergeResolver = rule && typeof rule.$ === "function" ? rule.$ : last
 
     if (values.length === 1 && !handedBack?.has(key)) {
-      // Q9: a lone malformed value of a validated keyword is dropped and reported
+      // a lone malformed value of a validated keyword is dropped and reported
       const valid = singleValueValidators.get(resolver)
       if (valid && !valid(values[0])) {
         ctx.report(values, ErrorMessage.malformedValue(key), { code: "malformed-value", keyword: key })
@@ -300,7 +300,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
     }
 
     if (resolver === mergeArray && values.length > 1) {
-      // oneOf / anyOf: a malformed (non-array) value is ignored and reported (VR-37, D-6)
+      // oneOf / anyOf: a malformed (non-array) value is ignored and reported
       const arrays = values.filter(Array.isArray)
       if (arrays.length < values.length) {
         ctx.report(values.filter((value) => !Array.isArray(value)), ErrorMessage.malformedValue(key), { code: "malformed-value", keyword: key })
@@ -348,7 +348,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
         merged = freshNode({ allOf: values })
       } else {
         // the location has no allOf rule (e.g. a custom `"/x": { $: jsonSchemaMergeResolver }`): merge eagerly with the
-        // rules of the node, as 0.6.8 did (VR-38)
+        // rules of the node, as 0.6.8 did
         merged = ctx.mergeNested
           ? ctx.mergeNested(values, mergeRules)
           : jsonSchemaMergeResolver(values, mergeContext)

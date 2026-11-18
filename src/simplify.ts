@@ -6,20 +6,20 @@ import { hasOwn } from "./safe.ts"
  * Form-changing simplifications of a merged schema node (the `simplify` option).
  * Every rule is an equivalence under the draft of the rule set and is guarded by the node's own `type`:
  *
- * - S9 `redundantBounds` (draft-06+): `minimum` + `exclusiveMinimum` (and the upper pair) keep the tighter bound
- * - S6 `contradictions`: an empty numeric interval (also: no integer in it for an integer-only type), `minLength >
+ * - `redundantBounds` (draft-06+): `minimum` + `exclusiveMinimum` (and the upper pair) keep the tighter bound
+ * - `contradictions`: an empty numeric interval (also: no integer in it for an integer-only type), `minLength >
  *   maxLength`, `minItems > maxItems`, `minContains > maxContains` (2020-12, with `contains`), `minProperties >
  *   maxProperties` or more `required` names than `maxProperties`: the kind is removed from `type` (with its bound
  *   keywords); no kind left -> contradiction. Untyped nodes are never touched (the bounds only restrict their kind)
- * - S5 `enumByType`: `enum` members / a `const` that `type` cannot admit are removed; none left -> contradiction
- * - S4c `contradictions`: `contains` unsatisfiable, array-only `type`, no `minContains: 0` -> contradiction
- * - S4b `containsToMinItems` (draft-06/07 rule sets only, which have no `unevaluatedItems`): `contains: true` / `{}`
+ * - `enumByType`: `enum` members / a `const` that `type` cannot admit are removed; none left -> contradiction
+ * - `contradictions`: `contains` unsatisfiable, array-only `type`, no `minContains: 0` -> contradiction
+ * - `containsToMinItems` (draft-06/07 rule sets only, which have no `unevaluatedItems`): `contains: true` / `{}`
  *   without `minContains`/`maxContains` -> `minItems` at least 1
- * - S7 `contradictions`: object-only `type`, a `required` name whose property schema is unsatisfiable (or that no
+ * - `contradictions`: object-only `type`, a `required` name whose property schema is unsatisfiable (or that no
  *   `properties` / `patternProperties` entry admits under `additionalProperties: false`) -> contradiction
  *
  * GraphApi schema rules are excluded from the type-guarded rules (their `nullable` is not a type), OpenAPI 3.0 rules
- * read `nullable: true` as admitting `null` (D-13) and skip the bounds rules for nullable nodes. Rule sets without a
+ * read `nullable: true` as admitting `null` and skip the bounds rules for nullable nodes. Rule sets without a
  * draft marker (custom rule trees) only get the rules whose reading does not depend on the draft.
  *
  * The node is changed in place. Returns the conflicting keyword values when the node is a contradiction (the caller
@@ -126,7 +126,7 @@ export const simplifySchema = (
   const { draft, graphApi, nullableType } = simplifyRulesOf(rules)
   const modern = draft === "draft-06" || draft === "draft-07" || draft === "2020-12"
 
-  // S9: x ≥ m ∧ x > e ≡ x > e when e ≥ m, else x ≥ m (and the same for the upper side)
+  // x ≥ m ∧ x > e ≡ x > e when e ≥ m, else x ≥ m (and the same for the upper side)
   if (options.redundantBounds && modern) {
     if (isFiniteNumber(node.minimum) && isFiniteNumber(node.exclusiveMinimum)) {
       delete node[node.exclusiveMinimum >= node.minimum ? "minimum" : "exclusiveMinimum"]
@@ -136,7 +136,7 @@ export const simplifySchema = (
     }
   }
 
-  // S4b: contains: true ⇔ at least one item (arrays) — only where no unevaluatedItems can see the annotation
+  // contains: true ⇔ at least one item (arrays) — only where no unevaluatedItems can see the annotation
   if (options.containsToMinItems && (draft === "draft-06" || draft === "draft-07") && hasOwn(node, "contains")) {
     const { contains } = node
     if ((contains === true || isEmptyObject(contains)) && !hasOwn(node, "minContains") && !hasOwn(node, "maxContains")) {
@@ -150,10 +150,10 @@ export const simplifySchema = (
   if (graphApi) { return undefined }
   let types = typesOf(node)
   if (!types) { return undefined }
-  // OpenAPI 3.0: a typed node with `nullable: true` admits null as well (D-13)
+  // OpenAPI 3.0: a typed node with `nullable: true` admits null as well
   const nullable = nullableType && node.nullable === true
 
-  // S6: a kind whose bounds admit nothing is removed from `type`
+  // a kind whose bounds admit nothing is removed from `type`
   if (options.contradictions && !nullable) {
     const removed = new Set<string>()
     const conflicting: string[] = []
@@ -198,7 +198,7 @@ export const simplifySchema = (
   const admitted = new Set(types)
   if (nullable) { admitted.add("null") }
 
-  // S5: enum / const members of a kind the type does not admit can never validate
+  // enum / const members of a kind the type does not admit can never validate
   if (options.enumByType) {
     if (Array.isArray(node.enum)) {
       const members = node.enum.filter((member: unknown) => admits(admitted, member))
@@ -212,11 +212,11 @@ export const simplifySchema = (
   const objectOnly = admitted.size === 1 && admitted.has("object")
 
   if (options.contradictions && draft !== "draft-04" && arrayOnly && hasOwn(node, "contains") && isUnsatisfiable(node.contains)) {
-    // S4c: every array needs an item valid against an unsatisfiable schema (unless minContains: 0 makes it vacuous)
+    // every array needs an item valid against an unsatisfiable schema (unless minContains: 0 makes it vacuous)
     if (!(hasOwn(node, "minContains") && node.minContains === 0)) { return [node.type, node.contains] }
   }
 
-  // S7: a required property that no value can satisfy (typed objects only)
+  // a required property that no value can satisfy (typed objects only)
   if (options.contradictions && objectOnly && Array.isArray(node.required)) {
     const properties = isPlainObject(node.properties) ? node.properties : undefined
     const patterns = node.patternProperties

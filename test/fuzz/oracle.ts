@@ -151,7 +151,7 @@ const formatsOf = (value: unknown, found = new Set<unknown>(), seen = new Set<ob
 const holdsFalse = (value: unknown): boolean => JSON.stringify(value).includes("false")
 
 /**
- * User decision Q1 (2026-11-18): two different formats in one conjunction make the schema `false`. `format` only
+ * User: two different formats in one conjunction make the schema `false`. `format` only
  * constrains strings, so for an asserting validator the decided output rejects non-string instances the original
  * accepts: a deliberate deviation, not a defect. A case whose input holds two different formats and whose output holds
  * a `false` is not checked.

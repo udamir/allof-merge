@@ -11,7 +11,7 @@ export const isAllOfMergeRule = (rules?: unknown): rules is MergeRules & { "/all
 /**
  * Synchronous conjunction of schemas (compatibility export, also the `$` of the schema rules).
  * Returns `false` for a contradiction and never `undefined`. Called directly (or as the `$` of a custom rule
- * without child rules) it fully merges the conjunction including schema-valued children, as 0.6.8 did (VR-38):
+ * without child rules) it fully merges the conjunction including schema-valued children, as 0.6.8 did:
  * a nested merge with `ctx.mergeRules` (the JSON Schema rules when they do not merge allOf), the default
  * branch budget and limits, and `ctx.mergeError` for every reported problem. `$ref`s are resolved against the
  * conjunction itself only (pass already dereferenced schemas, or use `merge` with `source`).

@@ -33,7 +33,7 @@ const lengths = (values: unknown[], key: string, report?: Report): number[] => {
  * values (non-integer lengths, non-string patterns/formats) are ignored and reported.
  */
 export const stringGroup: KeywordGroup = {
-  // two different formats make the conjunction impossible (user decision Q1)
+  // two different formats make the conjunction impossible
   name: "string",
   keys: ["minLength", "maxLength", "pattern", "format"],
   resolve: (ctx) => {
@@ -74,7 +74,7 @@ export const stringGroup: KeywordGroup = {
     }
 
     if (hasOwn(values, "format")) {
-      // the numeric lattice applies when the location's `format` rule is `mergeOpenApiFormat` (OpenAPI rule sets, D-14)
+      // the numeric lattice applies when the location's `format` rule is `mergeOpenApiFormat` (OpenAPI rule sets)
       const rule: any = mergeRules ? nodeRule(mergeRules, "format", () => ctx.path ?? EMPTY_PATH, values.format[0]) : undefined
       const format = mergeFormats(values.format, report, !!rule && rule.$ === mergeOpenApiFormat)
       if (!format) { return undefined }

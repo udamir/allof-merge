@@ -80,7 +80,7 @@ describe("B7.2 schema locations", () => {
     expect(result.paths["/x"].get.parameters[0].schema).toEqual({ type: "string", maxLength: 3 })
   })
 
-  // AM-21 (fixed): callbacks, webhooks (3.1), components.pathItems and links are not covered by openApiMergeRules
+  // 0.x bug, fixed: callbacks, webhooks (3.1), components.pathItems and links are not covered by openApiMergeRules
   test("B7.2.4 merges schemas inside callbacks and webhooks", () => {
     const result = merge({
       openapi: "3.1.0",
@@ -91,7 +91,7 @@ describe("B7.2 schema locations", () => {
     expect(result.paths["/x"].get.callbacks.c["{$url}"].post.requestBody.content["a/b"].schema).toEqual(merged)
   })
 
-  // AM-21 (fixed): the encoding rule is "/encoding/headers/*/schema" but Encoding objects are keyed by property name ("/encoding/*/headers/*/schema"), so encoding header schemas are never merged
+  // 0.x bug, fixed: the encoding rule is "/encoding/headers/*/schema" but Encoding objects are keyed by property name ("/encoding/*/headers/*/schema"), so encoding header schemas are never merged
   test("B7.2.6 merges header schemas inside media type encoding objects", () => {
     const result = merge({ openapi: "3.0.0", paths: { "/x": { post: {
       requestBody: { content: { "multipart/form-data": { schema: { type: "object" }, encoding: { f: { headers: { h: { schema: clone(inner) } } } } } } },
@@ -110,14 +110,14 @@ describe("B7.2 schema locations", () => {
 describe("B7.3 OpenAPI 3.0 keyword semantics", () => {
   const oas30 = (schema: any) => merge({ openapi: "3.0.0", components: { schemas: { A: schema } } }).components.schemas.A
 
-  // D-1 (contract change): OAS 3.0.3 says nullable only has an effect "if type is explicitly defined within the same
+  // (contract change): OAS 3.0.3 says nullable only has an effect "if type is explicitly defined within the same
   // Schema Object", so `{ nullable: false }` without `type` does not forbid null; the typed item allows string | null
   it("B7.3.1 nullable true ∧ untyped nullable false keeps null (untyped nullable has no effect)", () => {
     expect(oas30({ allOf: [{ type: "string", nullable: true }, { nullable: false }] })).toEqual({ type: "string", nullable: true })
     expect(oas30({ allOf: [{ type: "string", nullable: true }, { type: "string", nullable: false }] })).toEqual({ type: "string", nullable: false })
   })
 
-  // AM-11 (fixed): nullable has no rule in the OpenAPI 3.0 rule set, so the last value wins and null becomes acceptable
+  // 0.x bug, fixed: nullable has no rule in the OpenAPI 3.0 rule set, so the last value wins and null becomes acceptable
   test("B7.3.2 nullable false ∧ true is false", () => {
     expect(oas30({ allOf: [{ type: "string", nullable: false }, { nullable: true }] })).toEqual({ type: "string", nullable: false })
   })
@@ -126,7 +126,7 @@ describe("B7.3 OpenAPI 3.0 keyword semantics", () => {
     expect(oas30({ allOf: [{ minimum: 5, exclusiveMinimum: true }, { minimum: 5 }] })).toEqual({ minimum: 5, exclusiveMinimum: true })
   })
 
-  // AM-10 (fixed): same defect as draft-04; 5 is valid for both items but rejected after merge
+  // 0.x bug, fixed: same defect as draft-04; 5 is valid for both items but rejected after merge
   test("B7.3.4 boolean exclusiveMinimum is dropped when a larger inclusive minimum wins", () => {
     const result = oas30({ allOf: [{ minimum: 1, exclusiveMinimum: true }, { minimum: 5 }] })
     expect(result.minimum).toBe(5)
@@ -147,7 +147,7 @@ describe("B7.3 OpenAPI 3.0 keyword semantics", () => {
       .toEqual({ readOnly: true, deprecated: true, example: { a: 1, b: 2 } })
   })
 
-  // AM-06 (fixed): the OpenAPI 3.0 "/items" rule is a function expecting a context argument but jsonSchemaMergeResolver calls it without arguments, so merging two "items" throws "Right side of assignment cannot be destructured"
+  // 0.x bug, fixed: the OpenAPI 3.0 "/items" rule is a function expecting a context argument but jsonSchemaMergeResolver calls it without arguments, so merging two "items" throws "Right side of assignment cannot be destructured"
   test("B7.3.8 merges two items schemas under OpenAPI 3.0 rules", () => {
     expect(oas30({ allOf: [{ items: { type: "string" } }, { items: { minLength: 1 } }] })).toEqual({ items: merged })
   })

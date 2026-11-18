@@ -8,7 +8,7 @@ import { hasOwn } from "../safe.ts"
  *
  * Members are compared structurally; the intersection keeps the first-seen order. Differing consts are a
  * contradiction; `const` next to `enum` is kept as it is (equivalent, even when the const is outside the enum).
- * An `enum` that is not an array is ignored and reported (D-6): it never overrides a valid enum.
+ * An `enum` that is not an array is ignored and reported: it never overrides a valid enum.
  */
 export const enumConstGroup: KeywordGroup = {
   name: "enumConst",

@@ -26,7 +26,7 @@ export const collectRefs = (value: unknown): Set<string> => {
 }
 
 /**
- * D-17 / D-22 output contract of a whole-document merge: every local `$ref` of the output resolves in the output.
+ * output contract of a whole-document merge: every local `$ref` of the output resolves in the output.
  * Only refs that already were in the input and did not resolve there (broken) are not checked, nor are external refs.
  * A pointer the merge wrote itself (a link rewritten to the matching merged location, a cycle re-entry to an output
  * location) need not exist in the input. Returns the dangling refs (empty when the contract holds).
@@ -98,7 +98,7 @@ const walkPointer = (input: unknown, index: ReturnType<typeof createResolutionIn
 }
 
 /**
- * D-22 / D-23 "links stay links" check (structural, cheap): a bare input `$ref` whose pointer runs through a node with
+ * "links stay links" check (structural, cheap): a bare input `$ref` whose pointer runs through a node with
  * its own allOf is replaced by a copy of its target only where the merged output holds no equal value at the pointer
  * or at its matching location (allOf member steps removed). Checked at the input locations of such `$ref`s that are
  * not allOf items and have no ancestor with its own allOf (there the value is conjoined with other members, so it is
@@ -158,12 +158,12 @@ export const expectRefsResolve = (input: unknown, output: unknown) => {
   expect(danglingRefs(input, output)).toEqual([])
 }
 
-// members of a merged node whose meaning the merge keeps (container siblings, D-10)
+// members of a merged node whose meaning the merge keeps (container siblings)
 const UNAFFECTED_MEMBERS = new Set(["definitions", "$defs", "components"])
 
 /**
- * Diagnostic (no longer part of the contract since D-22: a link to a merged location is valid when the value there is
- * equal). D-16 / D-17 / D-20 / D-21 meaning check (structural, cheap): every local `$ref` of the output that resolves in the
+ * Diagnostic (no longer part of the contract since: a link to a merged location is valid when the value there is
+ * equal). meaning check (structural, cheap): every local `$ref` of the output that resolves in the
  * input must not run through a node that has its own `allOf` in the input and was merged in the output (the output
  * node at the same location no longer has an `allOf`): such a pointer would dangle or resolve to the merged, stricter
  * value. The target itself may be merged (it is equivalent); pointers into `definitions` / `$defs` / `components`
@@ -213,7 +213,7 @@ export const refsThroughMergedNodes = (input: unknown, output: unknown): string[
 }
 
 /**
- * D-22 / D-23 contract of a whole-document merge (structural): every `$ref` of the output resolves (danglingRefs) and
+ * contract of a whole-document merge (structural): every `$ref` of the output resolves (danglingRefs) and
  * a `$ref` was replaced by a copy only where no equal merged value exists (copiesWithEqualLink). The semantic
  * counterpart is expectRefMeaningPreserved (ajv).
  */

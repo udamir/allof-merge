@@ -24,10 +24,10 @@ const loadResource = (name: string) => JSON.parse(fs.readFileSync(path.join(reso
 const oasDoc = (version: string, schemas: Record<string, unknown>) => ({ openapi: version, info: { title: "t", version: "1" }, paths: {}, components: { schemas } })
 const graphDoc = (schemas: Record<string, unknown>) => ({ graphapi: "0.1.2", components: { schemas } })
 
-describe("B16.1 format lattice only under the OpenAPI rule sets (D-14)", () => {
+describe("B16.1 format lattice only under the OpenAPI rule sets", () => {
   const conflict = (format: [string, string]) => ({ allOf: [{ type: "integer", format: format[0] }, { format: format[1] }] })
 
-  // Q1 (2026-11-18): two different formats are a contradiction (false), outside the OpenAPI lattice
+  // two different formats are a contradiction (false), outside the OpenAPI lattice
   it.each(["draft-04", "draft-06", "draft-07", "2020-12"] as const)("B16.1.1 JSON Schema %s: int32 vs int64 and float vs double are contradictions", (draft) => {
     const rules = jsonSchemaMergeRules(draft)
     for (const pair of [["int32", "int64"], ["float", "double"]] as [string, string][]) {
@@ -53,7 +53,7 @@ describe("B16.1 format lattice only under the OpenAPI rule sets (D-14)", () => {
     const { result, mergeErrors } = mergeReport(doc)
     expect(result.components.schemas.A).toEqual({ type: "integer", format: "int32" })
     expect(result.components.schemas.B.properties.n).toEqual({ type: "number", format: "float" })
-    // other differing formats are a contradiction under OpenAPI too (Q1)
+    // other differing formats are a contradiction under OpenAPI too
     expect(result.components.schemas.C).toBe(false)
     expect(mergeErrors).toHaveLength(1)
   })
@@ -70,24 +70,24 @@ describe("B16.1 format lattice only under the OpenAPI rule sets (D-14)", () => {
     // without the group tag the string group is handed back to the per-key table: same result
     const perKey = jsonSchemaMergeRules("draft-07", { "/format": { $: resolvers.mergeOpenApiFormat } })
     expect(merge({ allOf: [{ format: "int32", minLength: 1 }, { format: "int64", maxLength: 3 }] }, { rules: perKey })).toEqual({ format: "int32", minLength: 1, maxLength: 3 })
-    // and the strict resolver is a contradiction in per-key mode too (Q1)
+    // and the strict resolver is a contradiction in per-key mode too
     const strict = jsonSchemaMergeRules("draft-07", { "/format": { $: resolvers.mergeFormat } })
     expect(merge(conflict(["int32", "int64"]), { rules: strict })).toBe(false)
   })
 })
 
-describe("B16.2 cycle re-entry through a merged-away allOf (D-17, changed by D-22)", () => {
+describe("B16.2 cycle re-entry through a merged-away allOf", () => {
   const nodeDoc = () => ({
     definitions: {
       Node: { allOf: [{ properties: { child: { $ref: "#/definitions/Node/allOf/0" }, v: { type: "string" } } }, { required: ["v"] }] },
     },
   })
 
-  it("B16.2.1 whole-document merge: Node is merged, the cycle re-entry points to the output location of the copy (D-22)", () => {
+  it("B16.2.1 whole-document merge: Node is merged, the cycle re-entry points to the output location of the copy", () => {
     const doc = nodeDoc()
     const { result, mergeErrors, refErrors } = mergeReport(clone(doc))
-    // before D-17: Node was merged and child.properties.child pointed to "#/definitions/Node/allOf/0/properties/child";
-    // D-17 kept Node unmerged; D-22: child is a copy of allOf/0 (Node's merged value is stricter: required v) and the
+    // before: Node was merged and child.properties.child pointed to "#/definitions/Node/allOf/0/properties/child";
+    // kept Node unmerged: child is a copy of allOf/0 (Node's merged value is stricter: required v) and the
     // re-entry inside the copy points to the copy itself
     expect(result).toEqual({
       definitions: {
@@ -127,7 +127,7 @@ describe("B16.2 cycle re-entry through a merged-away allOf (D-17, changed by D-2
     expect(result.definitions.Other.type).toBe("object")
   })
 
-  it("B16.2.4 memo re-entry (D-4) whose source pointer runs through an allOf member", () => {
+  it("B16.2.4 memo re-entry whose source pointer runs through an allOf member", () => {
     const doc = {
       definitions: {
         A: {
@@ -143,7 +143,7 @@ describe("B16.2 cycle re-entry through a merged-away allOf (D-17, changed by D-2
     const { result } = mergeReport(clone(doc))
     expectRefsResolve(doc, result)
     // the re-entry of `next ∧ {required: [x]}` (source location #/definitions/A/allOf/0/properties/next) points to the
-    // output location of the conjunction, #/definitions/A/properties/next (D-22): A is merged
+    // output location of the conjunction, #/definitions/A/properties/next: A is merged
     expect(result.definitions.A.allOf).toBeUndefined()
     expect(result.definitions.A.properties.next.properties.next).toEqual({ $ref: "#/definitions/A/properties/next" })
     expect(result.definitions.Ref.allOf).toBeUndefined()
@@ -162,7 +162,7 @@ describe("B16.2 cycle re-entry through a merged-away allOf (D-17, changed by D-2
     for (const ref of refs) { expect(index.resolve(ref).ok).toBe(true) }
   })
 
-  it("B16.2.6 a plain bare $ref into a merged allOf (no cycle) is still inlined (D-16) and the node merged", () => {
+  it("B16.2.6 a plain bare $ref into a merged allOf (no cycle) is still inlined and the node merged", () => {
     const doc = {
       definitions: { A: { allOf: [{ properties: { a: { type: "string" } } }, { required: ["a"] }] } },
       properties: { p: { $ref: "#/definitions/A/allOf/0" } },
@@ -173,7 +173,7 @@ describe("B16.2 cycle re-entry through a merged-away allOf (D-17, changed by D-2
     expectRefsResolve(doc, result)
   })
 
-  it("B16.2.7 a merger reused after a D-17 call merges the next document normally", () => {
+  it("B16.2.7 a merger reused after a call merges the next document normally", () => {
     const merger = createMerger()
     const first: any = merger.merge(nodeDoc())
     expect(first.definitions.Node.allOf).toBeUndefined()
@@ -211,7 +211,7 @@ describe("B16.2 cycle re-entry through a merged-away allOf (D-17, changed by D-2
   })
 })
 
-describe("B16.3 tuple keywords per draft (D-18)", () => {
+describe("B16.3 tuple keywords per draft", () => {
   const mixed = () => ({ allOf: [{ prefixItems: [{ type: "string" }] }, { items: [{ minLength: 1 }, { type: "number" }] }] })
 
   it.each(["draft-04", "draft-06", "draft-07"] as const)("B16.3.1 %s: array items is the tuple, prefixItems an unknown keyword", (draft) => {
@@ -298,7 +298,7 @@ describe("B16.3 tuple keywords per draft (D-18)", () => {
   })
 })
 
-describe("B16.4 vendor and unknown keywords (D-19)", () => {
+describe("B16.4 vendor and unknown keywords", () => {
   // reports differing values and keeps the last one
   const reportingLast: MergeResolver = (args, ctx) => {
     if (args.some((value) => value !== args[0])) { ctx.mergeError(args) }

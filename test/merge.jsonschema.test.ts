@@ -2067,7 +2067,7 @@ describe("basic allOf merge cases", function () {
 })
 
 describe("negative allOf merge cases", () => {
-  // D-19 (contract change): 0.6.8 threw "Merge rule not found" here; an unknown key without a `/?` rule is last-wins
+  // (contract change): 0.6.8 threw "Merge rule not found" here; an unknown key without a `/?` rule is last-wins
   it("should merge unknown keys last-wins if no merge rule is defined", function () {
     const rules = { ...jsonSchemaMergeRules() }
     delete rules["/?"]

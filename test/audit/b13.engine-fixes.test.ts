@@ -72,8 +72,8 @@ describe("B13.1 own-property safe helpers (src/safe.ts)", () => {
   })
 })
 
-describe("B13.2 prototype safety of the engine (VR-20 .. VR-23)", () => {
-  it("B13.2.1 VR-20 a memoized conjunction under the key __proto__ does not set a prototype", () => {
+describe("B13.2 prototype safety of the engine", () => {
+  it("B13.2.1 a memoized conjunction under the key __proto__ does not set a prototype", () => {
     const out = merge(JSON.parse('{"definitions":{"A":{"isAdmin":true},"B":{"x-y":1}},"properties":{"x":{"allOf":[{"$ref":"#/definitions/A"},{"$ref":"#/definitions/B"}]},"__proto__":{"allOf":[{"$ref":"#/definitions/A"},{"$ref":"#/definitions/B"}]}}}'))
     expect(Object.getPrototypeOf(out.properties)).toBe(Object.prototype)
     expect(out.properties.isAdmin).toBeUndefined()
@@ -82,7 +82,7 @@ describe("B13.2 prototype safety of the engine (VR-20 .. VR-23)", () => {
     expect(({} as any).isAdmin).toBeUndefined()
   })
 
-  it("B13.2.2 VR-21 a top-level __proto__ keyword and __proto__ members survive as own properties", () => {
+  it("B13.2.2 a top-level __proto__ keyword and __proto__ members survive as own properties", () => {
     const out = merge(JSON.parse('{"allOf":[{"type":"object"},{"minProperties":1}],"__proto__":{"x":1}}'))
     expect(Object.getPrototypeOf(out)).toBe(Object.prototype)
     expect(getOwn(out, "__proto__")).toEqual({ x: 1 })
@@ -91,20 +91,20 @@ describe("B13.2 prototype safety of the engine (VR-20 .. VR-23)", () => {
     expect(Object.getPrototypeOf(props.properties)).toBe(Object.prototype)
   })
 
-  it("B13.2.3 VR-21 a merged definitions container keeps constructor / prototype / __proto__ members", () => {
+  it("B13.2.3 a merged definitions container keeps constructor / prototype / __proto__ members", () => {
     const data = JSON.parse('{"allOf":[{"definitions":{"__proto__":{"type":"string"},"constructor":{"type":"number"}}},{"definitions":{"prototype":{"type":"boolean"}}}]}')
     const out = merge(data)
     expect(Object.keys(out.definitions).sort()).toEqual(["__proto__", "constructor", "prototype"])
     expect(getOwn(out.definitions, "__proto__")).toEqual({ type: "string" })
   })
 
-  it("B13.2.4 VR-22 refs to inherited members are broken refs, reported and kept", () => {
+  it("B13.2.4 refs to inherited members are broken refs, reported and kept", () => {
     const { result, refErrors } = mergeReport({ definitions: {}, allOf: [{ $ref: "#/definitions/constructor" }, { $ref: "#/__proto__" }, { minLength: 1 }] })
     expect(refErrors.map((e) => e.ref)).toEqual(["#/definitions/constructor", "#/__proto__"])
     expect(result.allOf).toEqual([{ $ref: "#/definitions/constructor" }, { $ref: "#/__proto__" }, { minLength: 1 }])
   })
 
-  it("B13.2.5 VR-23 resolvePointer and the resolution index never return Object.prototype", () => {
+  it("B13.2.5 resolvePointer and the resolution index never return Object.prototype", () => {
     expect(resolvePointer({ a: 1 }, "/__proto__")).toBeUndefined()
     expect(resolvePointer({ a: {} }, "/a/constructor")).toBeUndefined()
     expect(createResolutionIndex({}).resolve("#/__proto__")).toEqual({ ok: false, reason: "not-found" })
@@ -114,14 +114,14 @@ describe("B13.2 prototype safety of the engine (VR-20 .. VR-23)", () => {
   })
 })
 
-describe("B13.3 references (VR-36, VR-40, D-9)", () => {
-  it("B13.3.1 VR-36 an unknown plain-name fragment is a broken ref, never the root", () => {
+describe("B13.3 references", () => {
+  it("B13.3.1 an unknown plain-name fragment is a broken ref, never the root", () => {
     const { result, refErrors } = mergeReport({ type: "object", allOf: [{ $ref: "#foo" }, { minLength: 1 }] })
     expect(refErrors.map((e) => e.ref)).toEqual(["#foo"])
     expect(result).toEqual({ type: "object", allOf: [{ $ref: "#foo" }, { minLength: 1 }] })
   })
 
-  it("B13.3.2 VR-36 a plain-name fragment resolves a $anchor (2019+) and a draft-06/07 $id: '#name'", () => {
+  it("B13.3.2 a plain-name fragment resolves a $anchor (2019+) and a draft-06/07 $id: '#name'", () => {
     const anchor = mergeReport({ $defs: { s: { $anchor: "foo", type: "string" } }, properties: { a: { allOf: [{ $ref: "#foo" }, { minLength: 1 }] } } })
     expect(anchor.refErrors).toEqual([])
     expect(anchor.result.properties.a).toMatchObject({ type: "string", minLength: 1 })
@@ -131,14 +131,14 @@ describe("B13.3 references (VR-36, VR-40, D-9)", () => {
     expect(createResolutionIndex({ $defs: { s: { $dynamicAnchor: "node", type: "object" } } }).resolve("#node")).toMatchObject({ ok: true })
   })
 
-  it("B13.3.3 VR-36 `#/` is the member \"\" of the root", () => {
+  it("B13.3.3 `#/` is the member \"\" of the root", () => {
     const { result, refErrors } = mergeReport({ "": { type: "string" }, type: "object", properties: { a: { allOf: [{ $ref: "#/" }, { minLength: 1 }] } } })
     expect(refErrors).toEqual([])
     expect(result.properties.a).toEqual({ type: "string", minLength: 1 })
     expect(mergeReport({ type: "object", properties: { a: { allOf: [{ $ref: "#/" }, { minLength: 1 }] } } }).refErrors.map((e) => e.ref)).toEqual(["#/"])
   })
 
-  it("B13.3.4 VR-40 a ref -> ref cycle inside allOf is reported instead of vanishing", () => {
+  it("B13.3.4 a ref -> ref cycle inside allOf is reported instead of vanishing", () => {
     const { result, refErrors } = mergeReport({ definitions: { a: { $ref: "#/definitions/a" } }, properties: { x: { allOf: [{ $ref: "#/definitions/a" }, { minLength: 1 }] } } })
     expect(refErrors).toEqual([{ message: ErrorMessage.refResolveError(), path: ["properties", "x"], ref: "#/definitions/a" }])
     expect(result.properties.x).toEqual({ allOf: [{ $ref: "#/definitions/a" }, { minLength: 1 }] })
@@ -146,32 +146,32 @@ describe("B13.3 references (VR-36, VR-40, D-9)", () => {
     expect(twoStep.refErrors).toHaveLength(1)
   })
 
-  it("B13.3.5 VR-40 a ref -> ref chain without a cycle still resolves", () => {
+  it("B13.3.5 a ref -> ref chain without a cycle still resolves", () => {
     const { result, refErrors } = mergeReport({ definitions: { a: { $ref: "#/definitions/b" }, b: { type: "string" } }, allOf: [{ $ref: "#/definitions/a" }, { minLength: 1 }] })
     expect(refErrors).toEqual([])
     expect(result).toMatchObject({ type: "string", minLength: 1 })
   })
 
-  it("B13.3.6 D-9 (VR-35) mergeRefSibling leaves an external $ref with siblings unchanged without reporting", () => {
+  it("B13.3.6 mergeRefSibling leaves an external $ref with siblings unchanged without reporting", () => {
     const { result, refErrors } = mergeReport({ properties: { a: { $ref: "ext.json#/a", description: "d" } } }, { mergeRefSibling: true })
     expect(result.properties.a).toEqual({ $ref: "ext.json#/a", description: "d" })
     expect(refErrors).toEqual([])
   })
 
-  it("B13.3.7 D-9 mergeRefSibling leaves a broken local $ref with siblings unchanged and reports it", () => {
+  it("B13.3.7 mergeRefSibling leaves a broken local $ref with siblings unchanged and reports it", () => {
     const { result, refErrors } = mergeReport({ properties: { a: { $ref: "#/nope", description: "d" } } }, { mergeRefSibling: true })
     expect(result.properties.a).toEqual({ $ref: "#/nope", description: "d" })
     expect(refErrors.map((e) => [e.ref, e.path])).toEqual([["#/nope", ["properties", "a"]]])
   })
 })
 
-describe("B13.4 cycle re-entries are $refs into the source (D-4, D-4b, VR-30, VR-31)", () => {
+describe("B13.4 cycle re-entries are $refs into the source", () => {
   const fooBaz = () => ({ components: { schemas: {
     Foo: { allOf: [{ properties: { test: { type: "string" } } }, { $ref: "#/components/schemas/Baz" }] },
     Baz: { properties: { test: { $ref: "#/components/schemas/Foo" } } },
   } } })
 
-  it("B13.4.1 VR-30 fragment merge of a recursive conjunction emits only refs that are valid against source", () => {
+  it("B13.4.1 fragment merge of a recursive conjunction emits only refs that are valid against source", () => {
     const doc = fooBaz()
     const { result, mergeErrors, refErrors } = mergeReport(doc.components.schemas.Foo, { source: doc })
     expect(mergeErrors).toEqual([])
@@ -209,7 +209,7 @@ describe("B13.4 cycle re-entries are $refs into the source (D-4, D-4b, VR-30, VR
     expectSameValidation({ ...schema, reusable: source.reusable }, { ...result, reusable: source.reusable }, instances, "2020")
   })
 
-  it("B13.4.3 D-4b whole-document cycles through $ref: '#' are serializable and equivalent", () => {
+  it("B13.4.3 whole-document cycles through $ref: '#' are serializable and equivalent", () => {
     const data = { type: "object", properties: { foo: { allOf: [{ description: "1" }, { $ref: "#" }] }, baz: { allOf: [{ description: "2" }, { $ref: "#" }] } } }
     const result = merge(clone(data))
     expect(isJsonSerializable(result)).toBe(true)
@@ -217,7 +217,7 @@ describe("B13.4 cycle re-entries are $refs into the source (D-4, D-4b, VR-30, VR
     expectSameValidation(data, result, [{}, { foo: {} }, { foo: 1 }, { foo: { baz: { foo: 1 } } }, { foo: { baz: { foo: {} } } }])
   })
 
-  it("B13.4.4 D-4b cyclic JavaScript input (no $ref) gives a serializable output", () => {
+  it("B13.4.4 cyclic JavaScript input (no $ref) gives a serializable output", () => {
     const nodes: any[] = []
     for (let i = 0; i < 5; i++) { nodes.push({ type: "object", properties: {} }) }
     for (let i = 0; i < 5; i++) { nodes[i].properties.next = { allOf: [nodes[(i + 1) % 5], { description: "d" + i }] } }
@@ -227,7 +227,7 @@ describe("B13.4 cycle re-entries are $refs into the source (D-4, D-4b, VR-30, VR
     expectRefsResolve(result, doc)
   })
 
-  it("B13.4.5 D-4b a cyclic schema outside the source is replaced by {} and reported", () => {
+  it("B13.4.5 a cyclic schema outside the source is replaced by {} and reported", () => {
     const outside: any = { type: "object", properties: {} }
     outside.properties.self = outside
     const { result, mergeErrors } = mergeReport(outside, { source: { definitions: {} } })
@@ -245,7 +245,7 @@ describe("B13.4 cycle re-entries are $refs into the source (D-4, D-4b, VR-30, VR
     const a: any = merger.merge(docA)
     const b: any = merger.merge(docB)
     // whole-document merges: a re-entry whose source pointer runs through the merged root points to the output
-    // location of the re-entered node (D-22), so every ref resolves in its own output
+    // location of the re-entered node, so every ref resolves in its own output
     expectRefsResolve(a, a)
     expectRefsResolve(b, b)
     expect(b.properties.self.properties.self).toEqual({ $ref: "#/properties/self" })
@@ -253,7 +253,7 @@ describe("B13.4 cycle re-entries are $refs into the source (D-4, D-4b, VR-30, VR
   })
 })
 
-describe("B13.5 D-10 (VR-32) a contradiction keeps container siblings", () => {
+describe("B13.5 a contradiction keeps container siblings", () => {
   it("B13.5.1 keeps $defs next to allOf: [false]", () => {
     const data = { definitions: { A: { $defs: { B: { type: "integer" } }, allOf: [{ type: "string" }, { type: "number" }] } }, properties: { x: { $ref: "#/definitions/A/$defs/B" } } }
     const { result, mergeErrors } = mergeReport(data)
@@ -274,10 +274,10 @@ describe("B13.5 D-10 (VR-32) a contradiction keeps container siblings", () => {
   })
 })
 
-describe("B13.6 resource limits (D-7, VR-03, VR-05, VR-06, VR-04)", () => {
+describe("B13.6 resource limits", () => {
   const branches = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => ({ properties: { [prefix + i]: { type: "string" } } }))
 
-  it("B13.6.1 VR-05 the branch budget is per merge() call across nested nodes", () => {
+  it("B13.6.1 the branch budget is per merge() call across nested nodes", () => {
     const inner = { allOf: [{ oneOf: branches("a", 32) }, { oneOf: branches("b", 32) }] }
     const outer = { allOf: [{ oneOf: branches("c", 32).map((b) => ({ ...b, properties: { ...b.properties, n: inner } })) }, { oneOf: branches("d", 32) }] }
     const { value, ms } = timed(() => mergeReport(outer))
@@ -287,7 +287,7 @@ describe("B13.6 resource limits (D-7, VR-03, VR-05, VR-06, VR-04)", () => {
     expect(value.result.oneOf[0].allOf ?? value.result.oneOf[0].properties.n).toBeDefined()
   })
 
-  it("B13.6.2 VR-05 the budget counts mergeCombinarySibling distribution", () => {
+  it("B13.6.2 the budget counts mergeCombinarySibling distribution", () => {
     const n = 2000
     const data = { anyOf: Array.from({ length: n }, (_, i) => ({ minimum: i })), oneOf: Array.from({ length: n }, (_, i) => ({ maximum: i })) }
     const { value, ms } = timed(() => mergeReport(data, { mergeCombinarySibling: true }))
@@ -299,7 +299,7 @@ describe("B13.6 resource limits (D-7, VR-03, VR-05, VR-06, VR-04)", () => {
     expect(small.result.anyOf).toHaveLength(2)
   })
 
-  it("B13.6.3 VR-05 the exported jsonSchemaMergeResolver is bounded by the default budget", () => {
+  it("B13.6.3 the exported jsonSchemaMergeResolver is bounded by the default budget", () => {
     const errors: any[] = []
     const ctx = { allOfItems: [], mergeRules: jsonSchemaMergeRules(), mergeError: (values: any[]) => errors.push(values) }
     const big = (p: string) => ({ oneOf: Array.from({ length: 64 }, (_, i) => ({ minimum: i, title: p + i })) })
@@ -308,7 +308,7 @@ describe("B13.6 resource limits (D-7, VR-03, VR-05, VR-06, VR-04)", () => {
     expect(errors.length).toBeGreaterThan(0)
   })
 
-  it("B13.6.4 VR-03 $ref fan-out: a target is inlined at most maxRefExpansion times, the output stays small", () => {
+  it("B13.6.4 $ref fan-out: a target is inlined at most maxRefExpansion times, the output stays small", () => {
     const definitions: any = { L0: { type: "string" } }
     for (let i = 1; i <= 25; i++) {
       definitions["L" + i] = { type: "object", properties: {
@@ -351,7 +351,7 @@ describe("B13.6 resource limits (D-7, VR-03, VR-05, VR-06, VR-04)", () => {
     expect(merged).toEqual({ type: "string", minLength: 1 })
   })
 
-  it("B13.6.7 VR-04 a 20 000-level plain chain is merged in linear time", () => {
+  it("B13.6.7 a 20 000-level plain chain is merged in linear time", () => {
     let plain: any = { type: "string" }
     for (let i = 0; i < 20000; i++) { plain = { type: "object", properties: { a: plain } } }
     const { value, ms } = timed(() => merge(plain, { maxDepth: 1e9 }))
@@ -359,7 +359,7 @@ describe("B13.6 resource limits (D-7, VR-03, VR-05, VR-06, VR-04)", () => {
     expect(ms).toBeLessThan(3000)
   })
 
-  it("B13.6.8 VR-06 20 000 nested allOf levels and a 20 000-step $ref chain do not overflow the stack", () => {
+  it("B13.6.8 20 000 nested allOf levels and a 20 000-step $ref chain do not overflow the stack", () => {
     let nested: any = { type: "string" }
     for (let i = 0; i < 20000; i++) { nested = { allOf: [nested, { minLength: i }] } }
     expect(merge(nested)).toEqual({ type: "string", minLength: 19999 })
@@ -374,8 +374,8 @@ describe("B13.6 resource limits (D-7, VR-03, VR-05, VR-06, VR-04)", () => {
   })
 })
 
-describe("B13.7 merger memo and output sharing (VR-33, VR-24, D-11)", () => {
-  it("B13.7.1 VR-33 the memo of a merger is keyed by rules", () => {
+describe("B13.7 merger memo and output sharing", () => {
+  it("B13.7.1 the memo of a merger is keyed by rules", () => {
     const merger = createMerger()
     const data = { allOf: [{ minimum: 1 }, { minimum: 5 }] }
     expect(merger.merge(data, { rules: jsonSchemaMergeRules("draft-04") })).toEqual({ minimum: 5 })
@@ -383,7 +383,7 @@ describe("B13.7 merger memo and output sharing (VR-33, VR-24, D-11)", () => {
     expect(merger.merge(data, { rules: custom })).toEqual({ minimum: 1 })
   })
 
-  it("B13.7.2 D-11 conjunctions of shared items are still shared between documents of one merger", () => {
+  it("B13.7.2 conjunctions of shared items are still shared between documents of one merger", () => {
     const merger = createMerger()
     const shared = { type: "string" }
     const extra = { minLength: 1 }
@@ -392,7 +392,7 @@ describe("B13.7 merger memo and output sharing (VR-33, VR-24, D-11)", () => {
     expect(second.properties.b).toBe(first.properties.a)
   })
 
-  it("B13.7.3 D-11 (VR-25) freezeOutput deep-freezes the result", () => {
+  it("B13.7.3 freezeOutput deep-freezes the result", () => {
     const merger = createMerger({ freezeOutput: true })
     const shared = { type: "string" }
     const first: any = merger.merge({ properties: { a: { allOf: [shared, { minLength: 1 }] }, b: { enum: [{ x: 1 }] } } })
@@ -406,14 +406,14 @@ describe("B13.7 merger memo and output sharing (VR-33, VR-24, D-11)", () => {
   })
 })
 
-describe("B13.8 reporting (VR-41, VR-37, D-6)", () => {
-  it("B13.8.1 VR-41 a oneOf/anyOf that is unsatisfiable in the input is not reported", () => {
+describe("B13.8 reporting", () => {
+  it("B13.8.1 a oneOf/anyOf that is unsatisfiable in the input is not reported", () => {
     expect(mergeReport({ oneOf: [false, false] }).mergeErrors).toEqual([])
     expect(mergeReport({ anyOf: [{ not: {} }] }, { unsatisfiable: "not-empty" }).mergeErrors).toEqual([])
     expect(mergeReport({ oneOf: [{ allOf: [{ type: "string" }, { type: "number" }] }, false] }).mergeErrors.map((e) => e.path)).toEqual([["oneOf"]])
   })
 
-  it("B13.8.2 VR-37 a malformed allOf value is ignored and reported, the rest of the node is kept", () => {
+  it("B13.8.2 a malformed allOf value is ignored and reported, the rest of the node is kept", () => {
     for (const allOf of [true, null, {}, "x", 1]) {
       const { result, mergeErrors } = mergeReport({ type: "string", allOf })
       expect(result).toEqual({ type: "string" })
@@ -421,14 +421,14 @@ describe("B13.8 reporting (VR-41, VR-37, D-6)", () => {
     }
   })
 
-  it("B13.8.3 VR-37 non-object allOf items are ignored and reported", () => {
+  it("B13.8.3 non-object allOf items are ignored and reported", () => {
     const { result, mergeErrors } = mergeReport({ allOf: [null, 1, "x", [], { type: "string" }, { minLength: 1 }] })
     expect(result).toEqual({ type: "string", minLength: 1 })
     expect(mergeErrors).toEqual([{ message: ErrorMessage.malformedValue("allOf item"), path: [], values: [null, 1, "x", []] }])
     expect(mergeReport({ allOf: [true, { type: "string" }] }).mergeErrors).toEqual([])
   })
 
-  it("B13.8.4 VR-37 malformed anyOf / oneOf values are ignored and reported, never throw", () => {
+  it("B13.8.4 malformed anyOf / oneOf values are ignored and reported, never throw", () => {
     const anyOf = mergeReport({ allOf: [{ anyOf: true }, { anyOf: [{ type: "string" }] }, { anyOf: [{ minLength: 1 }] }] })
     expect(anyOf.result).toEqual({ anyOf: [{ type: "string", minLength: 1 }] })
     expect(anyOf.mergeErrors.map((e) => e.message)).toEqual([ErrorMessage.malformedValue("anyOf")])
@@ -439,19 +439,19 @@ describe("B13.8 reporting (VR-41, VR-37, D-6)", () => {
   })
 })
 
-describe("B13.9 API (VR-46, VR-47, VR-38)", () => {
-  it("B13.9.1 VR-46 the group resolvers are exported", () => {
+describe("B13.9 API", () => {
+  it("B13.9.1 the group resolvers are exported", () => {
     expect(keywordGroups).toEqual([typeGroup, enumConstGroup, numericBoundsGroup, stringGroup, objectShapeGroup, arrayShapeGroup, dependenciesGroup, conditionalGroup])
     for (const group of keywordGroups) { expect(typeof group.resolve).toBe("function") }
   })
 
-  it("B13.9.2 VR-38 a custom rule `$: jsonSchemaMergeResolver` without child rules fully merges its children", () => {
+  it("B13.9.2 a custom rule `$: jsonSchemaMergeResolver` without child rules fully merges its children", () => {
     const rules = jsonSchemaMergeRules("draft-06", { "/x-schema": { $: jsonSchemaMergeResolver } })
     const result = merge({ allOf: [{ "x-schema": { type: "string" } }, { "x-schema": { allOf: [{ minLength: 1 }, { maxLength: 3 }] } }] }, { rules })
     expect(result).toEqual({ "x-schema": { type: "string", minLength: 1, maxLength: 3 } })
   })
 
-  it("B13.9.3 VR-38 jsonSchemaMergeResolver called directly merges children and reports conflicts", () => {
+  it("B13.9.3 jsonSchemaMergeResolver called directly merges children and reports conflicts", () => {
     const errors: any[] = []
     const ctx = { allOfItems: [], mergeRules: jsonSchemaMergeRules(), mergeError: (values: any[]) => errors.push(values) }
     expect(jsonSchemaMergeResolver([{ properties: { a: { type: "string" } } }, { properties: { a: { minLength: 1 } } }], ctx)).toEqual({ properties: { a: { type: "string", minLength: 1 } } })
@@ -463,7 +463,7 @@ describe("B13.9 API (VR-46, VR-47, VR-38)", () => {
   })
 })
 
-describe("B13.10 D-8 (VR-12) items with their own unevaluated* stay fragments", () => {
+describe("B13.10 items with their own unevaluated* stay fragments", () => {
   const rules = jsonSchemaMergeRules("2020-12")
 
   it("B13.10.1 unevaluatedProperties: false next to another item's properties", () => {

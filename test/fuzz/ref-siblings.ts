@@ -6,7 +6,7 @@
 const INSTANCE_KEYWORDS = new Set(["enum", "const", "default", "examples", "example"])
 
 /**
- * The library reads the siblings of `$ref` as applying next to the reference in every draft (D-24, author intent),
+ * The library reads the siblings of `$ref` as applying next to the reference in every draft (author intent),
  * while a draft-04/06/07 validator ignores them. Before a draft-07 schema is validated, every schema object with a
  * `$ref` and other members is rewritten into the same reading: the `$ref` moves to the end of the node's `allOf`
  * (`{ $ref: A, maxLength: 3 }` -> `{ maxLength: 3, allOf: [{ $ref: A }] }`). Members stay where they were, so every

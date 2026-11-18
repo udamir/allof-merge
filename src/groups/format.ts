@@ -10,7 +10,7 @@ type Report = GroupContext["report"]
 const NARROWER_FORMAT: Readonly<Record<string, string>> = Object.freeze({ int32: "int64", float: "double" })
 
 /**
- * format (D-14, user decision Q1 of 2026-11-18): equal formats are kept; with `lattice` (the OpenAPI rule sets) the
+ * format: equal formats are kept; with `lattice` (the OpenAPI rule sets) the
  * numeric lattice picks the narrower format (int32 ∧ int64 → int32, float ∧ double → float, a rule-defined outcome);
  * any other combination of different formats (without `lattice` also int32 ∧ int64, overlapping pairs such as
  * `uri` ∧ `uri-reference`, unknown formats) is a contradiction: `undefined`. Formats that are not strings are ignored

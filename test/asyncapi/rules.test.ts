@@ -146,7 +146,7 @@ describe("asyncApiMergeRules: custom schema rules", () => {
   })
 })
 
-describe("createMerger reuse with AsyncAPI and JSON Schema rules (F2.13)", () => {
+describe("createMerger reuse with AsyncAPI and JSON Schema rules", () => {
   it("memoizes per rules object: results are not mixed", () => {
     const doc = { asyncapi: "2.6.0", components: { schemas: { s: twoParts() } } }
     const merger = createMerger()

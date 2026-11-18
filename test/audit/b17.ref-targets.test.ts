@@ -37,7 +37,7 @@ const expectContract = (input: unknown, output: unknown, names: string[], draft:
   return expectRefMeaningPreserved(input, output, instances(names), draft)
 }
 
-describe("B17.1 $ref into a member a contradiction drops (D-20)", () => {
+describe("B17.1 $ref into a member a contradiction drops", () => {
   const legacyDoc = () => oasDoc("3.0.3", {
     LegacyId: {
       allOf: [{ type: "string" }, { type: "number" }],
@@ -54,7 +54,7 @@ describe("B17.1 $ref into a member a contradiction drops (D-20)", () => {
     // the contradiction is reported once, the inlining is silent
     expect(mergeErrors).toHaveLength(1)
     expect(refErrors).toEqual([])
-    // before D-20 the pointer dangled (LegacyId: false has no properties)
+    // before the pointer dangled (LegacyId: false has no properties)
     expectContract(doc, result, ["code"])
   })
 
@@ -121,7 +121,7 @@ describe("B17.1 $ref into a member a contradiction drops (D-20)", () => {
   })
 })
 
-describe("B17.2 $ref to a sibling member of a merged node (D-21)", () => {
+describe("B17.2 $ref to a sibling member of a merged node", () => {
   const aDoc = () => ({
     definitions: { A: { properties: { x: { type: "string" } }, allOf: [{ properties: { x: { minLength: 3 } } }] } },
     properties: { p: { $ref: "#/definitions/A/properties/x" }, a: { $ref: "#/definitions/A" } },
@@ -131,7 +131,7 @@ describe("B17.2 $ref to a sibling member of a merged node (D-21)", () => {
     const doc = aDoc()
     const { result, mergeErrors, refErrors } = mergeReport(clone(doc))
     expect(result.definitions.A).toEqual({ properties: { x: { type: "string", minLength: 3 } } })
-    // before D-21: p stayed { $ref } and resolved to the merged x (minLength 3), accepting fewer values than meant
+    // before: p stayed { $ref } and resolved to the merged x (minLength 3), accepting fewer values than meant
     expect(result.properties.p).toEqual({ type: "string" })
     // a $ref to the merged node itself is equivalent and stays
     expect(result.properties.a).toEqual({ $ref: "#/definitions/A" })
@@ -141,7 +141,7 @@ describe("B17.2 $ref to a sibling member of a merged node (D-21)", () => {
     expectSameValidation(doc, result, instances(["p", "a", "x"]))
   })
 
-  it("B17.2.2 a member the merge leaves unchanged keeps its link (D-23; was a copy under D-21)", () => {
+  it("B17.2.2 a member the merge leaves unchanged keeps its link", () => {
     const doc = {
       definitions: { A: { properties: { x: { type: "string" }, y: { type: "number" } }, allOf: [{ properties: { y: { minimum: 0 } } }] } },
       properties: { p: { $ref: "#/definitions/A/properties/x" } },
@@ -227,7 +227,7 @@ describe("B17.2 $ref to a sibling member of a merged node (D-21)", () => {
     expectContract(doc, result, ["a", "x", "y"])
   })
 
-  it("B17.2.8 a pointer into a merged node from inside that same node (cycle): the node is merged, the copies point to themselves (D-22), no loop", () => {
+  it("B17.2.8 a pointer into a merged node from inside that same node (cycle): the node is merged, the copies point to themselves, no loop", () => {
     const doc = {
       definitions: {
         A: {
@@ -241,7 +241,7 @@ describe("B17.2 $ref to a sibling member of a merged node (D-21)", () => {
     const started = Date.now()
     const { result, mergeErrors } = mergeReport(clone(doc))
     expect(Date.now() - started).toBeLessThan(1000)
-    // inlining x inside x re-enters x: D-17 kept A unmerged; D-22 merges A, the copy of the original x at next
+    // inlining x inside x re-enters x: kept A unmerged merges A, the copy of the original x at next
     // re-enters itself through a pointer to its own output location; n is a copy (merged x is stricter: required id)
     const copy = { properties: { next: { $ref: "#/definitions/A/properties/x/properties/next" } } }
     expect(result.definitions.A).toEqual({ properties: { x: { properties: { next: copy }, required: ["id"] } } })
@@ -255,10 +255,10 @@ describe("B17.2 $ref to a sibling member of a merged node (D-21)", () => {
     for (const ref of collectRefs(result)) { expect(createResolutionIndex(result).resolve(ref).ok).toBe(true) }
   })
 
-  it("B17.2.9 fragment mode (source given): links resolve against the unchanged source and stay as they are (D-22), cycle pointers resolve against source", () => {
+  it("B17.2.9 fragment mode (source given): links resolve against the unchanged source and stay as they are, cycle pointers resolve against source", () => {
     const doc = aDoc()
     const p = merge(doc.properties.p, { source: doc })
-    // was inlined under D-21; the pointer means the original x in source
+    // was inlined under; the pointer means the original x in source
     expect(p).toEqual({ $ref: "#/definitions/A/properties/x" })
 
     const cyclic = {
@@ -276,13 +276,13 @@ describe("B17.2 $ref to a sibling member of a merged node (D-21)", () => {
     expectSameValidation(wrapped({ $ref: "#/definitions/A" }), wrapped(fragment), [{ root: {} }, { root: { x: {} } }, { root: { x: { id: 1 } } }, { root: { x: { id: 1, next: {} } } }, { root: { x: { id: 1, next: { next: 5 } } } }])
   })
 
-  it("B17.2.10 a $ref with siblings through a merged node: copy conjoined with the siblings in every draft (D-24), the node is merged (D-22); with mergeRefSibling merged with the original", () => {
+  it("B17.2.10 a $ref with siblings through a merged node: copy conjoined with the siblings in every draft, the node is merged; with mergeRefSibling merged with the original", () => {
     const doc = {
       definitions: { A: { properties: { x: { type: "string" } }, allOf: [{ properties: { x: { minLength: 3 } } }] } },
       properties: { p: { $ref: "#/definitions/A/properties/x", maxLength: 5 } },
     }
     const kept = mergeReport(clone(doc))
-    // was kept as { $ref, maxLength } with A unmerged (D-17); then the draft-07 copy dropped maxLength (changed by D-24)
+    // was kept as { $ref, maxLength } with A unmerged; then the draft-07 copy dropped maxLength
     expect(kept.result.properties.p).toEqual({ type: "string", maxLength: 5 })
     expect(kept.result.definitions.A).toEqual({ properties: { x: { type: "string", minLength: 3 } } })
     expect(kept.mergeErrors).toEqual([])
@@ -358,17 +358,17 @@ describe("B17.2 $ref to a sibling member of a merged node (D-21)", () => {
   })
 })
 
-describe("B17.3 order of the ref rules (D-16, D-17, D-20, D-21)", () => {
+describe("B17.3 order of the ref rules", () => {
   it("B17.3.1 one document with every case: each $ref follows its rule", () => {
     const doc = {
       definitions: {
-        // D-16: through an allOf member
+        // through an allOf member
         M: { allOf: [{ properties: { a: { type: "string" } } }, { required: ["a"] }] },
-        // D-17: a cycle re-entry pointer through an allOf member keeps that allOf
+        // a cycle re-entry pointer through an allOf member keeps that allOf
         Node: { allOf: [{ properties: { child: { $ref: "#/definitions/Node/allOf/0" }, v: { type: "string" } } }, { required: ["v"] }] },
-        // D-20: into a member a contradiction drops
+        // into a member a contradiction drops
         Bad: { allOf: [{ type: "string" }, { type: "number" }], properties: { code: { type: "string", maxLength: 8 } } },
-        // D-21: a sibling member of a merged node
+        // a sibling member of a merged node
         A: { properties: { x: { type: "string" } }, allOf: [{ properties: { x: { minLength: 3 } } }] },
       },
       properties: {
@@ -381,7 +381,7 @@ describe("B17.3 order of the ref rules (D-16, D-17, D-20, D-21)", () => {
     const result = merge(clone(doc))
     expect(result.definitions.M).toEqual({ properties: { a: { type: "string" } }, required: ["a"] })
     expect(result.properties.m).toEqual({ properties: { a: { type: "string" } } })
-    // D-22 (was kept unmerged by D-17): child is a copy of allOf/0 whose re-entry points to the copy itself
+    // (was kept unmerged): child is a copy of allOf/0 whose re-entry points to the copy itself
     expect(result.definitions.Node).toEqual({
       properties: { child: { properties: { child: { $ref: "#/definitions/Node/properties/child" }, v: { type: "string" } } }, v: { type: "string" } },
       required: ["v"],
@@ -406,13 +406,13 @@ describe("B17.3 order of the ref rules (D-16, D-17, D-20, D-21)", () => {
     expectIdempotent(doc)
   })
 
-  it("B17.3.3 a merger reused after a D-21 call with a kept node merges the next document normally", () => {
+  it("B17.3.3 a merger reused after a call with a kept node merges the next document normally", () => {
     const merger = createMerger()
     const cyclic = {
       definitions: { A: { properties: { x: { properties: { next: { $ref: "#/definitions/A/properties/x" } } } }, allOf: [{ properties: { x: { required: ["id"] } } }] } },
     }
     const first: any = merger.merge(clone(cyclic))
-    // D-22: the cyclic member is merged too (D-17 kept it)
+    // the cyclic member is merged too (kept it)
     expect(first.definitions.A.allOf).toBeUndefined()
     const second: any = merger.merge({ definitions: { A: { properties: { x: { type: "string" } }, allOf: [{ properties: { x: { minLength: 3 } } }] } } })
     expect(second.definitions.A).toEqual({ properties: { x: { type: "string", minLength: 3 } } })

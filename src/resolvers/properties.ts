@@ -8,7 +8,7 @@ import { groupReport } from "./basic.ts"
 
 /*
  * Per-key fallbacks, used when a custom `$` on one of properties / patternProperties / additionalProperties hands
- * the object-shape group back to the per-key table (VR-39). They consult every item of the node (ctx.allOfItems)
+ * the object-shape group back to the per-key table. They consult every item of the node (ctx.allOfItems)
  * through the group algorithm, so the result is the same as the group's for the keys without a custom rule
  * (patterns are matched within the limits of the call's `matchPatterns` setting). When the group keeps the object shapes as allOf fragments, the
  * first fallback that runs for the node emits them and the others drop their key.

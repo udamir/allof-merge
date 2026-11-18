@@ -20,7 +20,7 @@ describe("B4.1 mergeRefSibling", () => {
     expect(merge(bare, { mergeRefSibling: true })).toEqual(bare)
   })
 
-  // D-9 (VR-35): a broken $ref with siblings is left as it is and reported
+  //: a broken $ref with siblings is left as it is and reported
   it("B4.1.4 leaves a broken $ref with siblings unchanged and reports it", () => {
     const { result, refErrors } = mergeReport({ properties: { a: { $ref: "#/nope", minLength: 1 } } }, { mergeRefSibling: true })
     expect(refErrors.map((e) => [e.ref, e.path])).toEqual([["#/nope", ["properties", "a"]]])

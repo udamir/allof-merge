@@ -175,7 +175,7 @@ describe("AsyncAPI 2.x rules: message schemaFormat", () => {
     expect(result.components.messages.m.payload).toEqual({ type: "array", prefixItems: [{ type: "string", minLength: 1 }] })
   })
 
-  it("OpenAPI 3.0 payload uses the OpenAPI 3.0 schema rules (nullable D-1, int32/int64 formats)", () => {
+  it("OpenAPI 3.0 payload uses the OpenAPI 3.0 schema rules (nullable, int32/int64 formats)", () => {
     const payload = {
       type: "object",
       properties: {

@@ -31,7 +31,7 @@ describe("B9.1 input is not mutated", () => {
     expect(data2).toEqual(cases[name])
   })
 
-  // AM-14 (fixed): additionalItemsMergeResolver assigns item.allOf = itemsSchema on the input additionalItems objects
+  // 0.x bug, fixed: additionalItemsMergeResolver assigns item.allOf = itemsSchema on the input additionalItems objects
   test("B9.1.17 does not mutate the input when several additionalItems meet an items schema", () => {
     const data = { allOf: [{ items: [{}], additionalItems: { type: "string" } }, { items: { minLength: 1 } }, { items: [{}], additionalItems: { maxLength: 5 } }] }
     const copy = clone(data)
@@ -98,7 +98,7 @@ describe("B9.4 serializability", () => {
     expect(JSON.parse(JSON.stringify(result))).toEqual(result)
   })
 
-  // D-4b: cycle re-entries are written as $ref, the output is always serializable
+  // cycle re-entries are written as $ref, the output is always serializable
   it("B9.4.18 cyclic $ref inside allOf produces a JSON-serializable output", () => {
     const result = merge({ definitions: { Node: { type: "object", properties: { child: { allOf: [{ $ref: "#/definitions/Node" }, { description: "c" }] } } } } })
     expect(isJsonSerializable(result)).toBe(true)

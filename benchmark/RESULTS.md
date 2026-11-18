@@ -42,7 +42,7 @@ Every case of the fuzz corpus (`test/fuzz/corpus`: real-world cases collected fr
 
 | Library | Cases | Equivalent | allOf-free | Mismatch (lax / strict) | Throws | Invalid output | Timeout |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| allof-merge 1.0 (this branch) | 968 | 960 (99.2 %) | 724 (74.8 %) | 8 (0 / 8, 8 by the format rule Q1) | 0 | 0 | 0 |
+| allof-merge 1.0 (this branch) | 968 | 960 (99.2 %) | 724 (74.8 %) | 8 (0 / 8, 8 by the format rule) | 0 | 0 | 0 |
 | allof-merge 0.6.8 (released) | 968 | 764 (78.9 %) | 759 (78.4 %) | 163 (108 / 59) | 7 | 34 | 0 |
 | @redocly/allof-merge | 968 | 783 (80.9 %) | 778 (80.4 %) | 174 (116 / 63) | 2 | 9 | 0 |
 | json-schema-merge-allof | 968 | 704 (72.7 %) | 698 (72.1 %) | 92 (45 / 47) | 170 | 0 | 2 |

@@ -27,7 +27,7 @@ describe("B1.1 type", () => {
     expect(merge({ allOf: [{ type: ["string"] }, { type: ["string", "number"] }] })).toEqual({ type: "string" })
   })
 
-  // AM-02 (fixed): integer is a subtype of number, mergeTypes compares type names as opaque strings and reports a conflict
+  // 0.x bug, fixed: integer is a subtype of number, mergeTypes compares type names as opaque strings and reports a conflict
   test("B1.1.5 integer ∧ number is integer", () => {
     const data = { allOf: [{ type: "integer" }, { type: "number" }] }
     const { result, mergeErrors } = mergeReport(data)
@@ -36,7 +36,7 @@ describe("B1.1 type", () => {
     expectSameValidation(data, result, [1, 1.5, "1"])
   })
 
-  // AM-02 (fixed): same subtype problem for arrays of types
+  // 0.x bug, fixed: same subtype problem for arrays of types
   test("B1.1.6 [integer, boolean] ∧ [number, string] is integer", () => {
     const data = { allOf: [{ type: ["integer", "boolean"] }, { type: ["number", "string"] }] }
     const result = merge(data)
@@ -58,7 +58,7 @@ describe("B1.2 enum and const", () => {
     expect(merge(data)).toEqual({ enum: [{ a: 1 }] })
   })
 
-  // AM-13 (fixed): enum members are compared via JSON.stringify, so equal objects with different key order are treated as different
+  // 0.x bug, fixed: enum members are compared via JSON.stringify, so equal objects with different key order are treated as different
   test("B1.2.3 enum object members are compared structurally, not by key order", () => {
     const data = { allOf: [{ enum: [{ a: 1, b: 2 }] }, { enum: [{ b: 2, a: 1 }] }] }
     const { result, mergeErrors } = mergeReport(data)
@@ -76,7 +76,7 @@ describe("B1.2 enum and const", () => {
     expect(merge({ allOf: [{ const: { a: [1] } }, { const: { a: [1] } }] })).toEqual({ const: { a: [1] } })
   })
 
-  // AM-13 (fixed): const values are compared via JSON.stringify
+  // 0.x bug, fixed: const values are compared via JSON.stringify
   test("B1.2.6 const objects are compared structurally, not by key order", () => {
     const data = { allOf: [{ const: { a: 1, b: 2 } }, { const: { b: 2, a: 1 } }] }
     const { result, mergeErrors } = mergeReport(data)
@@ -119,7 +119,7 @@ describe("B1.3 numeric bounds", () => {
       .toEqual({ minimum: 5, exclusiveMinimum: true })
   })
 
-  // AM-10 (fixed): boolean exclusiveMinimum is OR-ed regardless of which minimum wins; x=5 is valid for both inputs but the merged schema rejects it
+  // 0.x bug, fixed: boolean exclusiveMinimum is OR-ed regardless of which minimum wins; x=5 is valid for both inputs but the merged schema rejects it
   test("B1.3.5 draft-04 boolean exclusiveMinimum is dropped when a larger inclusive minimum wins", () => {
     const rules = jsonSchemaMergeRules("draft-04")
     const result = merge({ allOf: [{ minimum: 1, exclusiveMinimum: true }, { minimum: 5 }] }, { rules })
@@ -127,7 +127,7 @@ describe("B1.3 numeric bounds", () => {
     expect(result.exclusiveMinimum).not.toBe(true)
   })
 
-  // AM-10 (fixed): same for exclusiveMaximum; x=5 is valid for both inputs
+  // 0.x bug, fixed: same for exclusiveMaximum; x=5 is valid for both inputs
   test("B1.3.6 draft-04 boolean exclusiveMaximum is dropped when a smaller inclusive maximum wins", () => {
     const rules = jsonSchemaMergeRules("draft-04")
     const result = merge({ allOf: [{ maximum: 10, exclusiveMaximum: true }, { maximum: 5 }] }, { rules })
@@ -174,14 +174,14 @@ describe("B1.5 strings", () => {
     expectSameValidation(data, result, ["abc", "a1", "bcd", ""])
   })
 
-  // AM-03 (fixed): patterns are combined as "(?=p1)(?=p2)" which evaluates both lookaheads at the same position, so "^a" and "b$" can never both hold for "ab"
+  // 0.x bug, fixed: patterns are combined as "(?=p1)(?=p2)" which evaluates both lookaheads at the same position, so "^a" and "b$" can never both hold for "ab"
   test("B1.5.4 combines a prefix pattern and a suffix pattern", () => {
     const data = { allOf: [{ pattern: "^a" }, { pattern: "b$" }] }
     const result = merge(data)
     expectSameValidation(data, result, ["ab", "axb", "a", "b", "ba"])
   })
 
-  // AM-03 (fixed): two unanchored patterns ("contains a" and "contains b") must accept "ab" and "ba"
+  // 0.x bug, fixed: two unanchored patterns ("contains a" and "contains b") must accept "ab" and "ba"
   test("B1.5.5 combines two unanchored patterns", () => {
     const data = { allOf: [{ pattern: "a" }, { pattern: "b" }] }
     const result = merge(data)
@@ -238,21 +238,21 @@ describe("B1.7 properties × additionalProperties × patternProperties", () => {
     expectSameValidation(data, result, [{ foo: "ab" }, { foo: "a" }, { foo: 1 }, { far: "a" }])
   })
 
-  // AM-04 (fixed): a property that matches none of the other item's patterns is deleted even though additionalProperties is absent (defaults to true), so the merged schema accepts { foo: 1 }
+  // 0.x bug, fixed: a property that matches none of the other item's patterns is deleted even though additionalProperties is absent (defaults to true), so the merged schema accepts { foo: 1 }
   test("B1.7.5 keeps a property that matches no pattern when additionalProperties is absent", () => {
     const data = { allOf: [{ properties: { foo: { type: "string" } } }, { patternProperties: { "^x": { minLength: 2 } } }] }
     const result = merge(data)
     expectSameValidation(data, result, [{ foo: "a" }, { foo: 1 }, { xy: "ab" }, { xy: "a" }])
   })
 
-  // AM-04 (fixed): the property is deleted as soon as any single pattern does not match, even if another pattern matches
+  // 0.x bug, fixed: the property is deleted as soon as any single pattern does not match, even if another pattern matches
   test("B1.7.6 keeps a property when at least one of several patterns matches", () => {
     const data = { allOf: [{ properties: { foo: { type: "string" } } }, { patternProperties: { "^f": { minLength: 2 }, "^x": {} } }] }
     const result = merge(data)
     expectSameValidation(data, result, [{ foo: "ab" }, { foo: "a" }, { foo: 1 }, { foo: 12 }])
   })
 
-  // AM-04 (fixed): property "b" (allowed by item 2) is deleted because it does not match the pattern of item 1, so the merged schema rejects { b: 1 }
+  // 0.x bug, fixed: property "b" (allowed by item 2) is deleted because it does not match the pattern of item 1, so the merged schema rejects { b: 1 }
   test("B1.7.7 keeps a property listed in one item when another item has only non-matching patternProperties", () => {
     const data = { allOf: [{ patternProperties: { "^a": { type: "string" } } }, { additionalProperties: false, properties: { b: {} } }] }
     const result = merge(data)
@@ -308,7 +308,7 @@ describe("B1.8 items, additionalItems and array keywords", () => {
     expectSameValidation(data, result, [["a"], [""], [1], []])
   })
 
-  // AM-19 (fixed): the items schema also applies to the positions after the tuple, so it becomes the merged additionalItems
+  // 0.x bug, fixed: the items schema also applies to the positions after the tuple, so it becomes the merged additionalItems
   it("B1.8.2 applies an items schema to every element of a tuple and to the tail", () => {
     const data = { allOf: [{ items: [{ type: "string" }, { type: "number" }] }, { items: { minLength: 1 } }] }
     const result = merge(data)
@@ -337,7 +337,7 @@ describe("B1.8 items, additionalItems and array keywords", () => {
     expectSameValidation(data, result, [["a", "b"], ["a", ""], ["a", 1], ["a"]])
   })
 
-  // AM-19 (fixed): a single additionalItems is passed through untouched (resolvers run only for 2+ values), so the items schema of the other item is not applied to the tail elements and ["a", ""] is accepted
+  // 0.x bug, fixed: a single additionalItems is passed through untouched (resolvers run only for 2+ values), so the items schema of the other item is not applied to the tail elements and ["a", ""] is accepted
   test("B1.8.6 merges an items schema into a single additionalItems", () => {
     const data = { allOf: [{ items: [{ type: "string" }], additionalItems: { type: "string" } }, { items: { minLength: 1 } }] }
     const result = merge(data)
@@ -361,7 +361,7 @@ describe("B1.8 items, additionalItems and array keywords", () => {
     expect(merge({ allOf: [{ minItems: 1, maxItems: 10 }, { minItems: 2, maxItems: 5 }] })).toEqual({ minItems: 2, maxItems: 5 })
   })
 
-  // AM-12 (fixed): "contains" is merged as a schema intersection, but [contains A] ∧ [contains B] is not [contains A∧B]; ["a", 1] is valid for the original and rejected by the merged schema
+  // 0.x bug, fixed: "contains" is merged as a schema intersection, but [contains A] ∧ [contains B] is not [contains A∧B]; ["a", 1] is valid for the original and rejected by the merged schema
   test("B1.8.9 contains keeps both constraints instead of intersecting the schemas", () => {
     const data = { allOf: [{ contains: { type: "string" } }, { contains: { type: "number" } }] }
     const { result, mergeErrors } = mergeReport(data)
@@ -406,7 +406,7 @@ describe("B1.10 annotations and OpenAPI-specific keywords", () => {
     expect(merge({ allOf: [{ nullable: true }, { nullable: false }] })).toEqual({ nullable: false })
   })
 
-  // AM-11 (fixed): there is no rule for nullable so the generic "last wins" rule applies; null is accepted by the merged schema although the first item forbids it
+  // 0.x bug, fixed: there is no rule for nullable so the generic "last wins" rule applies; null is accepted by the merged schema although the first item forbids it
   test("B1.10.2 nullable: false ∧ true is false", () => {
     expect(merge({ allOf: [{ nullable: false }, { nullable: true }] })).toEqual({ nullable: false })
   })
@@ -424,7 +424,7 @@ describe("B1.10 annotations and OpenAPI-specific keywords", () => {
       { title: "B", description: "b", format: "f", default: 2, externalDocs: { url: "b" } },
     ] })
     expect(result).toEqual({ title: "B", description: "b", format: "f", default: 2, externalDocs: { url: "b" } })
-    // Q1 (2026-11-18, replaces D-2): two different formats make the schema false (and are reported)
+    // (2026-11-18): two different formats make the schema false (and are reported)
     expect(merge({ allOf: [{ title: "A", format: "f1" }, { title: "B", format: "f2" }] })).toBe(false)
   })
 

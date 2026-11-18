@@ -68,7 +68,7 @@ const write = (result: Record<string, unknown>, side: Side, boundKey: string, ex
 /**
  * multipleOf: the least common multiple when it can be computed exactly (finite positive values, at most 15
  * decimal digits, safe-integer arithmetic); otherwise the distinct values are kept as allOf fragments and the
- * problem is reported. Values that are not finite positive numbers are ignored and reported (VR-01, D-6).
+ * problem is reported. Values that are not finite positive numbers are ignored and reported.
  */
 export const mergeMultipleOfValues = (values: unknown[], report?: Report): Record<string, unknown> => {
   const valid: number[] = []

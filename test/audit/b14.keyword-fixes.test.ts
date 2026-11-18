@@ -28,29 +28,29 @@ const oas30Report = (schema: any) => {
   return { ...report, result: report.result.components.schemas.A }
 }
 
-describe("B14.1 patternProperties x additionalProperties (D-5, VR-10, VR-11)", () => {
-  it("B14.1.1 VR-10: another item's additionalProperties schema is conjoined into kept patterns", () => {
+describe("B14.1 patternProperties x additionalProperties", () => {
+  it("B14.1.1 another item's additionalProperties schema is conjoined into kept patterns", () => {
     const schema = { allOf: [{ patternProperties: { "^x": { type: "string" } } }, { additionalProperties: { minLength: 2 } }] }
     const result = mergeChecked(schema)
     expect(result).toEqual({ patternProperties: { "^x": { type: "string", minLength: 2 } }, additionalProperties: { minLength: 2 } })
     expect(compile(result)({ x: "a" })).toBe(false)
   })
 
-  it("B14.1.2 VR-10: additionalProperties next to properties applies to the pattern when no listed name matches it", () => {
+  it("B14.1.2 additionalProperties next to properties applies to the pattern when no listed name matches it", () => {
     const schema = { allOf: [{ patternProperties: { "^x": { type: "number" } } }, { properties: { a: {} }, additionalProperties: { type: "string" } }] }
     const result = mergeChecked(schema)
     expect(compile(result)({ xa: 1 })).toBe(false)
     expect(result.patternProperties["^x"]).toEqual(false)
   })
 
-  it("B14.1.3 VR-10: a listed name matching the pattern keeps the shapes as fragments", () => {
+  it("B14.1.3 a listed name matching the pattern keeps the shapes as fragments", () => {
     const schema = { allOf: [{ patternProperties: { "^x": { type: "string" } } }, { properties: { xa: { type: "string" } }, additionalProperties: { minLength: 2 } }] }
     const result = mergeChecked(schema)
     expect(result.allOf).toHaveLength(2)
     expect(compile(result)({ xa: "a" })).toBe(true)
   })
 
-  it("B14.1.4 VR-11: patterns of two closed items are kept as fragments (no synthesized lookahead)", () => {
+  it("B14.1.4 patterns of two closed items are kept as fragments (no synthesized lookahead)", () => {
     const schema = { allOf: [{ patternProperties: { "^a": {} }, additionalProperties: false }, { patternProperties: { "b$": {} }, additionalProperties: false }] }
     const result = mergeChecked(schema)
     expect(result).toEqual({ allOf: [
@@ -83,7 +83,7 @@ describe("B14.1 patternProperties x additionalProperties (D-5, VR-10, VR-11)", (
   })
 })
 
-describe("B14.2 bounded pattern matching (D-3, VR-02, VR-24)", () => {
+describe("B14.2 bounded pattern matching", () => {
   const evil = "^(a+)+$"
   const name = "a".repeat(30) + "!"
 
@@ -131,7 +131,7 @@ describe("B14.2 bounded pattern matching (D-3, VR-02, VR-24)", () => {
   })
 })
 
-describe("B14.3 OpenAPI 3.0 nullable (D-1, VR-13, VR-14)", () => {
+describe("B14.3 OpenAPI 3.0 nullable", () => {
   it("B14.3.1 nullable true ∧ typed item without nullable is not nullable", () => {
     expect(oas30({ allOf: [{ type: "string", nullable: true }, { type: "string" }] })).toEqual({ type: "string" })
   })
@@ -173,15 +173,15 @@ describe("B14.3 OpenAPI 3.0 nullable (D-1, VR-13, VR-14)", () => {
   })
 })
 
-describe("B14.4 format (D-2, D-14, VR-16)", () => {
-  it("B14.4.1 numeric lattice picks the narrower format (OpenAPI rule sets only, D-14)", () => {
+describe("B14.4 format", () => {
+  it("B14.4.1 numeric lattice picks the narrower format (OpenAPI rule sets only)", () => {
     expect(oas30({ allOf: [{ type: "integer", format: "int64" }, { format: "int32" }] })).toEqual({ type: "integer", format: "int32" })
     expect(oas30({ allOf: [{ type: "number", format: "float" }, { format: "double" }] })).toEqual({ type: "number", format: "float" })
-    // D-14 / Q1: the JSON Schema rules treat int32 vs int64 as a contradiction
+    // the JSON Schema rules treat int32 vs int64 as a contradiction
     expect(merge({ allOf: [{ format: "int32" }, { format: "int64" }] })).toBe(false)
   })
 
-  it("B14.4.2 other differing formats are a contradiction and reported (Q1, replaces D-2)", () => {
+  it("B14.4.2 other differing formats are a contradiction and reported", () => {
     const { result, mergeErrors } = mergeReport({ allOf: [{ type: "string", format: "email" }, { format: "date" }] })
     expect(result).toBe(false)
     expect(mergeErrors).toHaveLength(1)
@@ -190,7 +190,7 @@ describe("B14.4 format (D-2, D-14, VR-16)", () => {
   })
 })
 
-describe("B14.5 minContains default (VR-15)", () => {
+describe("B14.5 minContains default", () => {
   it("B14.5.1 missing minContains counts as 1 when contains are equal", () => {
     const schema = { allOf: [{ contains: { type: "number" }, minContains: 0 }, { contains: { type: "number" } }] }
     const result = merge(clone(schema), { rules: jsonSchemaMergeRules("2020-12") })
@@ -200,7 +200,7 @@ describe("B14.5 minContains default (VR-15)", () => {
   })
 })
 
-describe("B14.6 multipleOf (VR-01)", () => {
+describe("B14.6 multipleOf", () => {
   const mo = (a: unknown, b: unknown) => {
     const { value, ms } = timed(() => mergeReport({ allOf: [{ multipleOf: a }, { multipleOf: b }] }))
     expect(ms).toBeLessThan(1000)
@@ -242,7 +242,7 @@ describe("B14.6 multipleOf (VR-01)", () => {
   })
 })
 
-describe("B14.7 malformed keyword values (D-6, VR-37)", () => {
+describe("B14.7 malformed keyword values", () => {
   const cases: [string, any, any][] = [
     ["required: true", { allOf: [{ required: true }, { required: ["a"] }] }, { required: ["a"] }],
     ["required: null", { allOf: [{ required: ["a"] }, { required: null }] }, { required: ["a"] }],
@@ -275,7 +275,7 @@ describe("B14.7 malformed keyword values (D-6, VR-37)", () => {
   })
 })
 
-describe("B14.8 deep values (VR-06 utils part)", () => {
+describe("B14.8 deep values (utils part)", () => {
   const nested = (depth: number, leaf: any) => {
     let value: any = leaf
     for (let i = 0; i < depth; i++) { value = { a: value } }
@@ -306,7 +306,7 @@ describe("B14.8 deep values (VR-06 utils part)", () => {
   })
 })
 
-describe("B14.9 linear enum / required / properties merges (VR-07)", () => {
+describe("B14.9 linear enum / required / properties merges", () => {
   it("B14.9.1 20k object enum members intersect quickly", () => {
     const list = Array.from({ length: 20000 }, (_, i) => ({ id: i }))
     const { value, ms } = timed(() => merge({ allOf: [{ enum: list }, { enum: clone(list).reverse() }] }))
@@ -333,7 +333,7 @@ describe("B14.9 linear enum / required / properties merges (VR-07)", () => {
   })
 })
 
-describe("B14.10 own-property safety (VR-21, VR-22 keyword part)", () => {
+describe("B14.10 own-property safety (keyword part)", () => {
   const parse = (json: string) => JSON.parse(json)
 
   it("B14.10.1 `constructor` does not bypass additionalProperties: false", () => {
@@ -364,7 +364,7 @@ describe("B14.10 own-property safety (VR-21, VR-22 keyword part)", () => {
   })
 })
 
-describe("B14.11 frozen rule sets (VR-26)", () => {
+describe("B14.11 frozen rule sets", () => {
   it("B14.11.1 built-in rule objects cannot be modified", () => {
     const rules: any = jsonSchemaMergeRules()
     expect(Object.isFrozen(rules["/minItems"])).toBe(true)
@@ -387,10 +387,10 @@ describe("B14.11 frozen rule sets (VR-26)", () => {
   })
 })
 
-describe("B14.12 per-key fallbacks when a custom rule hands a group back (VR-39)", () => {
+describe("B14.12 per-key fallbacks when a custom rule hands a group back", () => {
   const withRules = (draft: any, custom: any) => jsonSchemaMergeRules(draft, custom)
 
-  it("B14.12.1 custom /additionalProperties: properties still see the other items' additionalProperties (AM-04)", () => {
+  it("B14.12.1 custom /additionalProperties: properties still see the other items' additionalProperties", () => {
     const rules = withRules("draft-07", { "/additionalProperties": { $: resolvers.additionalPropertiesMergeResolver } })
     const schema = { allOf: [{ properties: { a: { type: "string" } }, additionalProperties: false }, { properties: { b: {} } }] }
     const result = merge(clone(schema), { rules })
@@ -406,7 +406,7 @@ describe("B14.12 per-key fallbacks when a custom rule hands a group back (VR-39)
     expect(result.allOf).toHaveLength(2)
   })
 
-  it("B14.12.3 custom /items: additionalItems still combines with the other tuple (AM-19)", () => {
+  it("B14.12.3 custom /items: additionalItems still combines with the other tuple", () => {
     const rules = withRules("draft-07", { "/items": { $: resolvers.itemsMergeResolver } })
     const schema = { allOf: [{ items: [{ type: "string" }], additionalItems: false }, { items: { minLength: 1 } }] }
     const result = merge(clone(schema), { rules })
@@ -415,7 +415,7 @@ describe("B14.12 per-key fallbacks when a custom rule hands a group back (VR-39)
     expectSameValidation(schema, result, [[], ["a"], [""], ["a", "b"], [1]])
   })
 
-  it("B14.12.4 custom /minimum under draft-04: the exclusive flag travels with the bound the custom rule selects (AM-10)", () => {
+  it("B14.12.4 custom /minimum under draft-04: the exclusive flag travels with the bound the custom rule selects", () => {
     const rules = withRules("draft-04", { "/minimum": { $: resolvers.maxValue } })
     // (a flag carried by a single item is copied by the engine without calling the resolver)
     const result = merge({ allOf: [{ minimum: 1, exclusiveMinimum: true }, { minimum: 5, exclusiveMinimum: false }] }, { rules })

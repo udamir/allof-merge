@@ -3,7 +3,7 @@ import { additionalPropertiesMergeResolver, jsonSchemaMergeRules } from "../../s
 import { mergeCombinarySibling } from "../../src/resolvers/combinary.ts"
 import { clone, expectSameValidation, findKeys, isJsonSerializable, merge, mergeReport } from "./helpers.ts"
 
-describe("B15.1 draft-04 exclusive flags follow the bound selected by a custom rule (VR-39, AM-10)", () => {
+describe("B15.1 draft-04 exclusive flags follow the bound selected by a custom rule", () => {
   const draft04 = (custom: any) => jsonSchemaMergeRules("draft-04", custom)
 
   it("B15.1.1 custom /minimum = min: the flag of the item carrying the selected bound", () => {
@@ -113,7 +113,7 @@ describe("B15.3 identity keywords of $ref-inlined items are not copied", () => {
   })
 })
 
-describe("B15.4 own-property safety leftovers (VR-21)", () => {
+describe("B15.4 own-property safety leftovers", () => {
   it("B15.4.1 mergeCombinarySibling copies `__proto__` siblings as own data", () => {
     const node = JSON.parse('{"oneOf":[{"type":"string"}],"__proto__":{"polluted":true},"title":"t"}')
     const result: any = mergeCombinarySibling(node, "oneOf", { sibling: ["title"] })
@@ -125,7 +125,7 @@ describe("B15.4 own-property safety leftovers (VR-21)", () => {
   })
 })
 
-describe("B15.5 expansionBudget: total schema nodes copied in by $ref inlining per call (D-7, VR-03)", () => {
+describe("B15.5 expansionBudget: total schema nodes copied in by $ref inlining per call", () => {
   // a fat target (1000 properties) reached through 5 levels of 10-fold fan-out: 100 000 logical inlinings of L0
   const fatDocument = () => {
     const props: any = {}
@@ -173,7 +173,7 @@ describe("B15.5 expansionBudget: total schema nodes copied in by $ref inlining p
   })
 })
 
-describe("B15.6 unresolvable $ref values (VR-42)", () => {
+describe("B15.6 unresolvable $ref values", () => {
   it("B15.6.1 an empty or non-string $ref inside allOf is a broken ref: the node is kept and reported", () => {
     const empty = mergeReport({ allOf: [{ $ref: "" }, { minLength: 1 }] })
     expect(empty.result).toEqual({ allOf: [{ $ref: "" }, { minLength: 1 }] })
@@ -185,10 +185,10 @@ describe("B15.6 unresolvable $ref values (VR-42)", () => {
 })
 
 describe("B15.7 replay findings", () => {
-  it("B15.7.1 a bare $ref into an allOf that is merged away does not dangle: it links the matching merged location (D-23)", () => {
+  it("B15.7.1 a bare $ref into an allOf that is merged away does not dangle: it links the matching merged location", () => {
     const doc = { allOf: [{ properties: { a: { type: "string" } } }, { properties: { b: { $ref: "#/allOf/0/properties/a" } } }] }
     const { result, refErrors, mergeErrors } = mergeReport(clone(doc))
-    // D-23: the merged a is equal to the original target, so b is a link to its matching location (was a copy)
+    // the merged a is equal to the original target, so b is a link to its matching location (was a copy)
     expect(result).toEqual({ properties: { a: { type: "string" }, b: { $ref: "#/properties/a" } } })
     expect(refErrors).toEqual([])
     expect(mergeErrors).toEqual([])
@@ -208,7 +208,7 @@ describe("B15.7 replay findings", () => {
     expect(result.minLength).toBe(1)
   })
 
-  it("B15.7.3 D-6: malformed boolean keywords, tuple values and invalid patterns are reported", () => {
+  it("B15.7.3 malformed boolean keywords, tuple values and invalid patterns are reported", () => {
     const unique = mergeReport({ allOf: [{ uniqueItems: "hi" }, { uniqueItems: true }] })
     expect(unique.result).toEqual({ uniqueItems: true })
     expect(unique.mergeErrors).toHaveLength(1)

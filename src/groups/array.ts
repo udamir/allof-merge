@@ -6,7 +6,7 @@ import { ISSUE_MESSAGES } from "../issues.ts"
 
 const KEYS = ["items", "additionalItems", "prefixItems", "contains", "minContains", "maxContains"] as const
 
-// which keyword is the tuple (D-18): "items" (draft-04/06/07: array `items` + `additionalItems`, `prefixItems` is an
+// which keyword is the tuple: "items" (draft-04/06/07: array `items` + `additionalItems`, `prefixItems` is an
 // unknown keyword), "prefixItems" (2020-12: `prefixItems` + `items` schema as the rest, an array `items` is legacy and
 // kept as an allOf fragment), undefined (rule sets that do not say: both forms are read, as in 1.0 betas)
 export type TupleKeyword = "items" | "prefixItems"
@@ -55,7 +55,7 @@ export const shapeKeysOf = (mode: TupleKeyword | undefined): string[] =>
  * Every item is read as a tuple of positional schemas plus a tail schema for the remaining positions
  * (`items` schema = empty tuple with that tail). Position j of the result is the conjunction of each item's
  * schema for j (positional or tail); a `false` tail truncates the result tuple; the merged tail is the
- * conjunction of all tails. The tuple keyword depends on the rule set (`mode`, D-18): draft-04/06/07 write
+ * conjunction of all tails. The tuple keyword depends on the rule set (`mode`): draft-04/06/07 write
  * `items` / `additionalItems` and ignore `prefixItems`; 2020-12 writes `prefixItems` / `items`, keeps each item with
  * an array `items` as an `allOf` fragment (`{ items, additionalItems? }`, reported through `report`) and keeps a stray
  * `additionalItems` (no 2020-12 meaning) last-wins; without a mode the `prefixItems` form is used when any item uses it.
@@ -119,7 +119,7 @@ const isCount = (value: unknown): value is number => typeof value === "number" &
  *
  * `contains: A` and `contains: B` have no closed intersection form, so different `contains` are kept as
  * allOf fragments (each with its own min/maxContains). Equal `contains` keep the tightest min/maxContains; a
- * missing `minContains` counts as 1 (its default) once another item sets one (VR-15). Malformed counts are
+ * missing `minContains` counts as 1 (its default) once another item sets one. Malformed counts are
  * ignored and reported.
  */
 export const mergeContains = (items: Record<string, any>[], report?: GroupContext["report"]): Record<string, unknown> => {
@@ -174,7 +174,7 @@ export const arrayShapeGroup: KeywordGroup = {
         result[key] = Array.isArray(value) ? [...value] : value
       }
     } else if (shapeOwners.length) {
-      // a value that is neither a schema nor (items / prefixItems) a tuple is ignored by mergeArrayShape (D-6)
+      // a value that is neither a schema nor (items / prefixItems) a tuple is ignored by mergeArrayShape
       for (const key of shapeKeys) {
         if (!hasOwn(values, key)) { continue }
         if (key === "additionalItems" && mode === "prefixItems") { continue }
