@@ -1,92 +1,66 @@
-import { jsonSchemaMergeResolver } from "./jsonschema"
-import type { MergeResolver } from "../types"
-import { MapArray } from "../utils"
+import { mergeArrayShape, mergeContains, tupleKeywordOf } from "../groups/array.ts"
+import { combineSchemas } from "../groups/common.ts"
+import type { MergeContext, MergeResolver } from "../types.ts"
+import { asFragments } from "../utils.ts"
+import { hasOwn } from "../safe.ts"
+import { groupReport } from "./basic.ts"
 
-export const itemsMergeResolver: MergeResolver = (args, ctx) => {
-  // if all "items" are not array, merge items as JsonSchema
-  const arrayItems = args.reduce((r, v) => Array.isArray(v) || r, false)
-  if (!arrayItems) { return jsonSchemaMergeResolver(args, ctx) }
+/*
+ * Per-key fallbacks, used when a custom `$` on one of the array-shape keys hands the group back to the per-key
+ * table. The whole item list is consulted (`items` cannot be merged without the other items'
+ * `additionalItems`, `minContains` belongs to its `contains`), so the result is the group's for the keys without
+ * a custom rule.
+ */
+const fromItems = (ctx: MergeContext | undefined) => ctx && Array.isArray(ctx.allOfItems) ? ctx.allOfItems : undefined
 
-  // if any of "items" is array, additionalItems should also be merged with "items"
-  const mergeItems: any[] = []
-  // limit for items length in case of "items" is array and "additionalItems" is false
-  let itemsLimit = Infinity
-  let maxItemsLength = 0
+// the shape merge of one item list, shared by the per-key fallbacks of that list (fragments are handed out once)
+const shaped = new WeakMap<object, Record<string, unknown>>()
 
-  // map of additionalItems schemas required for 
-  const additionalItemsSchema = new MapArray<number, any>()
-
-  for(const obj of ctx.allOfItems) {
-    // Schema from additionalItems should be merged with all "items" 
-    // with index greater then length of "items" in current schema
-    // "additionalItems" should be ignored if no "items" in current schema or "items" in object
-    if ("additionalItems" in obj && obj.additionalItems && "items" in obj && Array.isArray(obj.items)) { 
-      additionalItemsSchema.add(obj.items.length, obj.additionalItems)
-    } 
-
-    if (!("items" in obj)) { continue }
-    mergeItems.push(obj.items)
-
-    // set max items length and limit
-    if (Array.isArray(obj.items)) {
-      maxItemsLength = Math.max(maxItemsLength, obj.items.length)
-      if ("additionalItems" in obj && obj.additionalItems === false) { 
-        itemsLimit = Math.min(itemsLimit, obj.items.length)
-      } 
-    }
+const arrayShapeKey = (key: string, args: any[], ctx: MergeContext | undefined, legacy: () => unknown) => {
+  const items = fromItems(ctx)
+  if (!items) { return legacy() }
+  let merged = shaped.get(items)
+  if (!merged) {
+    merged = mergeArrayShape(items, tupleKeywordOf(ctx?.mergeRules), groupReport(ctx))
+    shaped.set(items, merged)
   }
-
-  const len = Math.min(maxItemsLength, itemsLimit)
-  const items: any[] = [...Array(len)].map(() => ({ allOf: [] }))
-
-  // "items" of array type should be merged with additionalItems schema if 
-  for (const item of mergeItems) {
-    if (!Array.isArray(item)) { 
-      // merge schema from object "items" with all array "items"
-      items.forEach(({ allOf }) => allOf.push(item))
-      continue 
-    }
-
-    for (let j = 0; j < len; j++) {
-      const allOf = []
-      // copy all additionalItems schemas for merge via allOf
-      for (let k = 0; k <= j; k++) {
-        additionalItemsSchema.has(k) && allOf.push(...additionalItemsSchema.get(k)!)
-      }
-
-      if (j < item.length) {
-        // merge existing items with additionals schemas if needed
-        items[j].allOf.push(allOf.length ? { ...item[j], allOf } : item[j])
-      } else {
-        // add new schemas to "items" if itemsLimit > items.length
-        items[j].allOf.push(allOf.length ? { allOf } : true)
-      }
-    }
-  }
-  
-  return items
+  // 2020-12 legacy tuple fragments travel with `items` (present whenever an item has an array `items`)
+  const fragments = key === "items" && Array.isArray(merged.allOf) ? merged.allOf : []
+  if (hasOwn(merged, key)) { return fragments.length ? asFragments(fragments, { value: merged[key] }) : merged[key] }
+  return asFragments(fragments)
 }
 
-export const additionalItemsMergeResolver: MergeResolver = (args, ctx) => {
-  const additionalItems: any[] = []
-  const itemsSchema: any[] = []
+export const itemsMergeResolver: MergeResolver = (args, ctx) => arrayShapeKey("items", args, ctx, () => combineSchemas(args))
 
-  // "additionalItems" schema should be merged with object "items" schemas
-  for (const obj of ctx.allOfItems) {
-    // store object "items"
-    if ("items" in obj && !Array.isArray(obj.items)) {
-      itemsSchema.push(obj.items)
-    }
+export const prefixItemsMergeResolver: MergeResolver = (args, ctx) => arrayShapeKey("prefixItems", args, ctx, () => args[args.length - 1])
 
-    // ignore "additionalItems" if "items" is not array
-    if (!("additionalItems" in obj) || !("items" in obj) || !Array.isArray(obj.items)) { continue }
-    additionalItems.push(obj.additionalItems)
+export const additionalItemsMergeResolver: MergeResolver = (args, ctx) => arrayShapeKey("additionalItems", args, ctx, () => combineSchemas(args))
+
+// contains: different `contains` are kept as allOf fragments (with their own min/maxContains)
+const contained = new WeakMap<object, Record<string, unknown>>()
+const containsOf = (items: Record<string, any>[], ctx: MergeContext | undefined) => {
+  let merged = contained.get(items)
+  if (!merged) {
+    merged = mergeContains(items, groupReport(ctx))
+    contained.set(items, merged)
   }
-
-  // merge "items" schemas to "additionalItems" via allOf
-  if (itemsSchema.length) {
-    additionalItems.forEach((item) => item.allOf = itemsSchema)
-  }
-
-  return jsonSchemaMergeResolver(additionalItems, ctx)
+  return merged
 }
+
+export const containsMergeResolver: MergeResolver = (args, ctx) => {
+  const items = fromItems(ctx)
+  if (!items) { return args.length === 1 ? args[0] : asFragments(args.map((contains) => ({ contains }))) }
+  const merged = containsOf(items, ctx)
+  return hasOwn(merged, "allOf") ? asFragments(merged.allOf as unknown[]) : hasOwn(merged, "contains") ? merged.contains : asFragments([])
+}
+
+const containsCount = (key: "minContains" | "maxContains", legacy: MergeResolver): MergeResolver => (args, ctx) => {
+  const items = fromItems(ctx)
+  if (!items) { return legacy(args, ctx) }
+  const merged = containsOf(items, ctx)
+  // in fragment mode the counts travel with their `contains`
+  return hasOwn(merged, key) ? merged[key] : asFragments([])
+}
+
+export const minContainsMergeResolver: MergeResolver = containsCount("minContains", (args) => Math.max(...args))
+export const maxContainsMergeResolver: MergeResolver = containsCount("maxContains", (args) => Math.min(...args))

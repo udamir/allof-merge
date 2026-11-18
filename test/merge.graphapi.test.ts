@@ -1,5 +1,6 @@
-import { graphapi, yaml } from "./helpers"
-import { merge } from "../src"
+import { describe, it, expect } from "vite-plus/test"
+import { graphapi, yaml } from "./helpers/index.ts"
+import { merge } from "../src/index.ts"
 
 describe("Build GraphApi", () => {
 

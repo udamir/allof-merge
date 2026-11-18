@@ -1,4 +1,5 @@
-import { merge } from "../src"
+import { describe, it, expect } from "vite-plus/test"
+import { merge } from "../src/index.ts"
 
 describe('items', function() {
   it('merges additionalItems', function() {
@@ -38,7 +39,8 @@ describe('items', function() {
         properties: {
           name: {
             type: 'string',
-            pattern: '(?=bar)(?=foo)'
+            // pattern conjunction
+            pattern: '^(?=[\\s\\S]*?(?:bar))(?=[\\s\\S]*?(?:foo))[\\s\\S]*$'
           }
         }
       }

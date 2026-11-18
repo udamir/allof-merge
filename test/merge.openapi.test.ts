@@ -1,6 +1,7 @@
-import { merge } from "../src"
-const source31x = require("./resources/openapi31x.json")
-const source30x = require("./resources/openapi30x.json")
+import { describe, it, expect } from "vite-plus/test"
+import { merge } from "../src/index.ts"
+import source31x from "./resources/openapi31x.json" with { type: "json" }
+import source30x from "./resources/openapi30x.json" with { type: "json" }
 
 describe("merge allof in openapi schema", function () {
   it("merges schema in openapi 3.0.x", () => {

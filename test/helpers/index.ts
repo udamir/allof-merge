@@ -1,4 +1,4 @@
-import { buildFromSchema, GraphApiSchema } from "gqlapi"
+import { buildFromSchema, type GraphApiSchema } from "gqlapi"
 import { buildSchema } from "graphql"
 import YAML from "js-yaml"
 

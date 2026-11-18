@@ -1,0 +1,28 @@
+{
+  "name": "allof-merge-benchmark",
+  "private": true,
+  "description": "Speed and correctness of allof-merge against other JSON Schema allOf mergers",
+  "type": "module",
+  "scripts": {
+    "start": "pnpm --dir .. run build && node index.ts",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@cfworker/json-schema": "4.1.6",
+    "@fastify/merge-json-schemas": "0.2.2",
+    "@redocly/allof-merge": "0.6.13",
+    "@stoplight/json-schema-merge-allof": "0.8.0",
+    "@x0k/json-schema-merge": "1.1.1",
+    "allof-merge": "link:..",
+    "allof-merge-0.6": "npm:allof-merge@0.6.8",
+    "json-schema-merge-allof": "0.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@12.21.0"
+}

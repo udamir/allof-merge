@@ -1,14 +1,13 @@
-import { JsonPath } from "json-crawl"
+import { describe, it, expect } from "vite-plus/test"
+import type { JsonPath } from "json-crawl"
 
-import { merge } from "../src"
+import { merge } from "../src/index.ts"
 
 describe("merge errors handling", function () {
-  it("should trigger onRefResolveError when mergin groken $ref", (done) => {
-
-    const onRefResolveError = (message: string, path: JsonPath, ref: string) => {
-      
-      expect(ref).toBe ("#/foo")
-      done()
+  it("should trigger onRefResolveError when merging a broken $ref", () => {
+    const refs: string[] = []
+    const onRefResolveError = (_message: string, _path: JsonPath, ref: string) => {
+      refs.push(ref)
     }
 
     const result = merge({
@@ -42,6 +41,7 @@ describe("merge errors handling", function () {
         },
       ],
     })
+    expect(refs).toEqual(["#/foo"])
   })
 
   it("should not merge $ref sibling without mergeRefSibling option", () => {
@@ -57,17 +57,7 @@ describe("merge errors handling", function () {
 
     const result = merge(schema, { mergeCombinarySibling: true, mergeRefSibling: true })
 
-    expect(result).toEqual({
-      allOf: [{
-        $ref: "#/permission",
-      },{
-        type: "object",
-        properties: {
-          admin: {
-            type: "boolean",
-          },
-        }
-      }]
-    })
+    //: a broken $ref with siblings is left as it is
+    expect(result).toEqual(schema)
   })
 })

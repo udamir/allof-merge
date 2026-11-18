@@ -1,4 +1,5 @@
-import { mergeValues } from "../src"
+import { describe, test, expect } from "vite-plus/test"
+import { mergeValues } from "../src/index.ts"
 
 describe("utils unit tests", function () {
   test("mergeValues", () => {

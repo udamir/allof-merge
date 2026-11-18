@@ -1,4 +1,5 @@
-import { merge } from "../src"
+import { describe, it, expect } from "vite-plus/test"
+import { merge } from "../src/index.ts"
 
 describe("issue #208 - $ref corruption", () => {
   it("should not corrupt $ref when same ref is in both top-level and allOf", () => {

@@ -1,5 +1,5 @@
-import { jsonSchemaMergeRules, merge } from "../src"
-import { ErrorMessage } from "../src/errors"
+import { describe, it, expect } from "vite-plus/test"
+import { jsonSchemaMergeRules, merge } from "../src/index.ts"
 
 describe("basic allOf merge cases", function () {
   it("merges schema with same object reference multiple places", () => {
@@ -632,8 +632,9 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
+      // enum keeps the first-seen order instead of being sorted
       expect(result).toMatchObject({
-        enum: [[1], {}, "string"],
+        enum: ["string", {}, [1]],
       })
     })
 
@@ -752,9 +753,9 @@ describe("basic allOf merge cases", function () {
       })
     })
     
-    // remove duplicates in combinaries (oneOf/anyOf) is out of scope
+    // identical anyOf branches are kept once (dedupeAnyOf, default true); dedupeAnyOf: false keeps the full product
     it("merges anyOf by finding valid combinations", function () {
-      const result = merge({
+      const input = () => ({
         allOf: [
           {
             anyOf: [
@@ -778,8 +779,22 @@ describe("basic allOf merge cases", function () {
           },
         ],
       })
+      const result = merge(input())
 
       expect(result).toMatchObject({
+        anyOf: [
+          {
+            type: ["null", "string"],
+          },
+          {
+            type: "null",
+          },
+          {
+            type: ["null", "object"],
+          },
+        ],
+      })
+      expect(merge(input(), { dedupeAnyOf: false })).toMatchObject({
         anyOf: [
           {
             type: ["null", "string"],
@@ -797,7 +812,7 @@ describe("basic allOf merge cases", function () {
       })
     })
 
-    // remove duplicates in combinaries (oneOf/anyOf) is out of scope
+    // identical anyOf branches are kept once (dedupeAnyOf, default true)
     it("extracts common logic", function () {
       const result = merge({
         allOf: [
@@ -838,10 +853,6 @@ describe("basic allOf merge cases", function () {
             minLength: 5,
           },
           {
-            type: ["null", "string"],
-            minLength: 5,
-          },
-          {
             type: ["null", "object"],
             minLength: 5,
           },
@@ -873,8 +884,9 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
+      // required keeps the first-seen order (branch item first, then the other allOf item)
       expect(result).toEqual({
-        anyOf: [{ required: ["123"] }, { required: ["123", "456"] }],
+        anyOf: [{ required: ["123"] }, { required: ["456", "123"] }],
         required: ["abc"],
       })
     })
@@ -907,13 +919,14 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
+      // required keeps the first-seen order (nested allOf items come before the sibling content)
       expect(result).toMatchObject({
         anyOf: [
           {
-            required: ["123", "768"],
+            required: ["768", "123"],
           },
           {
-            required: ["123", "456", "768"],
+            required: ["768", "123", "456"],
           },
         ],
       })
@@ -1035,11 +1048,12 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
+      // required keeps the first-seen order
       expect(result).toMatchObject({
         type: ["array", "string"],
         oneOf: [
           {
-            required: ["123", "768"],
+            required: ["768", "123"],
           },
         ],
       })
@@ -1075,6 +1089,8 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
+      // the impossible branch (string ∧ object) was kept as `false`; since
+      // dropFalseBranches (default true) it is removed
       expect(result).toMatchObject({
         type: ["array", "string"],
         oneOf: [
@@ -1158,15 +1174,30 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
-      expect(result).toMatchObject({
-        contains: {
-          properties: {
-            name: {
-              type: "string",
-              pattern: "(?=bar)(?=foo)",
+      // `contains` has no closed intersection form, both constraints are kept as allOf fragments
+      expect(result).toEqual({
+        allOf: [
+          {
+            contains: {
+              properties: {
+                name: {
+                  type: "string",
+                  pattern: "bar",
+                },
+              },
             },
           },
-        },
+          {
+            contains: {
+              properties: {
+                name: {
+                  type: "string",
+                  pattern: "foo",
+                },
+              },
+            },
+          },
+        ],
       })
     })
 
@@ -1183,8 +1214,9 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
+      // pattern conjunction
       expect(result).toMatchObject({
-        pattern: "(?=fdsaf)(?=abba)",
+        pattern: "^(?=[\\s\\S]*?(?:fdsaf))(?=[\\s\\S]*?(?:abba))[\\s\\S]*$",
       })
 
       const result2 = merge({
@@ -1443,7 +1475,8 @@ describe("basic allOf merge cases", function () {
           ],
         })
       ).toMatchObject({
-        required: ["prop1", "prop2"],
+        // first-seen order, de-duplicated
+        required: ["prop2", "prop1"],
       })
     })
 
@@ -1886,7 +1919,8 @@ describe("basic allOf merge cases", function () {
             type: ["string", "null"],
             minimum: 7,
           },
-          bar: ["prop1", "prop2", "prop4"],
+          // first-seen order (allOf item first, then the sibling content)
+          bar: ["prop4", "prop1", "prop2"],
         },
       })
     })
@@ -1912,7 +1946,8 @@ describe("basic allOf merge cases", function () {
         dependencies: {
           bar: {
             type: ["string", "null", "integer"],
-            required: ["abc", "prop4"],
+            // first-seen order (allOf item first, then the sibling content)
+            required: ["prop4", "abc"],
           },
         },
       })
@@ -2032,23 +2067,22 @@ describe("basic allOf merge cases", function () {
 })
 
 describe("negative allOf merge cases", () => {
-  it("should throw error if merge rule not defined", function () {
+  // (contract change): 0.6.8 threw "Merge rule not found" here; an unknown key without a `/?` rule is last-wins
+  it("should merge unknown keys last-wins if no merge rule is defined", function () {
     const rules = { ...jsonSchemaMergeRules() }
     delete rules["/?"]
 
-    const f = () => {
-      merge({
-        allOf: [
-          {
-            test: "First",
-          },
-          {
-            test: "Last",
-          },
-        ],
-      }, { rules })
-    }
+    const result = merge({
+      allOf: [
+        {
+          test: "First",
+        },
+        {
+          test: "Last",
+        },
+      ],
+    }, { rules })
 
-    expect(f).toThrowError(ErrorMessage.ruleNotFound('test'))
+    expect(result).toEqual({ test: "Last" })
   })
 })
