@@ -888,14 +888,56 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return settings.dedupeAnyOf && !!anyOf && anyOf.length > 1 && dedupeValues(anyOf) !== anyOf
   }
 
-  // input node -> its subtree: DIRTY when it needs work (a node of nodeNeedsWork, or a cycle: the clone must write
-  // cycle $refs), else (height << 1) | (1 when it holds a $ref). Inputs must not change while the merger is in use
-  const scanned = new WeakMap<object, number>()
-  // clean input node -> its copy, built by the scan bottom-up and shared by every call of the merger (one output
-  // instance per input instance, D-11)
-  const cleanCopies = new WeakMap<object, object>()
+  // input node -> its scan record: the subtree info (DIRTY when it needs work, or a cycle: the clone must write cycle
+  // $refs; else (height << 1) | (1 when it holds a $ref)) and, for a clean node, its copy, built by the scan bottom-up
+  // and shared by every call of the merger (one output instance per input instance, D-11). Inputs must not change
+  // while the merger is in use
+  interface ScanRecord {
+    node: Record<string | number, unknown>
+    keys: string[] | undefined
+    length: number
+    i: number
+    info: number                                // DIRTY or (height << 1) | ref bit
+    copy: Record<string | number, unknown> | undefined
+    key: string | number                        // the key of the child being scanned
+    open: boolean                               // on the scan path: a child that meets it is a cycle
+  }
+  const scanned = new WeakMap<object, ScanRecord>()
+  const scanInfo = (node: object): number | undefined => scanned.get(node)?.info
 
   const hasRefKey = (node: object): boolean => !Array.isArray(node) && typeof (node as Record<string, unknown>).$ref === "string"
+
+  // the scan stack, shared by every scan of the merger (a scan never starts another one)
+  const scanStack: ScanRecord[] = []
+
+  const scanEnter = (node: object): void => {
+    const keys = Array.isArray(node) ? undefined : Object.keys(node)
+    const dirty = nodeNeedsWork(node)
+    const record: ScanRecord = {
+      node: node as Record<string | number, unknown>,
+      keys,
+      length: keys ? keys.length : (node as unknown[]).length,
+      i: 0,
+      info: dirty ? DIRTY : hasRefKey(node) ? 1 : 0,
+      copy: dirty ? undefined : newContainer(node),
+      key: 0,
+      open: true,
+    }
+    scanned.set(node, record)
+    scanStack.push(record)
+  }
+
+  // a finished child of `record`: its height and ref bit count, its copy is written under `key`
+  const scanAdopt = (record: ScanRecord, key: string | number, info: number, copy: object | undefined): void => {
+    if (record.info === DIRTY) { return }
+    if (info === DIRTY) {
+      record.info = DIRTY
+      record.copy = undefined
+      return
+    }
+    record.info = (Math.max(record.info >> 1, (info >> 1) + 1) << 1) | (record.info & 1) | (info & 1)
+    safeSet(record.copy!, key, copy)
+  }
 
   /**
    * One iterative post-order pass, memoized per node: decides which subtrees are clean and copies them (own
@@ -904,46 +946,12 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
    */
   const scan = (root: object): number => {
     const known = scanned.get(root)
-    if (known !== undefined) { return known }
-    interface ScanFrame {
-      node: Record<string | number, unknown>
-      keys: string[] | undefined
-      length: number
-      i: number
-      info: number                                // DIRTY or (height << 1) | ref bit
-      copy: Record<string | number, unknown> | undefined
-      key: string | number                        // the key of the child being scanned
-    }
-    const stack: ScanFrame[] = []
-    const onPath = new Set<object>()
-    const enter = (node: object) => {
-      onPath.add(node)
-      const keys = Array.isArray(node) ? undefined : Object.keys(node)
-      const dirty = nodeNeedsWork(node)
-      stack.push({
-        node: node as Record<string | number, unknown>,
-        keys,
-        length: keys ? keys.length : (node as unknown[]).length,
-        i: 0,
-        info: dirty ? DIRTY : hasRefKey(node) ? 1 : 0,
-        copy: dirty ? undefined : newContainer(node),
-        key: 0,
-      })
-    }
-    // a finished clean child of `frame`: its height and ref bit count, its copy is written under `key`
-    const adopt = (frame: ScanFrame, key: string | number, info: number, copy: object | undefined) => {
-      if (frame.info === DIRTY) { return }
-      if (info === DIRTY) {
-        frame.info = DIRTY
-        frame.copy = undefined
-        return
-      }
-      frame.info = (Math.max(frame.info >> 1, (info >> 1) + 1) << 1) | (frame.info & 1) | (info & 1)
-      safeSet(frame.copy!, key, copy)
-    }
-    enter(root)
+    if (known !== undefined) { return known.info }
+    const stack = scanStack
+    const base = stack.length
+    scanEnter(root)
     let result = DIRTY
-    while (stack.length) {
+    while (stack.length > base) {
       const top = stack[stack.length - 1]
       if (top.info !== DIRTY && top.i < top.length) {
         let key: string | number
@@ -958,24 +966,23 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
           safeSet(top.copy!, key, child)
           continue
         }
-        const info = scanned.get(child)
-        if (info !== undefined) {
-          adopt(top, key, info, cleanCopies.get(child))
-        } else if (onPath.has(child)) {
-          adopt(top, key, DIRTY, undefined)
-        } else {
+        const entry = scanned.get(child)
+        if (entry === undefined) {
           top.key = key
-          enter(child)
+          scanEnter(child)
+        } else if (entry.open) {
+          scanAdopt(top, key, DIRTY, undefined)
+        } else {
+          scanAdopt(top, key, entry.info, entry.copy)
         }
         continue
       }
       stack.pop()
-      onPath.delete(top.node)
-      scanned.set(top.node, top.info)
-      if (top.copy) { cleanCopies.set(top.node, top.copy) }
-      const parent = stack[stack.length - 1]
-      if (parent) {
-        adopt(parent, parent.key, top.info, top.copy)
+      top.open = false
+      top.keys = undefined
+      if (stack.length > base) {
+        const parent = stack[stack.length - 1]
+        scanAdopt(parent, parent.key, top.info, top.copy)
       } else {
         result = top.info
       }
@@ -1020,7 +1027,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         continue
       }
       const child = top.node[top.keys[top.i++]]
-      if (typeof child !== "object" || child === null || c.verified.has(child) || !((scanned.get(child) ?? 0) & 1)) { continue }
+      if (typeof child !== "object" || child === null || c.verified.has(child) || !((scanInfo(child) ?? 0) & 1)) { continue }
       if (c.unclean.has(child) || !enter(child)) {
         for (const frame of stack) { c.unclean.add(frame.node) }
         return false
@@ -1031,8 +1038,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
   // the shared copy of a clean subtree, or undefined when a whole-document $ref inside it needs the regular path
   const cleanCopy = (c: CallState, root: object): object | undefined => {
-    if (c.wholeDocument && ((scanned.get(root) ?? 0) & 1) && !c.verified.has(root) && !refsKeepMeaning(c, root)) { return undefined }
-    return cleanCopies.get(root)
+    if (c.wholeDocument && ((scanInfo(root) ?? 0) & 1) && !c.verified.has(root) && !refsKeepMeaning(c, root)) { return undefined }
+    return scanned.get(root)?.copy
   }
 
   // the merge can change `value` (or report about it): the fast-path rules on the input, and the depth limit
