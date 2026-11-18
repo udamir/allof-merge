@@ -1,6 +1,6 @@
-import { type JsonSchemaVersion, freezeRules, jsonSchemaMergeRules } from "./jsonschema"
-import type { MergeRules } from "../types"
-import * as resolvers from "../resolvers"
+import { type JsonSchemaVersion, freezeRules, jsonSchemaMergeRules } from "./jsonschema.ts"
+import type { MergeRules } from "../types.ts"
+import * as resolvers from "../resolvers/index.ts"
 
 export const openApiVersion = ["3.0.x", "3.1.x"] as const
 

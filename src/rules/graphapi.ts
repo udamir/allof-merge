@@ -1,6 +1,6 @@
-import { freezeRules, jsonSchemaMergeRules } from "./jsonschema"
-import type { MergeRules } from "../types"
-import * as resolvers from "../resolvers"
+import { freezeRules, jsonSchemaMergeRules } from "./jsonschema.ts"
+import type { MergeRules } from "../types.ts"
+import * as resolvers from "../resolvers/index.ts"
 
 const NO_CUSTOM_RULES: MergeRules = Object.freeze({})
 const cache = new WeakMap<object, MergeRules>()

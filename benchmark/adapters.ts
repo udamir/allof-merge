@@ -9,6 +9,9 @@
  * is recorded as such by the correctness pass.
  */
 
+import fs from "node:fs"
+import path from "node:path"
+
 import mokkaMergeAllOf from "json-schema-merge-allof"
 import stoplightMergeAllOf from "@stoplight/json-schema-merge-allof"
 import { mergeSchemas as fastifyMergeSchemas } from "@fastify/merge-json-schemas"
@@ -17,9 +20,9 @@ import * as x0kArray from "@x0k/json-schema-merge/lib/array"
 import * as allofMerge06 from "allof-merge-0.6"
 import * as redocly from "@redocly/allof-merge"
 
-// allof-merge 1.0 is loaded from the build of this repository (`yarn build` first)
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const allofMerge10 = require("../dist/index.cjs")
+// allof-merge 1.0 is loaded from the build of this repository (`pnpm build` first)
+import * as allofMerge10 from "../dist/index.js"
+import pkg from "../package.json" with { type: "json" }
 
 export type Profile = "draft-07" | "2020-12"
 
@@ -32,7 +35,7 @@ export interface Adapter {
 }
 
 // read from node_modules directly: some packages do not export their package.json
-const versionOf = (pkg: string): string => JSON.parse(require("fs").readFileSync(require("path").join(__dirname, "node_modules", pkg, "package.json"), "utf8")).version
+const versionOf = (name: string): string => JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "node_modules", name, "package.json"), "utf8")).version
 
 // bottom-up allOf resolution for a library that merges a list of schemas: children first, then the node itself as
 // the conjunction of its own keywords and its allOf items
@@ -65,7 +68,7 @@ const fastifyDeep = deepAllOf((schemas) => fastifyMergeSchemas(schemas as any[])
 export const ADAPTERS: Adapter[] = [
   {
     name: "allof-merge 1.0 (this branch)",
-    version: `${require("../package.json").version} (unreleased, this repository)`,
+    version: `${pkg.version} (this repository)`,
     mergeSchema: (schema, profile) => allofMerge10.merge(schema, { rules: allofMerge10.jsonSchemaMergeRules(profile) }),
     mergeDocument: (document) => allofMerge10.merge(document),
     notes: "deep merge, local $refs (also circular), OpenAPI / AsyncAPI / GraphApi rule sets, issues reported",

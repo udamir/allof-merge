@@ -1,14 +1,14 @@
 /*
- * Equivalence oracle (FEATURE_DESIGN §4.2, decision Q4-1/Q4-2): @cfworker/json-schema is the primary oracle, ajv is a
+ * Equivalence oracle: @cfworker/json-schema is the primary oracle, ajv is a
  * logged second opinion only. ajv 8 is wrong for `contains` next to tuple `items` (`{ items: [{ type: "string" }],
  * contains: true }` accepts `[]`), so an ajv-only disagreement never fails a test.
  */
 import { Validator } from "@cfworker/json-schema"
 import Ajv from "ajv"
-import Ajv2020 from "ajv/dist/2020"
+import Ajv2020 from "ajv/dist/2020.js"
 
-import { jsonSchemaMergeRules, merge, type MergeOptions, type MergeRules } from "../../src"
-import { instancesFor } from "./instances"
+import { jsonSchemaMergeRules, merge, type MergeOptions, type MergeRules } from "../../src/index.ts"
+import { instancesFor } from "./instances.ts"
 
 export type Profile = "draft-07" | "2020-12"
 

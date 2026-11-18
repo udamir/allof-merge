@@ -1,23 +1,10 @@
 import { isObject } from "json-crawl"
 
-import type { AnyOfNode, OneOfNode, PatternMatchLimits, ResolvedMergeSettings } from "./types"
-import { createResolutionIndex } from "./resolve"
-import { hasOwn, safeClone, safeSet } from "./safe"
+import type { AnyOfNode, OneOfNode, PatternMatchLimits, ResolvedMergeSettings } from "./types.ts"
+import { createResolutionIndex } from "./resolve.ts"
+import { hasOwn, safeClone, safeSet } from "./safe.ts"
 
-export * from "./pointer"
-
-// public export kept for compatibility (not used by the engine)
-export class MapArray<K, V> extends Map<K, Array<V>> {
-  public add(key: K, value: V): this {
-    const arr = this.get(key)
-    if (arr) {
-      arr.push(value)
-    } else {
-      this.set(key, [value])
-    }
-    return this
-  }
-}
+export * from "./pointer.ts"
 
 export const popValues = (data: Record<string, unknown>, keys: string[]): Record<string, unknown> => {
   const source: Record<string | number, unknown> = {}
@@ -76,8 +63,7 @@ export const isEmptyObject = (value: unknown): boolean => {
 }
 
 // resolves a JSON pointer against data, following intermediate $ref nodes and applying the remaining segments to their targets
-// the third parameter is kept for signature compatibility and ignored
-export const resolvePointer = (data: unknown, pointer: string, _pointers?: string[]): any => {
+export const resolvePointer = (data: unknown, pointer: string): any => {
   if (!isObject(data)) { return }
   return createResolutionIndex(data).resolvePointer(pointer)
 }
@@ -118,11 +104,14 @@ export const deepEqual = (a: any, b: any): boolean => {
   return true
 }
 
-export const isEqual = (a: any, b: any) => deepEqual(a, b)
-
 // literal output / close marker of canonicalKey (never a user value)
 class Token {
-  constructor(readonly text: string, readonly closes?: object) {}
+  readonly text: string
+  readonly closes?: object
+  constructor(text: string, closes?: object) {
+    this.text = text
+    this.closes = closes
+  }
 }
 
 const TOO_DEEP = Symbol("too deep")

@@ -1,6 +1,7 @@
-import { merge, expectSameValidation, hasNoAllOf } from "./helpers"
+import { describe, it, test, expect } from "vite-plus/test"
+import { merge, expectSameValidation, hasNoAllOf } from "./helpers.ts"
 
-// B5 - allOf nested inside other keywords (see docs/TEST_PLAN.md)
+// B5 - allOf nested inside other keywords
 
 const inner = { allOf: [{ type: "string" }, { minLength: 1 }] }
 const merged = { type: "string", minLength: 1 }

@@ -1,4 +1,5 @@
-import { jsonSchemaMergeRules, merge } from "../src"
+import { describe, it, expect } from "vite-plus/test"
+import { jsonSchemaMergeRules, merge } from "../src/index.ts"
 
 describe("basic allOf merge cases", function () {
   it("merges schema with same object reference multiple places", () => {
@@ -631,7 +632,7 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
-      // DESIGN_PROPOSALS §5 row 3 (AM-26): enum keeps the first-seen order instead of being sorted
+      // enum keeps the first-seen order instead of being sorted
       expect(result).toMatchObject({
         enum: ["string", {}, [1]],
       })
@@ -883,7 +884,7 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
-      // DESIGN_PROPOSALS §5 row 3 (AM-26): required keeps the first-seen order (branch item first, then the other allOf item)
+      // required keeps the first-seen order (branch item first, then the other allOf item)
       expect(result).toEqual({
         anyOf: [{ required: ["123"] }, { required: ["456", "123"] }],
         required: ["abc"],
@@ -918,7 +919,7 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
-      // DESIGN_PROPOSALS §5 row 3 (AM-26): required keeps the first-seen order (nested allOf items come before the sibling content)
+      // required keeps the first-seen order (nested allOf items come before the sibling content)
       expect(result).toMatchObject({
         anyOf: [
           {
@@ -1047,7 +1048,7 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
-      // DESIGN_PROPOSALS §5 row 3 (AM-26): required keeps the first-seen order
+      // required keeps the first-seen order
       expect(result).toMatchObject({
         type: ["array", "string"],
         oneOf: [
@@ -1088,7 +1089,7 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
-      // DESIGN_PROPOSALS §5 row 2 (AM-08): the impossible branch (string ∧ object) was kept as `false`; since
+      // the impossible branch (string ∧ object) was kept as `false`; since
       // dropFalseBranches (default true) it is removed
       expect(result).toMatchObject({
         type: ["array", "string"],
@@ -1173,7 +1174,7 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
-      // AM-12 (fixed), DESIGN_PROPOSALS §8.3: `contains` has no closed intersection form, both constraints are kept as allOf fragments
+      // `contains` has no closed intersection form, both constraints are kept as allOf fragments
       expect(result).toEqual({
         allOf: [
           {
@@ -1213,7 +1214,7 @@ describe("basic allOf merge cases", function () {
         ],
       })
 
-      // DESIGN_PROPOSALS §5 row 4 (AM-03): pattern conjunction
+      // pattern conjunction
       expect(result).toMatchObject({
         pattern: "^(?=[\\s\\S]*?(?:fdsaf))(?=[\\s\\S]*?(?:abba))[\\s\\S]*$",
       })
@@ -1474,7 +1475,7 @@ describe("basic allOf merge cases", function () {
           ],
         })
       ).toMatchObject({
-        // DESIGN_PROPOSALS §5 row 3 (AM-26): first-seen order, de-duplicated
+        // first-seen order, de-duplicated
         required: ["prop2", "prop1"],
       })
     })
@@ -1918,7 +1919,7 @@ describe("basic allOf merge cases", function () {
             type: ["string", "null"],
             minimum: 7,
           },
-          // DESIGN_PROPOSALS §5 row 3 (AM-26): first-seen order (allOf item first, then the sibling content)
+          // first-seen order (allOf item first, then the sibling content)
           bar: ["prop4", "prop1", "prop2"],
         },
       })
@@ -1945,7 +1946,7 @@ describe("basic allOf merge cases", function () {
         dependencies: {
           bar: {
             type: ["string", "null", "integer"],
-            // DESIGN_PROPOSALS §5 row 3 (AM-26): first-seen order (allOf item first, then the sibling content)
+            // first-seen order (allOf item first, then the sibling content)
             required: ["prop4", "abc"],
           },
         },

@@ -1,10 +1,11 @@
+import { describe, it, test, expect } from "vite-plus/test"
 import { syncClone } from "json-crawl"
 
-import * as api from "../../src"
-import { allOfResolverHook, createRef, isAnyOfNode, isOneOfNode, isRefNode, jsonSchemaMergeRules, mergeValues, parseRef, pathMask, resolvePointer } from "../../src"
-import { merge } from "./helpers"
+import * as api from "../../src/index.ts"
+import { allOfResolverHook, createRef, isAnyOfNode, isOneOfNode, isRefNode, jsonSchemaMergeRules, mergeValues, parseRef, pathMask, resolvePointer } from "../../src/index.ts"
+import { merge } from "./helpers.ts"
 
-// B11 - public API surface and utilities (see docs/TEST_PLAN.md)
+// B11 - public API surface and utilities
 
 describe("B11.1 exports", () => {
   it("B11.1.1 exports the documented functions", () => {

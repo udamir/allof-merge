@@ -1,7 +1,7 @@
 import type { JsonPath } from "json-crawl"
 
-import type { RefNode } from "./types"
-import { hasOwn } from "./safe"
+import type { RefNode } from "./types.ts"
+import { hasOwn } from "./safe.ts"
 
 // own `$ref` member only: an inherited `$ref` (polluted Object.prototype) never makes a node a reference
 export const isRefNode = (value: any): value is RefNode => {

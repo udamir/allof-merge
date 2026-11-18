@@ -1,5 +1,5 @@
 /*
- * Greedy post-shrink minimizer (FEATURE_DESIGN §4.3): fast-check's shrink of letrec schemas leaves noise (`{}`, `true`,
+ * Greedy post-shrink minimizer: fast-check's shrink of letrec schemas leaves noise (`{}`, `true`,
  * unrelated keywords), so after it this removes `allOf` members, object keys and array elements, replaces subschemas
  * by `true`/`{}` and unwraps single-member `allOf`s for as long as the failure persists.
  */

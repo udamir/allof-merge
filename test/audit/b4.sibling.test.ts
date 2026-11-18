@@ -1,6 +1,7 @@
-import { merge, expectSameValidation, mergeReport } from "./helpers"
+import { describe, it, expect } from "vite-plus/test"
+import { merge, expectSameValidation, mergeReport } from "./helpers.ts"
 
-// B4 - sibling merging options: mergeRefSibling, mergeCombinarySibling (see docs/TEST_PLAN.md)
+// B4 - sibling merging options: mergeRefSibling, mergeCombinarySibling
 
 describe("B4.1 mergeRefSibling", () => {
   const data = { definitions: { A: { type: "string" } }, properties: { a: { $ref: "#/definitions/A", minLength: 1 } } }
@@ -75,7 +76,7 @@ describe("B4.2 mergeCombinarySibling", () => {
     expectSameValidation(data, result, ["a", "", 1])
   })
 
-  // DESIGN_PROPOSALS §5 row 2: a branch that conflicts with the sibling stays as `false`
+  // a branch that conflicts with the sibling stays as `false`
   it("B4.2.6 drops branches that conflict with the sibling (false with dropFalseBranches: false)", () => {
     const data = { oneOf: [{ type: "string" }, { type: "number" }], type: "string" }
     const result = merge(data, { mergeCombinarySibling: true })

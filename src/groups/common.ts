@@ -1,5 +1,5 @@
-import { isPlainObject } from "../utils"
-import { safeClone } from "../safe"
+import { isPlainObject } from "../utils.ts"
+import { safeClone } from "../safe.ts"
 
 // conjunction of schema values: `false` wins, `true` is absorbed, a single schema is kept by instance,
 // several schemas become an allOf node that the clone pass merges with the rules of its location

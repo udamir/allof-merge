@@ -1,4 +1,4 @@
-import { expectSameValidation, type Schema } from "./helpers"
+import { expectSameValidation, type Schema } from "./helpers.ts"
 
 // property names that exercise the patterns used by the object-shape tests
 const SAMPLE_NAMES = ["a", "ab", "b", "x", "xa", "x1", "x12", "foo", "foo1", "foo123", "bar", "barx", "barx1", "bar123", "common", "root",

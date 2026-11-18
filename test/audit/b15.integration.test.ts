@@ -1,6 +1,7 @@
-import { additionalPropertiesMergeResolver, jsonSchemaMergeRules } from "../../src"
-import { mergeCombinarySibling } from "../../src/resolvers/combinary"
-import { clone, expectSameValidation, findKeys, isJsonSerializable, merge, mergeReport } from "./helpers"
+import { describe, it, expect } from "vite-plus/test"
+import { additionalPropertiesMergeResolver, jsonSchemaMergeRules } from "../../src/index.ts"
+import { mergeCombinarySibling } from "../../src/resolvers/combinary.ts"
+import { clone, expectSameValidation, findKeys, isJsonSerializable, merge, mergeReport } from "./helpers.ts"
 
 describe("B15.1 draft-04 exclusive flags follow the bound selected by a custom rule (VR-39, AM-10)", () => {
   const draft04 = (custom: any) => jsonSchemaMergeRules("draft-04", custom)

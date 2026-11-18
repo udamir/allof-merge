@@ -1,5 +1,5 @@
-import type { JsonSchema } from "../types"
-import { hasOwn, safeSet } from "../safe"
+import type { JsonSchema } from "../types.ts"
+import { hasOwn, safeSet } from "../safe.ts"
 
 // key -> values of that key in every item that carries it (item order); own-property safe (`__proto__` is a key)
 export const getAllOfItemsMap = (allOfItems: JsonSchema[]): Record<string, any[]> => {

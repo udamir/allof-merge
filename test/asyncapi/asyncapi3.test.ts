@@ -1,5 +1,6 @@
-import { asyncApiMergeRules, merge } from "../../src"
-import { allOfPaths, collectErrors, loadAsyncApi } from "./utils"
+import { describe, it, expect } from "vite-plus/test"
+import { asyncApiMergeRules, merge } from "../../src/index.ts"
+import { allOfPaths, collectErrors, loadAsyncApi } from "./utils.ts"
 
 const rules = asyncApiMergeRules("3.0")
 // a fresh copy per use: the engine shares the output of one input object between its occurrences

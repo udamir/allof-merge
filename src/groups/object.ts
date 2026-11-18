@@ -1,8 +1,8 @@
-import type { GroupContext, KeywordGroup, PatternMatchLimits, ResolvedMergeSettings } from "../types"
-import { compilePattern, hasNestedQuantifier, isEmptyObject, isPlainObject, matchPattern, patternLimits } from "../utils"
-import { ISSUE_MESSAGES } from "../issues"
-import { hasOwn, safeSet } from "../safe"
-import { combineSchemas, copyContainer, isSchemaValue } from "./common"
+import type { GroupContext, KeywordGroup, PatternMatchLimits, ResolvedMergeSettings } from "../types.ts"
+import { compilePattern, hasNestedQuantifier, isEmptyObject, isPlainObject, matchPattern, patternLimits } from "../utils.ts"
+import { ISSUE_MESSAGES } from "../issues.ts"
+import { hasOwn, safeSet } from "../safe.ts"
+import { combineSchemas, copyContainer, isSchemaValue } from "./common.ts"
 
 const KEYS = ["properties", "patternProperties", "additionalProperties"] as const
 

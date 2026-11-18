@@ -1,6 +1,6 @@
-import type { AnyOfNode, MergeRule, OneOfNode } from "../types"
-import { popValues } from "../utils"
-import { safeClone, safeSet } from "../safe"
+import type { AnyOfNode, MergeRule, OneOfNode } from "../types.ts"
+import { popValues } from "../utils.ts"
+import { safeClone, safeSet } from "../safe.ts"
 
 // pushes the non-whitelisted sibling keys of a oneOf/anyOf node into every branch as an allOf conjunction
 // (own-property safe: user keys such as `__proto__` are copied as data, never through spread / `in`)

@@ -1,9 +1,9 @@
-import type { SimplifyOptions } from "./types"
-import { isEmptyObject, isPlainObject } from "./utils"
-import { hasOwn } from "./safe"
+import type { SimplifyOptions } from "./types.ts"
+import { isEmptyObject, isPlainObject } from "./utils.ts"
+import { hasOwn } from "./safe.ts"
 
 /**
- * Form-changing simplifications of a merged schema node (the `simplify` option, FEATURE_DESIGN §3.3, decision Q3-2).
+ * Form-changing simplifications of a merged schema node (the `simplify` option).
  * Every rule is an equivalence under the draft of the rule set and is guarded by the node's own `type`:
  *
  * - S9 `redundantBounds` (draft-06+): `minimum` + `exclusiveMinimum` (and the upper pair) keep the tighter bound

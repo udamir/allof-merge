@@ -1,11 +1,11 @@
-export * from "./merge"
-export * from "./resolvers"
-export * from "./rules"
-export * from "./types"
-export * from "./utils"
-export * from "./resolve"
-export { MERGE_ISSUES } from "./issues"
-export { intersect, findKeyRule, knownKeyRule, UNCHANGED, resolveMergeSettings } from "./intersect"
+export * from "./merge.ts"
+export * from "./resolvers/index.ts"
+export * from "./rules/index.ts"
+export * from "./types.ts"
+export * from "./utils.ts"
+export * from "./resolve.ts"
+export { MERGE_ISSUES } from "./issues.ts"
+export { intersect, findKeyRule, knownKeyRule, UNCHANGED, resolveMergeSettings } from "./intersect.ts"
 export {
   keywordGroups,
   typeGroup,
@@ -16,4 +16,4 @@ export {
   arrayShapeGroup,
   dependenciesGroup,
   conditionalGroup,
-} from "./groups"
+} from "./groups/index.ts"

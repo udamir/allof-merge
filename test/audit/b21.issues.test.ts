@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vite-plus/test"
 import {
   MERGE_ISSUES,
   createMerger,
@@ -7,11 +8,11 @@ import {
   type MergeIssue,
   type MergeIssueCode,
   type MergeOptions,
-} from "../../src"
-import { ErrorMessage } from "../../src/errors"
-import { clone, merge, mergeReport } from "./helpers"
+} from "../../src/index.ts"
+import { ErrorMessage } from "../../src/errors.ts"
+import { clone, merge, mergeReport } from "./helpers.ts"
 
-// Issue model of docs/NORMALIZATION_DESIGN.md §3 with the user decisions of §9 (2026-11-18)
+// Issue model
 
 const s = { type: "string" }
 const n = { type: "number" }

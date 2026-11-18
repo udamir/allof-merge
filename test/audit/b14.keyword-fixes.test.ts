@@ -1,12 +1,13 @@
+import { describe, it, expect } from "vite-plus/test"
 import {
   calculateGCD, calculateLCM, deepEqual, findCombinations, findMultiplierForInteger, graphapiMergeRules, hasNestedQuantifier,
   jsonSchemaMergeRules, keywordGroups, lcmOf, mergeValues, openApiJsonSchemaMergeRules, openApiMergeRules, regexpCacheSize,
   testPattern, uniqueConcat, REGEXP_CACHE_SIZE,
-} from "../../src"
-import * as allResolvers from "../../src/resolvers"
+} from "../../src/index.ts"
+import * as allResolvers from "../../src/resolvers/index.ts"
 const resolvers: any = allResolvers
-import { clone, compile, deepFreeze, expectSameValidation, merge, mergeReport } from "./helpers"
-import { expectSameObjectValidation } from "./b14.oracle"
+import { clone, compile, deepFreeze, expectSameValidation, merge, mergeReport } from "./helpers.ts"
+import { expectSameObjectValidation } from "./b14.oracle.ts"
 
 // merges a deep-frozen copy, checks it against ajv on object instances and returns the result
 const mergeChecked = (schema: any, options: any = {}, draft: "07" | "2020" = "07") => {

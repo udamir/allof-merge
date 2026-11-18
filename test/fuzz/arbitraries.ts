@@ -1,11 +1,11 @@
 /*
- * fast-check arbitraries for random allOf pairs/triples (FEATURE_DESIGN §4.3 Option A), one keyword table per profile.
+ * fast-check arbitraries for random allOf pairs/triples, one keyword table per profile.
  * Values are kept small and drawn from short lists so that bounds, patterns and names of different allOf members meet.
  */
 import fc from "fast-check"
 
-import type { CaseOptions, FuzzCase, Profile } from "./oracle"
-import { PATTERN_SAMPLES } from "./instances"
+import type { CaseOptions, FuzzCase, Profile } from "./oracle.ts"
+import { PATTERN_SAMPLES } from "./instances.ts"
 
 const TYPES = ["string", "number", "integer", "object", "array", "null", "boolean"] as const
 const NUMBERS = [-1, 0, 1, 2, 3, 0.5, 1.5]

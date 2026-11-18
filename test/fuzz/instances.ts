@@ -1,5 +1,5 @@
 /*
- * Instance generation for the equivalence oracle (FEATURE_DESIGN §4.4): a fixed pool plus values derived from the
+ * Instance generation for the equivalence oracle: a fixed pool plus values derived from the
  * schema (boundary numbers, lengths/counts ± 1, enum/const members, property names incl. names matching the
  * patterns, `__proto__`/`constructor` keys). Deterministic: the same schemas always give the same list.
  */

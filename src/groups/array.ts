@@ -1,8 +1,8 @@
-import type { GroupContext, KeywordGroup } from "../types"
-import { deepEqual } from "../utils"
-import { hasOwn, safeAssign } from "../safe"
-import { combineSchemas, isSchemaValue } from "./common"
-import { ISSUE_MESSAGES } from "../issues"
+import type { GroupContext, KeywordGroup } from "../types.ts"
+import { deepEqual } from "../utils.ts"
+import { hasOwn, safeAssign } from "../safe.ts"
+import { combineSchemas, isSchemaValue } from "./common.ts"
+import { ISSUE_MESSAGES } from "../issues.ts"
 
 const KEYS = ["items", "additionalItems", "prefixItems", "contains", "minContains", "maxContains"] as const
 

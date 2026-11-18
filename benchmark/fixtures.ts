@@ -1,9 +1,9 @@
-import fs from "fs"
-import path from "path"
-import { execFileSync } from "child_process"
+import fs from "node:fs"
+import path from "node:path"
+import { execFileSync } from "node:child_process"
 
-import { loadCorpus } from "../test/fuzz/corpus"
-import type { Profile } from "./adapters"
+import { loadCorpus } from "../test/fuzz/corpus.ts"
+import type { Profile } from "./adapters.ts"
 
 /*
  * Workloads. Schema workloads have no $ref, so every library can merge them; document workloads hold local $refs and
@@ -19,7 +19,7 @@ export interface Workload {
   load: () => unknown
 }
 
-const json = (file: string) => JSON.parse(fs.readFileSync(path.join(__dirname, file), "utf8"))
+const json = (file: string) => JSON.parse(fs.readFileSync(path.join(import.meta.dirname, file), "utf8"))
 
 // 2 000 properties, each an allOf of two object fragments
 const wide = () => ({
@@ -69,7 +69,7 @@ const GITHUB_COMMIT = "c9c95fe34ced05fe076001f5c55704742bc8e7f8"
 const GITHUB_URL = `https://raw.githubusercontent.com/github/rest-api-description/${GITHUB_COMMIT}/descriptions/api.github.com/api.github.com.json`
 
 const github = () => {
-  const file = path.join(__dirname, ".cache", `api.github.com-${GITHUB_COMMIT.slice(0, 7)}.json`)
+  const file = path.join(import.meta.dirname, ".cache", `api.github.com-${GITHUB_COMMIT.slice(0, 7)}.json`)
   if (!fs.existsSync(file)) {
     fs.mkdirSync(path.dirname(file), { recursive: true })
     execFileSync("curl", ["-sSfL", "-o", file, GITHUB_URL], { stdio: "inherit" })

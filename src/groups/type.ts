@@ -1,7 +1,7 @@
-import type { GroupContext, KeywordGroup } from "../types"
-import { intersectTypes } from "../resolvers/basic"
-import { hasOwn } from "../safe"
-import { ISSUE_MESSAGES } from "../issues"
+import type { GroupContext, KeywordGroup } from "../types.ts"
+import { intersectTypes } from "../resolvers/basic.ts"
+import { hasOwn } from "../safe.ts"
+import { ISSUE_MESSAGES } from "../issues.ts"
 
 // a well-formed `type` value as a list of type names; undefined when malformed (ignored and reported). Unknown
 // type names are kept: they match nothing, so they make the intersection empty as before

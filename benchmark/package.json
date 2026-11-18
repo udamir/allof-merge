@@ -2,6 +2,7 @@
   "name": "allof-merge-benchmark",
   "private": true,
   "description": "Speed and correctness of allof-merge against other JSON Schema allOf mergers",
+  "type": "module",
   "dependencies": {
     "@fastify/merge-json-schemas": "0.2.2",
     "@redocly/allof-merge": "0.6.13",

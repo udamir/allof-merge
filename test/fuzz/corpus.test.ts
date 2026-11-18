@@ -4,9 +4,10 @@
  * differences (format conflicts and other fragments kept as allOf, contradictions written as `false`) are
  * equivalent by construction.
  */
-import { checkCase } from "./oracle"
-import { loadCorpus } from "./corpus"
-import { formatFailure } from "./property"
+import { describe, it, expect } from "vite-plus/test"
+import { checkCase } from "./oracle.ts"
+import { loadCorpus } from "./corpus.ts"
+import { formatFailure } from "./property.ts"
 
 describe("fuzz corpus replay (cfworker oracle)", () => {
   for (const { file, cases } of loadCorpus()) {

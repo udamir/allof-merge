@@ -3,7 +3,7 @@ import path from "path"
 import YAML from "js-yaml"
 
 export const loadAsyncApi = (name: string): any =>
-  YAML.load(fs.readFileSync(path.join(__dirname, "../resources/asyncapi", name), "utf8"))
+  YAML.load(fs.readFileSync(path.join(import.meta.dirname, "../resources/asyncapi", name), "utf8"))
 
 // JSON pointers of every member named `allOf` in a value
 export const allOfPaths = (value: unknown, pointer = ""): string[] => {

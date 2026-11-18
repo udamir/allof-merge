@@ -1,4 +1,4 @@
-import type { MergeOptions, MergeRules, Merger } from "./types"
+import type { MergeOptions, MergeRules, Merger } from "./types.ts"
 
 /**
  * Late-bound entry points of the engine. The schema rules carry `jsonSchemaMergeResolver` as their `$`, that resolver

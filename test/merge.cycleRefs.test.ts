@@ -1,4 +1,5 @@
-import { merge } from "../src";
+import { describe, it, expect } from "vite-plus/test"
+import { merge } from "../src/index.ts";
 
 describe("cycle $refs", () => {
 	it("should support cycle refs in allOf", () => {

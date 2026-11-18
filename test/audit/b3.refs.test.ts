@@ -1,6 +1,7 @@
-import { merge, expectSameValidation, isJsonSerializable, mergeReport } from "./helpers"
+import { describe, it, test, expect } from "vite-plus/test"
+import { merge, expectSameValidation, isJsonSerializable, mergeReport } from "./helpers.ts"
 
-// B3 - $ref handling (see docs/TEST_PLAN.md)
+// B3 - $ref handling
 
 describe("B3.1 internal references", () => {
   it("B3.1.1 resolves a simple internal $ref inside allOf", () => {

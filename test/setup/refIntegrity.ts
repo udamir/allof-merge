@@ -7,9 +7,12 @@
  * the offending refs.
  * Set ALLOF_MERGE_REF_CHECK=0 to disable it (e.g. when timing merges).
  */
-jest.mock("../../src/merge", () => {
-  const actual = jest.requireActual("../../src/merge")
-  const { danglingRefs, copiesWithEqualLink } = jest.requireActual("../helpers/refIntegrity")
+import { vi } from "vite-plus/test"
+
+import { copiesWithEqualLink, danglingRefs } from "../helpers/refIntegrity.ts"
+
+vi.mock("../../src/merge.ts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../src/merge.ts")>()
   const enabled = process.env.ALLOF_MERGE_REF_CHECK !== "0"
 
   const check = (value: unknown, source: unknown, hasSource: boolean, result: unknown) => {
@@ -24,7 +27,7 @@ jest.mock("../../src/merge", () => {
     }
   }
 
-  const createMerger = (options: any = {}) => {
+  const createMerger: typeof actual.createMerger = (options: any = {}) => {
     const merger = actual.createMerger(options)
     return {
       ...merger,

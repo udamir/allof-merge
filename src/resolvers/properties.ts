@@ -1,22 +1,10 @@
-import { mergeObjectShape } from "../groups/object"
-import { combineSchemas } from "../groups/common"
-import { getAllOfItemsMap } from "./jsonschema"
-import type { JsonSchema, MergeContext, MergeResolver } from "../types"
-import { asFragments, type Fragments } from "../utils"
-import { hasOwn, safeSet } from "../safe"
-import { groupReport } from "./basic"
-
-// merged `properties` of the items as a one-element list (compatibility export; empty when no property survives)
-export const getPropertiesForMerge = (allOfItems: JsonSchema[]): any[] => {
-  const { properties } = mergeObjectShape(allOfItems)
-  return properties ? [properties] : []
-}
-
-// merged `patternProperties` of the items as a one-element list (compatibility export)
-export const getPatternPropertiesForMerge = (allOfItems: JsonSchema[]): any[] => {
-  const { patternProperties } = mergeObjectShape(allOfItems)
-  return patternProperties ? [patternProperties] : []
-}
+import { mergeObjectShape } from "../groups/object.ts"
+import { combineSchemas } from "../groups/common.ts"
+import { getAllOfItemsMap } from "./jsonschema.ts"
+import type { MergeContext, MergeResolver } from "../types.ts"
+import { asFragments, type Fragments } from "../utils.ts"
+import { hasOwn, safeSet } from "../safe.ts"
+import { groupReport } from "./basic.ts"
 
 /*
  * Per-key fallbacks, used when a custom `$` on one of properties / patternProperties / additionalProperties hands

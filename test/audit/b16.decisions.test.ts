@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vite-plus/test"
 import fs from "fs"
 import path from "path"
 
@@ -11,13 +12,13 @@ import {
 
   type MergeResolver,
   type MergeRules,
-} from "../../src"
-import * as resolvers from "../../src/resolvers"
-import { createResolutionIndex } from "../../src/resolve"
-import { collectRefs, danglingRefs, expectRefsResolve } from "../helpers/refIntegrity"
-import { clone, compile, expectSameValidation, merge, mergeReport } from "./helpers"
+} from "../../src/index.ts"
+import * as resolvers from "../../src/resolvers/index.ts"
+import { createResolutionIndex } from "../../src/resolve.ts"
+import { collectRefs, danglingRefs, expectRefsResolve } from "../helpers/refIntegrity.ts"
+import { clone, compile, expectSameValidation, merge, mergeReport } from "./helpers.ts"
 
-const resources = path.resolve(__dirname, "../resources")
+const resources = path.resolve(import.meta.dirname, "../resources")
 const loadResource = (name: string) => JSON.parse(fs.readFileSync(path.join(resources, name), "utf8"))
 
 const oasDoc = (version: string, schemas: Record<string, unknown>) => ({ openapi: version, info: { title: "t", version: "1" }, paths: {}, components: { schemas } })

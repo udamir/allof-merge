@@ -1,6 +1,6 @@
-import type { MergeRules } from "../types"
-import * as resolvers from "../resolvers"
-import { engine } from "../engine"
+import type { MergeRules } from "../types.ts"
+import * as resolvers from "../resolvers/index.ts"
+import { engine } from "../engine.ts"
 
 export const jsonSchemaVersion = ["draft-04", "draft-06", "draft-07", "2020-12"] as const
 

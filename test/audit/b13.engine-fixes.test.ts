@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vite-plus/test"
 import {
   arrayShapeGroup,
   conditionalGroup,
@@ -13,11 +14,11 @@ import {
   resolvePointer,
   stringGroup,
   typeGroup,
-} from "../../src"
-import { ErrorMessage } from "../../src/errors"
-import { getOwn, hasOwn, safeAssign, safeClone, safeSet } from "../../src/safe"
-import type { GroupContext } from "../../src/types"
-import { clone, compile, deepFreeze, expectSameValidation, isJsonSerializable, merge, mergeReport } from "./helpers"
+} from "../../src/index.ts"
+import { ErrorMessage } from "../../src/errors.ts"
+import { getOwn, hasOwn, safeAssign, safeClone, safeSet } from "../../src/safe.ts"
+import type { GroupContext } from "../../src/types.ts"
+import { clone, compile, deepFreeze, expectSameValidation, isJsonSerializable, merge, mergeReport } from "./helpers.ts"
 
 // every `$ref` string of a value (cycle safe)
 const refsOf = (value: unknown, found: string[] = [], seen = new Set<unknown>()): string[] => {
@@ -331,7 +332,7 @@ describe("B13.6 resource limits (D-7, VR-03, VR-05, VR-06, VR-04)", () => {
     expect(result.properties.p3).toEqual({ allOf: [{ $ref: "#/definitions/S" }, { description: "d3" }] })
     expect(result.properties.p4).toEqual({ allOf: [{ $ref: "#/definitions/S" }, { description: "d4" }] })
     expect(mergeErrors.map((e) => [e.message, e.path])).toEqual([[ErrorMessage.refExpansionExceeded("#/definitions/S", 3), ["properties", "p3"]]])
-    // B10.3.5: 4000 usages of one target are within the default (real-world maximum measured: 111, docs/VERIFICATION.md §9)
+    // B10.3.5: 4000 usages of one target are within the default (real-world maximum measured: 111)
     const many: any = {}
     for (let i = 0; i < 4000; i++) { many["p" + i] = { allOf: [{ $ref: "#/definitions/S" }, { description: "d" + i }] } }
     expect(mergeReport({ definitions: { S: { type: "string" } }, properties: many }).mergeErrors).toEqual([])

@@ -1,7 +1,8 @@
-import { graphapiMergeRules } from "../../src"
-import { merge, hasNoAllOf } from "./helpers"
+import { describe, it, expect } from "vite-plus/test"
+import { graphapiMergeRules } from "../../src/index.ts"
+import { merge, hasNoAllOf } from "./helpers.ts"
 
-// B8 - GraphApi rules (see docs/TEST_PLAN.md)
+// B8 - GraphApi rules
 
 const doc = (components: any, extra: any = {}) => ({ graphapi: "0.1.2", ...extra, components })
 

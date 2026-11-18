@@ -1,6 +1,7 @@
-import { merge, compile, expectRejects, hasNoAllOf, mergeReport } from "./helpers"
+import { describe, it, test, expect } from "vite-plus/test"
+import { merge, compile, expectRejects, hasNoAllOf, mergeReport } from "./helpers.ts"
 
-// B10 - robustness: odd inputs, boolean schemas, empty allOf, large inputs (see docs/TEST_PLAN.md)
+// B10 - robustness: odd inputs, boolean schemas, empty allOf, large inputs
 
 describe("B10.1 non-object and degenerate inputs", () => {
   it.each([

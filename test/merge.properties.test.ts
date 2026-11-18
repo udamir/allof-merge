@@ -1,6 +1,7 @@
-import { merge as mergeSource } from "../src"
-import { clone } from "./audit/helpers"
-import { expectSameObjectValidation } from "./audit/b14.oracle"
+import { describe, it, expect } from "vite-plus/test"
+import { merge as mergeSource } from "../src/index.ts"
+import { clone } from "./audit/helpers.ts"
+import { expectSameObjectValidation } from "./audit/b14.oracle.ts"
 
 // VR-10/VR-11 oracle sweep: every merge of this file is checked for validation equivalence (ajv) on generated
 // object instances, in addition to the structural expectation of each test

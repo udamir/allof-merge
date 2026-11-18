@@ -1,17 +1,18 @@
 /*
- * Property-based equivalence test (FEATURE_DESIGN §4, decisions Q4-1..Q4-4): random allOf pairs/triples per profile
+ * Property-based equivalence test: random allOf pairs/triples per profile
  * (draft-07 and 2020-12 rule sets, with and without mergeCombinarySibling), instances targeted at each schema, and
  * merged ≡ original allOf checked with @cfworker/json-schema. ajv is a logged second opinion. Fixed seeds keep CI
  * deterministic; FUZZ_SEED / FUZZ_RUNS / FUZZ_PATH run other or more cases locally, e.g.
- *   FUZZ_SEED=123 FUZZ_RUNS=20000 npx jest test/fuzz/equivalence
+ *   FUZZ_SEED=123 FUZZ_RUNS=20000 pnpm test:fuzz
  */
+import { describe, it, expect } from "vite-plus/test"
 import fc from "fast-check"
 
-import { jsonSchemaMergeRules } from "../../src"
-import { maxValue } from "../../src/resolvers"
-import { caseArbitrary } from "./arbitraries"
-import { KNOWN_AJV_ISSUES, PROFILES, ajvValidator, cfValidator, checkCase } from "./oracle"
-import { formatAjvDisagreements, runProperty } from "./property"
+import { jsonSchemaMergeRules } from "../../src/index.ts"
+import { maxValue } from "../../src/resolvers/index.ts"
+import { caseArbitrary } from "./arbitraries.ts"
+import { KNOWN_AJV_ISSUES, PROFILES, ajvValidator, cfValidator, checkCase } from "./oracle.ts"
+import { formatAjvDisagreements, runProperty } from "./property.ts"
 
 const countAllOf = (value: unknown): number => {
   if (!value || typeof value !== "object") { return 0 }

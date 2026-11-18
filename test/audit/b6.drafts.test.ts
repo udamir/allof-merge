@@ -1,7 +1,8 @@
-import { jsonSchemaMergeRules } from "../../src"
-import { merge, expectSameValidation } from "./helpers"
+import { describe, it, test, expect } from "vite-plus/test"
+import { jsonSchemaMergeRules } from "../../src/index.ts"
+import { merge, expectSameValidation } from "./helpers.ts"
 
-// B6 - draft-04 vs draft-06 vs 2020-12 rule sets (see docs/TEST_PLAN.md)
+// B6 - draft-04 vs draft-06 vs 2020-12 rule sets
 
 describe("B6.1 draft-06 (default rule set)", () => {
   it("B6.1.1 jsonSchemaMergeRules() defaults to draft-06 and merges const", () => {
@@ -71,7 +72,7 @@ describe("B6.3 draft 2020-12 keywords", () => {
     expectSameValidation(data, result, [{ a: 1, b: 1, c: 1 }, { a: 1, b: 1 }, { a: 1, c: 1 }], "2020")
   })
 
-  // DESIGN_PROPOSALS §4: schema-valued keywords are merged by the clone pass, so the $ref inside the merged items is resolved (0.x kept `{ $ref, maxLength }`, which draft-06/07 validators read as the bare $ref)
+  // schema-valued keywords are merged by the clone pass, so the $ref inside the merged items is resolved (0.x kept `{ $ref, maxLength }`, which draft-06/07 validators read as the bare $ref)
   it("B6.3.3 merges $defs and keeps items as schema in 2020-12 documents", () => {
     const data = { $defs: { A: { allOf: [{ type: "string" }, { minLength: 1 }] } }, allOf: [{ items: { $ref: "#/$defs/A" } }, { items: { maxLength: 5 } }] }
     const result = merge(data)

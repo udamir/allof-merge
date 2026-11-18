@@ -1,6 +1,6 @@
-import type { GroupContext, KeywordGroup } from "../types"
-import { isValidMultipleOf, lcmOf } from "../utils"
-import { hasOwn, safeAssign } from "../safe"
+import type { GroupContext, KeywordGroup } from "../types.ts"
+import { isValidMultipleOf, lcmOf } from "../utils.ts"
+import { hasOwn, safeAssign } from "../safe.ts"
 
 const KEYS = ["minimum", "exclusiveMinimum", "maximum", "exclusiveMaximum", "multipleOf"] as const
 

@@ -1,8 +1,9 @@
+import { expect } from "vite-plus/test"
 import Ajv from "ajv"
-import Ajv2020 from "ajv/dist/2020"
+import Ajv2020 from "ajv/dist/2020.js"
 import type { JsonPath } from "json-crawl"
 
-import { merge as mergeSource, type MergeOptions } from "../../src"
+import { merge as mergeSource, type MergeOptions } from "../../src/index.ts"
 
 // typed wrapper: merge() returns unknown, tests want to inspect the result freely
 export const merge = (data: unknown, options?: MergeOptions): any => mergeSource(data, options)

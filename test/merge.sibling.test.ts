@@ -1,4 +1,5 @@
-import { merge } from "../src"
+import { describe, it, expect } from "vite-plus/test"
+import { merge } from "../src/index.ts"
 
 describe("merge sibling content", () => {
   it("should merge $ref sibling with mergeRefSibling option", () => {

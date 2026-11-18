@@ -1,5 +1,6 @@
-import { asyncApiMergeRules, jsonSchemaMergeRules, merge, selectMergeRules } from "../../src"
-import { loadAsyncApi } from "./utils"
+import { describe, it, expect } from "vite-plus/test"
+import { asyncApiMergeRules, jsonSchemaMergeRules, merge, selectMergeRules } from "../../src/index.ts"
+import { loadAsyncApi } from "./utils.ts"
 
 const twoParts = () => ({ allOf: [{ type: "object" }, { properties: { id: { type: "string" } } }] })
 const merged = { type: "object", properties: { id: { type: "string" } } }

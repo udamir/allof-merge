@@ -6,10 +6,10 @@
  */
 import fc from "fast-check"
 
-import type { MergeRules } from "../../src"
-import { caseArbitrary } from "./arbitraries"
-import { minimize } from "./minimize"
-import { type AjvDisagreement, type Failure, type FuzzCase, type Profile, ajvSecondOpinion, checkCase, clone, ajvValidator } from "./oracle"
+import type { MergeRules } from "../../src/index.ts"
+import { caseArbitrary } from "./arbitraries.ts"
+import { minimize } from "./minimize.ts"
+import { type AjvDisagreement, type Failure, type FuzzCase, type Profile, ajvSecondOpinion, checkCase, clone, ajvValidator } from "./oracle.ts"
 
 export const DEFAULT_SEEDS: Record<Profile, number> = { "draft-07": 7, "2020-12": 2020 }
 export const DEFAULT_RUNS = 1000
@@ -105,7 +105,7 @@ export const runProperty = (profile: Profile, overrides: { seed?: number, numRun
   const report = formatFailure(minimized, failure, [
     `equivalence property failed after ${details.numRuns} runs (${details.numShrinks} shrinks)`,
     `seed: ${details.seed}, path: ${details.counterexamplePath}`,
-    `replay: FUZZ_SEED=${details.seed} FUZZ_PATH=${details.counterexamplePath} npx jest test/fuzz/equivalence -t "${profile}"`,
+    `replay: FUZZ_SEED=${details.seed} FUZZ_PATH=${details.counterexamplePath} pnpm vp test run test/fuzz/equivalence -t "${profile}"`,
     `fast-check counterexample: ${show(counterexample.schema)}`,
   ])
   return { failed: true, report, minimized, failure, numRuns: details.numRuns, oracleErrors, ajvDisagreements }

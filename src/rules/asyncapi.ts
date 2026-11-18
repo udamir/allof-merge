@@ -1,9 +1,9 @@
-import { type JsonSchemaVersion, freezeRules, jsonSchemaMergeRules } from "./jsonschema"
-import { openApiJsonSchemaMergeRules } from "./openapi"
-import type { MergeRules } from "../types"
-import * as resolvers from "../resolvers"
-import { hasOwn } from "../safe"
-import { ErrorMessage } from "../errors"
+import { type JsonSchemaVersion, freezeRules, jsonSchemaMergeRules } from "./jsonschema.ts"
+import { openApiJsonSchemaMergeRules } from "./openapi.ts"
+import type { MergeRules } from "../types.ts"
+import * as resolvers from "../resolvers/index.ts"
+import { hasOwn } from "../safe.ts"
+import { ErrorMessage } from "../errors.ts"
 
 export const asyncApiVersion = ["2.x", "3.0"] as const
 

@@ -1,5 +1,5 @@
-import type { KeywordGroup } from "../types"
-import { ISSUE_MESSAGES } from "../issues"
+import type { KeywordGroup } from "../types.ts"
+import { ISSUE_MESSAGES } from "../issues.ts"
 
 const KEYS = ["if", "then", "else"] as const
 

@@ -1,7 +1,7 @@
 import type { JsonPath } from "json-crawl"
 
 /*
- * Issue model (docs/NORMALIZATION_DESIGN.md §3, user decisions §9): every place where the output deviates from "each
+ * Issue model: every place where the output deviates from "each
  * keyword of each input item merged into one equivalent keyword" without the consumer asking for it is an issue. An
  * outcome a merge rule defines (last-wins annotations and vendor keys, the OpenAPI numeric format lattice, removed
  * duplicates, rewritten links, dropped identity keywords of inlined targets) is not an issue. There are two

@@ -1,7 +1,8 @@
-import { jsonSchemaMergeRules } from "../../src"
-import { merge, clone, expectAccepts, expectMergeEquivalent, expectRejects, expectSameValidation, mergeReport } from "./helpers"
+import { describe, it, test, expect } from "vite-plus/test"
+import { jsonSchemaMergeRules } from "../../src/index.ts"
+import { merge, clone, expectAccepts, expectMergeEquivalent, expectRejects, expectSameValidation, mergeReport } from "./helpers.ts"
 
-// B1 - keyword-by-keyword merge semantics (see docs/TEST_PLAN.md)
+// B1 - keyword-by-keyword merge semantics
 
 describe("B1.1 type", () => {
   it("B1.1.1 keeps a single type when all items agree", () => {

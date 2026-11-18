@@ -1,12 +1,12 @@
-import type { GroupContext, KeywordGroup } from "../types"
+import type { GroupContext, KeywordGroup } from "../types.ts"
 import { getNodeRules } from "json-crawl"
-import { conjunctPatterns, isUnsafePattern, mergeOpenApiFormat } from "../resolvers/basic"
-import { ISSUE_MESSAGES } from "../issues"
-import { mergeFormats } from "./format"
-import { hasOwn } from "../safe"
-import { compilePattern } from "../utils"
+import { conjunctPatterns, isUnsafePattern, mergeOpenApiFormat } from "../resolvers/basic.ts"
+import { ISSUE_MESSAGES } from "../issues.ts"
+import { mergeFormats } from "./format.ts"
+import { hasOwn } from "../safe.ts"
+import { compilePattern } from "../utils.ts"
 
-export { mergeFormats } from "./format"
+export { mergeFormats } from "./format.ts"
 
 type Report = GroupContext["report"]
 

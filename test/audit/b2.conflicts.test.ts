@@ -1,7 +1,8 @@
-import { ErrorMessage } from "../../src/errors"
-import { clone, merge, compile, expectMergeEquivalent, expectRejects, expectSameValidation, mergeReport } from "./helpers"
+import { describe, it, test, expect } from "vite-plus/test"
+import { ErrorMessage } from "../../src/errors.ts"
+import { clone, merge, compile, expectMergeEquivalent, expectRejects, expectSameValidation, mergeReport } from "./helpers.ts"
 
-// B2 - conflicting and impossible merges, onMergeError (see docs/TEST_PLAN.md)
+// B2 - conflicting and impossible merges, onMergeError
 
 // a schema that is impossible to satisfy must still be a valid schema (object or boolean) and reject every instance
 const expectImpossibleSchema = (schema: unknown, instances: unknown[]) => {
@@ -98,8 +99,8 @@ describe("B2.2 result of an impossible merge", () => {
 })
 
 describe("B2.3 impossible branches inside oneOf / anyOf", () => {
-  // DESIGN_PROPOSALS §5 row 2: an impossible branch is kept as `false` instead of being removed
-  // changed by dropFalseBranches (default true, FEATURE_DESIGN decision Q3-1): the impossible branch is removed; the
+  // an impossible branch is kept as `false` instead of being removed
+  // changed by dropFalseBranches (default true): the impossible branch is removed; the
   // former contract (kept as false) is the dropFalseBranches: false alternative
   it("B2.3.1 drops a single impossible oneOf branch (kept as false with dropFalseBranches: false) and does not call onMergeError", () => {
     const data = { oneOf: [{ allOf: [{ type: "string" }, { type: "number" }] }, { type: "number" }] }
@@ -111,7 +112,7 @@ describe("B2.3 impossible branches inside oneOf / anyOf", () => {
     expect(kept.mergeErrors).toEqual([])
   })
 
-  // DESIGN_PROPOSALS §5 row 1/2: the impossible property becomes `false`; the branch itself stays (it still accepts objects without `a`)
+  // the impossible property becomes `false`; the branch itself stays (it still accepts objects without `a`)
   it("B2.3.2 keeps an anyOf branch whose nested property is impossible, with the property as false", () => {
     const data = { anyOf: [{ properties: { a: { allOf: [{ type: "string" }, { type: "number" }] } } }, { type: "boolean" }] }
     const { result } = mergeReport(data)
@@ -119,7 +120,7 @@ describe("B2.3 impossible branches inside oneOf / anyOf", () => {
     expectSameValidation(data, result, [{}, { a: "s" }, { a: 1 }, true])
   })
 
-  // DESIGN_PROPOSALS §5 row 2: the conflicting branch stays as `false`
+  // the conflicting branch stays as `false`
   it("B2.3.3 drops only the branch that conflicts with a combinary sibling (false with dropFalseBranches: false)", () => {
     const data = { oneOf: [{ type: "string" }, { type: "number" }], type: "string" }
     expect(merge(clone(data), { mergeCombinarySibling: true })).toEqual({ oneOf: [{ type: "string" }] })
@@ -127,7 +128,7 @@ describe("B2.3 impossible branches inside oneOf / anyOf", () => {
   })
 
   // AM-08 (fixed): when two branches are impossible the "nodeToDelete" map keeps only one index per parent, the other branch is written as null
-  // DESIGN_PROPOSALS §5 row 2: impossible branches stay as `false`
+  // impossible branches stay as `false`
   test("B2.3.4 drops several impossible branches [bad, bad, ok] (false each with dropFalseBranches: false)", () => {
     const data = { oneOf: [
       { allOf: [{ type: "string" }, { type: "number" }] },
@@ -170,7 +171,7 @@ describe("B2.3 impossible branches inside oneOf / anyOf", () => {
     expect(mergeErrors.map((e) => e.path)).toEqual([["oneOf"]])
   })
 
-  // DESIGN_PROPOSALS §5 row 2: the impossible nested branch stays as `false`
+  // the impossible nested branch stays as `false`
   it("B2.3.7 drops a branch of a nested oneOf without touching the outer one", () => {
     const data = { oneOf: [{ oneOf: [{ allOf: [{ type: "string" }, { type: "number" }] }, { type: "boolean" }] }, { type: "null" }] }
     expect(mergeReport(clone(data)).result).toEqual({ oneOf: [{ oneOf: [{ type: "boolean" }] }, { type: "null" }] })

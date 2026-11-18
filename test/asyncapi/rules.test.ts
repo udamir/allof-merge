@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vite-plus/test"
 import {
   asyncApiMergeRules,
   asyncApiSchemaMergeRules,
@@ -7,7 +8,7 @@ import {
   jsonSchemaMergeRules,
   merge,
   type MergeRules,
-} from "../../src"
+} from "../../src/index.ts"
 
 const twoParts = () => ({ allOf: [{ type: "object" }, { properties: { id: { type: "string" } } }] })
 

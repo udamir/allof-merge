@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vite-plus/test"
 import fs from "fs"
 import path from "path"
 import YAML from "js-yaml"
@@ -14,18 +15,18 @@ import {
 
   type MergeIssue,
   type MergeOptions,
-} from "../../src"
-import { engine } from "../../src/engine"
-import { loadCorpus } from "../fuzz/corpus"
-import { profileRules } from "../fuzz/oracle"
-import { clone, collectObjects, merge } from "./helpers"
+} from "../../src/index.ts"
+import { engine } from "../../src/engine.ts"
+import { loadCorpus } from "../fuzz/corpus.ts"
+import { profileRules } from "../fuzz/oracle.ts"
+import { clone, collectObjects, merge } from "./helpers.ts"
 
-// docs/NORMALIZATION_DESIGN.md §3.6 (fast path), §3.7 (F-10), §3.9 (rule auto-selection)
+// fast path, F-10 (single-item allOf simplified like a merged node), rule auto-selection
 
 const s = { type: "string" }
 const n = { type: "number" }
 
-const resources = path.resolve(__dirname, "../resources")
+const resources = path.resolve(import.meta.dirname, "../resources")
 
 // output and issues with the fast path off (the engine's regular path for every node)
 const slow = <T>(run: () => T): T => {

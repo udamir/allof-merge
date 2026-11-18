@@ -1,0 +1,8 @@
+# gqlapi (GraphApi test fixtures) requires tslib without declaring it
+packageExtensions:
+  gqlapi:
+    dependencies:
+      tslib: ^2.6.0
+
+minimumReleaseAgeExclude:
+  - json-crawl@1.0.0

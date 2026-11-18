@@ -6,10 +6,11 @@
  * Found by the corpus replay (amr-verify/p8.ts, GitHub issue #32, datamodel-code-generator
  * allof_member_parts_draft07.json).
  */
+import { describe, it, expect } from "vite-plus/test"
 import { Validator } from "@cfworker/json-schema"
 
-import { merge } from "../../src"
-import { checkCase, clone, profileRules, withRefSiblingsApplied, type FuzzCase } from "./oracle"
+import { merge } from "../../src/index.ts"
+import { checkCase, clone, profileRules, withRefSiblingsApplied, type FuzzCase } from "./oracle.ts"
 
 const mergeCase = (c: FuzzCase) => merge(clone(c.schema), { ...c.options, rules: profileRules(c.profile) })
 // a plain draft-07 validator (siblings of $ref ignored) and the D-24 reading

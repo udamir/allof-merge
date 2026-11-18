@@ -1,13 +1,14 @@
 /*
- * B20 — simplifications (FEATURE_DESIGN §3, decisions Q3-1..Q3-4). The four always-safe ones are options of their own,
+ * B20 — simplifications. The four always-safe ones are options of their own,
  * default true: dedupeAnyOf (S1, never oneOf), dedupeFragments (S2), dedupeCombinaryGroups (S3, order-sensitive),
  * dropFalseBranches (S10/S11). `simplify` (default off) adds the exact, type-guarded, form-changing rules S4b, S4c, S5,
  * S6a, S6b, S7, S9. Every case is checked for equivalence with the cfworker oracle of test/fuzz (draft-07 / 2020-12
  * profiles; draft-07 `$ref` siblings read as applying, D-24).
  */
-import { createMerger, jsonSchemaMergeRules, openApiMergeRules, graphapiMergeRules, type MergeOptions } from "../../src"
-import { checkCase, type CaseOptions, type FuzzCase, type Profile } from "../fuzz/oracle"
-import { clone, merge, mergeReport } from "./helpers"
+import { describe, it, expect } from "vite-plus/test"
+import { createMerger, jsonSchemaMergeRules, openApiMergeRules, graphapiMergeRules, type MergeOptions } from "../../src/index.ts"
+import { checkCase, type CaseOptions, type FuzzCase, type Profile } from "../fuzz/oracle.ts"
+import { clone, merge, mergeReport } from "./helpers.ts"
 
 const S = { type: "string" }
 const N = { type: "number" }
@@ -313,7 +314,7 @@ describe("B20.9 options and counterexamples (F3.14, F3.15)", () => {
     expect(exact(data, { simplify: {} })).toEqual(exact(data))
   })
 
-  it("B20.9.2 the counterexamples of §3.3 are not applied: oneOf twins, contains: true with unevaluatedItems, if without then, untyped bounds", () => {
+  it("B20.9.2 the counterexamples are not applied: oneOf twins, contains: true with unevaluatedItems, if without then, untyped bounds", () => {
     expect(exact({ oneOf: [S, N, S] }, SIMPLIFY, "2020-12", ["a"])).toEqual({ oneOf: [S, N, S] })
     const unevaluated = { allOf: [{ type: "array", contains: true }, { unevaluatedItems: false }] }
     expect(exact(unevaluated, SIMPLIFY, "2020-12", [[1], []])).toEqual({ type: "array", contains: true, allOf: [{ unevaluatedItems: false }] })

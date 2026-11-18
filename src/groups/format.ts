@@ -1,5 +1,5 @@
-import type { GroupContext } from "../types"
-import { hasOwn } from "../safe"
+import type { GroupContext } from "../types.ts"
+import { hasOwn } from "../safe.ts"
 
 // a leaf module: used by the string group and by the format resolvers of resolvers/basic (which the string group
 // imports), so it must not import either of them

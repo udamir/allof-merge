@@ -1,7 +1,7 @@
 import type { JsonPath, CrawlRules, SyncCloneHook } from "json-crawl"
-import type { IssueHint, MergeIssue, MergeIssueCode, MergeIssueSeverity } from "./issues"
+import type { IssueHint, MergeIssue, MergeIssueCode, MergeIssueSeverity } from "./issues.ts"
 
-export type { IssueHint, MergeIssue, MergeIssueCategory, MergeIssueCode, MergeIssueInfo, MergeIssueSeverity } from "./issues"
+export type { IssueHint, MergeIssue, MergeIssueCategory, MergeIssueCode, MergeIssueInfo, MergeIssueSeverity } from "./issues.ts"
 
 export type JsonSchema = any
 export type MergeRules = CrawlRules<MergeRule>
@@ -151,15 +151,3 @@ export interface KeywordGroup {
   resolve: GroupResolver
 }
 
-// kept for type compatibility with 0.x
-export interface AllOfRef {
-  pointer: string
-  data: string
-  refs: string[]
-}
-
-// kept for type compatibility with 0.x
-export interface NormalizeResponse {
-  allOfItems: any[]
-  brokenRefs: string[]
-}

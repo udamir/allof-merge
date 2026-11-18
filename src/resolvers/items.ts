@@ -1,9 +1,9 @@
-import { mergeArrayShape, mergeContains, tupleKeywordOf } from "../groups/array"
-import { combineSchemas } from "../groups/common"
-import type { MergeContext, MergeResolver } from "../types"
-import { asFragments } from "../utils"
-import { hasOwn } from "../safe"
-import { groupReport } from "./basic"
+import { mergeArrayShape, mergeContains, tupleKeywordOf } from "../groups/array.ts"
+import { combineSchemas } from "../groups/common.ts"
+import type { MergeContext, MergeResolver } from "../types.ts"
+import { asFragments } from "../utils.ts"
+import { hasOwn } from "../safe.ts"
+import { groupReport } from "./basic.ts"
 
 /*
  * Per-key fallbacks, used when a custom `$` on one of the array-shape keys hands the group back to the per-key

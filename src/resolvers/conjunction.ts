@@ -1,6 +1,6 @@
-import type { MergeResolver, MergeRules } from "../types"
-import { isPlainObject } from "../utils"
-import { engine } from "../engine"
+import type { MergeResolver, MergeRules } from "../types.ts"
+import { isPlainObject } from "../utils.ts"
+import { engine } from "../engine.ts"
 
 // rules of a schema location: the location merges allOf (the clone pass merges a lazy `{ allOf }` there)
 export const isAllOfMergeRule = (rules?: unknown): rules is MergeRules & { "/allOf": { $: MergeResolver } } => {

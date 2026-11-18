@@ -1,21 +1,21 @@
 import { JSON_ROOT_KEY, type JsonPath, type SyncCloneHook, syncClone } from "json-crawl"
 
-import type { MergeOptions, MergeRule, MergeRules, Merger, RefAnnotations } from "./types"
-import { type IssueHint, type MergeIssue, type MergeIssueCode, type MergeIssueSeverity, ISSUE_MESSAGES, MERGE_ISSUES, atLevel } from "./issues"
-import { type JsonSchemaVersion, asyncApiMergeRules, asyncApiSchemaMergeRules, detectAsyncApiVersion, graphapiMergeRules, jsonSchemaMergeRules, openApiJsonSchemaMergeRules, openApiMergeRules, unwrapSchemaFormat } from "./rules"
-import { dedupeValues, deepEqual, isAnchorPointer, isAnyOfNode, isEmptyObject, isOneOfNode, isPlainObject, isRefNode, parseRef } from "./utils"
-import { buildPointer, parsePointer } from "./pointer"
-import { type ResolutionIndex, type ResolveResult, createResolutionIndex } from "./resolve"
-import { mergeCombinarySibling } from "./resolvers/combinary"
-import { productBranches } from "./resolvers/basic"
-import { UNCHANGED, intersect, isAllOfMergeRule, resolveMergeSettings } from "./intersect"
-import { containerOrigin } from "./groups/common"
-import { ErrorMessage } from "./errors"
-import { simplifySchema } from "./simplify"
-import { engine } from "./engine"
-import { hasOwn, safeClone, safeSet } from "./safe"
+import type { MergeOptions, MergeRule, MergeRules, Merger, RefAnnotations } from "./types.ts"
+import { type IssueHint, type MergeIssue, type MergeIssueCode, type MergeIssueSeverity, ISSUE_MESSAGES, MERGE_ISSUES, atLevel } from "./issues.ts"
+import { type JsonSchemaVersion, asyncApiMergeRules, asyncApiSchemaMergeRules, detectAsyncApiVersion, graphapiMergeRules, jsonSchemaMergeRules, openApiJsonSchemaMergeRules, openApiMergeRules, unwrapSchemaFormat } from "./rules/index.ts"
+import { dedupeValues, deepEqual, isAnchorPointer, isAnyOfNode, isEmptyObject, isOneOfNode, isPlainObject, isRefNode, parseRef } from "./utils.ts"
+import { buildPointer, parsePointer } from "./pointer.ts"
+import { type ResolutionIndex, type ResolveResult, createResolutionIndex } from "./resolve.ts"
+import { mergeCombinarySibling } from "./resolvers/combinary.ts"
+import { productBranches } from "./resolvers/basic.ts"
+import { UNCHANGED, intersect, isAllOfMergeRule, resolveMergeSettings } from "./intersect.ts"
+import { containerOrigin } from "./groups/common.ts"
+import { ErrorMessage } from "./errors.ts"
+import { simplifySchema } from "./simplify.ts"
+import { engine } from "./engine.ts"
+import { hasOwn, safeClone, safeSet } from "./safe.ts"
 
-export { DEFAULT_BRANCH_BUDGET } from "./intersect"
+export { DEFAULT_BRANCH_BUDGET } from "./intersect.ts"
 
 const isContainerKey = (key: unknown): key is "properties" | "patternProperties" => key === "properties" || key === "patternProperties"
 
@@ -405,7 +405,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return value === false || (notEmpty && isPlainObject(value) && Object.keys(value).length === 1 && isEmptyObject(value.not))
   }
 
-  // ---- issues (docs/NORMALIZATION_DESIGN.md §3) ----
+  // ---- issues ----
   const issueLevel: MergeIssueSeverity = options.issueLevel === "error" ? "error" : "warning"
   // output -> the issues raised while it was created: replayed (with the current location as path prefix) whenever
   // the output is reused, by this call or a later one, so every call reports the same issues
@@ -871,9 +871,9 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return isDistributable(node) || isPrunable(node)
   }
 
-  // ---- fast path (§3.6): subtrees that need no work ----
+  // ---- fast path: subtrees that need no work ----
 
-  // a node that the merge may change by itself under this merger's options (rules 1-5 of §3.6; conservative: rule
+  // a node that the merge may change by itself under this merger's options (rules 1-5 of the fast path; conservative: rule
   // locations are not consulted, a node they would leave alone only costs the regular path)
   const nodeNeedsWork = (node: object): boolean => {
     if (Array.isArray(node)) { return false }
@@ -1035,7 +1035,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return cleanCopies.get(root)
   }
 
-  // the merge can change `value` (or report about it): §3.6 rules on the input, and the depth limit
+  // the merge can change `value` (or report about it): the fast-path rules on the input, and the depth limit
   const needsMerge = (value: unknown): boolean => {
     if (typeof value !== "object" || value === null) { return false }
     const height = subtreeHeight(value)
@@ -1476,7 +1476,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       forceNoMerge = true
     }
 
-    // fast path (§3.6): a subtree that needs no work is copied without frames, rule resolution or link checks; one
+    // fast path: a subtree that needs no work is copied without frames, rule resolution or link checks; one
     // output instance per input instance (D-11)
     if (!rewalk && !forceNoMerge && !parent?.noMerge && engine.fastPath !== false) {
       if (!c.unclean.has(value)) {
@@ -2027,7 +2027,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   }
 
   // fragment mode: (source, value, rules) -> finished output and its issues. A merger's options are fixed and inputs
-  // must not change while it is in use, so a repeated call returns the same output and replays the issues (§3.8)
+  // must not change while it is in use, so a repeated call returns the same output and replays the issues
   const results = new WeakMap<object, WeakMap<object, Map<unknown, { output: unknown, issues: MergeIssue[] }>>>()
 
   const cachedResult = (source: unknown, value: unknown, rules: unknown) => {

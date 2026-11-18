@@ -1,7 +1,7 @@
-import type { KeywordGroup } from "../types"
-import { deepEqual } from "../utils"
-import { mergeEnum } from "../resolvers/basic"
-import { hasOwn } from "../safe"
+import type { KeywordGroup } from "../types.ts"
+import { deepEqual } from "../utils.ts"
+import { mergeEnum } from "../resolvers/basic.ts"
+import { hasOwn } from "../safe.ts"
 
 /**
  * enum / const

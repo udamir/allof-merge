@@ -1,3 +1,4 @@
+import { describe, it, expect } from "vite-plus/test"
 import {
   asyncApiSchemaDialect,
   asyncApiSchemaMergeRules,
@@ -5,7 +6,7 @@ import {
   merge,
   openApiJsonSchemaMergeRules,
   unwrapSchemaFormat,
-} from "../../src"
+} from "../../src/index.ts"
 
 describe("AsyncAPI schemaFormat -> dialect", () => {
   it.each([

@@ -1,7 +1,7 @@
 import { isObject } from "json-crawl"
 
-import { buildPointer, isAnchorPointer, isRefNode, parsePointer, parseRef } from "./pointer"
-import { hasOwn } from "./safe"
+import { buildPointer, isAnchorPointer, isRefNode, parsePointer, parseRef } from "./pointer.ts"
+import { hasOwn } from "./safe.ts"
 
 export type ResolveResult =
   | { ok: true, target: unknown }

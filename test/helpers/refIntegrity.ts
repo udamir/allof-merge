@@ -1,9 +1,10 @@
+import { expect } from "vite-plus/test"
 import Ajv from "ajv"
-import Ajv2020 from "ajv/dist/2020"
+import Ajv2020 from "ajv/dist/2020.js"
 
-import { createResolutionIndex } from "../../src/resolve"
-import { buildPointer, isRefNode, parseRef } from "../../src/pointer"
-import { deepEqual } from "../../src/utils"
+import { createResolutionIndex } from "../../src/resolve.ts"
+import { buildPointer, isRefNode, parseRef } from "../../src/pointer.ts"
+import { deepEqual } from "../../src/utils.ts"
 
 // every distinct `$ref` string of a value (iterative, each instance visited once)
 export const collectRefs = (value: unknown): Set<string> => {

@@ -1,5 +1,5 @@
 /*
- * Committed replay corpus (FEATURE_DESIGN §4.3 Option C), replayed by corpus.test.ts with the same oracle as the random
+ * Committed replay corpus, replayed by corpus.test.ts with the same oracle as the random
  * property. Provenance: built once (2026-11-17) from the scratch probe runs of the 1.0.0 verification, which are not in
  * the repository:
  *   real-world.json   — allOf cases ported from other projects' test suites (/tmp/amr-similar2/cases, /tmp/amr-replay):
@@ -23,7 +23,7 @@
 import * as fs from "fs"
 import * as path from "path"
 
-import type { CaseOptions, Profile } from "./oracle"
+import type { CaseOptions, Profile } from "./oracle.ts"
 
 export interface CorpusCase {
   id: string
@@ -33,7 +33,7 @@ export interface CorpusCase {
   schema: unknown
 }
 
-export const CORPUS_DIR = path.join(__dirname, "corpus")
+export const CORPUS_DIR = path.join(import.meta.dirname, "corpus")
 
 export const loadCorpus = (): { file: string, cases: CorpusCase[] }[] =>
   fs.readdirSync(CORPUS_DIR)

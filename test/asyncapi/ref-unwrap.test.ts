@@ -1,5 +1,6 @@
-import { asyncApiMergeRules, createMerger, merge } from "../../src"
-import { collectErrors } from "./utils"
+import { describe, it, expect } from "vite-plus/test"
+import { asyncApiMergeRules, createMerger, merge } from "../../src/index.ts"
+import { collectErrors } from "./utils.ts"
 
 const AA = "application/vnd.aai.asyncapi+json;version=3.0.0"
 const base = () => ({ type: "object", properties: { id: { type: "string" } } })

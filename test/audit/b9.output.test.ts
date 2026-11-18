@@ -1,6 +1,7 @@
-import { merge, clone, deepFreeze, expectIdempotent, isJsonSerializable, sharesReferences } from "./helpers"
+import { describe, it, test, expect } from "vite-plus/test"
+import { merge, clone, deepFreeze, expectIdempotent, isJsonSerializable, sharesReferences } from "./helpers.ts"
 
-// B9 - output properties: immutability, aliasing, idempotence, serializability (see docs/TEST_PLAN.md)
+// B9 - output properties: immutability, aliasing, idempotence, serializability
 
 const cases: Record<string, any> = {
   basic: { allOf: [{ type: "string" }, { minLength: 1 }] },
@@ -53,7 +54,7 @@ describe("B9.2 output does not alias the input", () => {
     const result = merge(data)
     expect(result.definitions.A).not.toBe(shared)
     expect(result.properties.a.properties).not.toBe(shared.properties)
-    // one input object maps to exactly one output object, so the merged usages share the copied sub-schemas of the target ("properties" itself is rebuilt by getPropertiesForMerge, its members are not)
+    // one input object maps to exactly one output object, so the merged usages share the copied sub-schemas of the target ("properties" itself is rebuilt by the merge, its members are not)
     expect(result.properties.a.properties.x).toBe(result.properties.b.properties.x)
     expect(result.properties.a.properties.x).toBe(result.definitions.A.properties.x)
     expect(result.properties.a).not.toBe(result.properties.b)

@@ -16,28 +16,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node: [18, 20, 22]
+        node: [22, 24, 26]
 
     steps:
       - name: Clone repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}
-          # cache: npm
+          cache: pnpm
 
-      - name: Install npm dependencies
-        run: yarn install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check and lint
+        run: pnpm run check
 
       - name: Run tests
-        run: yarn test
+        run: pnpm test
 
-      - name: Coveralls GitHub Action
-        # You may pin to the exact commit or the version.
-        # uses: coverallsapp/github-action@c7885c00cb7ec0b8f9f5ff3f53cddb980f7a4412
-        uses: coverallsapp/github-action@v2.3.7
-        if: matrix.node == 16
-        with:
-          github-token: "${{ secrets.GITHUB_TOKEN }}"
+      - name: Build package
+        run: pnpm run build

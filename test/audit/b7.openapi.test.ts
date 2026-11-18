@@ -1,7 +1,8 @@
-import { openApiMergeRules } from "../../src"
-import { merge, clone, hasNoAllOf, mergeReport } from "./helpers"
+import { describe, it, test, expect } from "vite-plus/test"
+import { openApiMergeRules } from "../../src/index.ts"
+import { merge, clone, hasNoAllOf, mergeReport } from "./helpers.ts"
 
-// B7 - OpenAPI 3.x rules (see docs/TEST_PLAN.md)
+// B7 - OpenAPI 3.x rules
 
 const inner = { allOf: [{ type: "string" }, { minLength: 1 }] }
 const merged = { type: "string", minLength: 1 }

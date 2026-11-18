@@ -1,13 +1,14 @@
-import { asyncApiMergeRules, merge } from "../../src"
-import { yaml } from "../helpers"
-import { allOfPaths, collectErrors, loadAsyncApi } from "./utils"
+import { describe, it, expect } from "vite-plus/test"
+import { asyncApiMergeRules, merge } from "../../src/index.ts"
+import { yaml } from "../helpers/index.ts"
+import { allOfPaths, collectErrors, loadAsyncApi } from "./utils.ts"
 
 const rules = asyncApiMergeRules("2.x")
 const twoParts = { allOf: [{ type: "object" }, { properties: { id: { type: "string" } } }] }
 const merged = { type: "object", properties: { id: { type: "string" } } }
 
 describe("AsyncAPI 2.x rules: schema locations", () => {
-  it("design §2.1 example: parameter schema, components.schemas, payload, headers merged; Avro payload untouched", () => {
+  it("AsyncAPI 2 example: parameter schema, components.schemas, payload, headers merged; Avro payload untouched", () => {
     const doc = yaml`
       asyncapi: 2.6.0
       channels:

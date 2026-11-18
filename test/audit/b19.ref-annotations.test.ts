@@ -1,17 +1,18 @@
 /*
- * B19 — refAnnotations (#222, FEATURE_DESIGN §1, decisions Q1-1..Q1-4): node-level annotations that arrive only
+ * B19 — refAnnotations (#222): node-level annotations that arrive only
  * through a `$ref` are dropped with "omit" / a key list; the node's own values always stay; default "merge" keeps the
  * 0.x / 1.0.0 output. With mergeCombinarySibling a oneOf/anyOf branch that is a `$ref` keeps its target's
  * annotations (decision Q1-2: doc viewers label branches by them); a branch of a oneOf/anyOf product keeps the
  * annotations of its `$ref` components, combined by the keyword's merge rule (D-26).
  */
-import { createMerger, DEFAULT_OMITTED_ANNOTATIONS, graphapiMergeRules, jsonSchemaMergeRules, openApiMergeRules, type RefAnnotations } from "../../src"
-import { expectRefsResolve } from "../helpers/refIntegrity"
-import { clone, deepFreeze, expectSameValidation, isJsonSerializable, merge, sharesReferences } from "./helpers"
+import { describe, it, expect } from "vite-plus/test"
+import { createMerger, DEFAULT_OMITTED_ANNOTATIONS, graphapiMergeRules, jsonSchemaMergeRules, openApiMergeRules, type RefAnnotations } from "../../src/index.ts"
+import { expectRefsResolve } from "../helpers/refIntegrity.ts"
+import { clone, deepFreeze, expectSameValidation, isJsonSerializable, merge, sharesReferences } from "./helpers.ts"
 
 const S = (name: string) => ({ $ref: `#/components/schemas/${name}` })
 
-// the #222 example (FEATURE_DESIGN §1.1)
+// the #222 example
 const doc222 = () => ({
   openapi: "3.1.0",
   info: { title: "t", version: "1" },

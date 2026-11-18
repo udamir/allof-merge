@@ -1,7 +1,7 @@
-import type { GroupContext, KeywordGroup } from "../types"
-import { isPlainObject, uniqueConcat } from "../utils"
-import { hasOwn, safeSet } from "../safe"
-import { combineSchemas, isSchemaValue } from "./common"
+import type { GroupContext, KeywordGroup } from "../types.ts"
+import { isPlainObject, uniqueConcat } from "../utils.ts"
+import { hasOwn, safeSet } from "../safe.ts"
+import { combineSchemas, isSchemaValue } from "./common.ts"
 
 const KEYS = ["dependencies", "dependentRequired", "dependentSchemas"] as const
 

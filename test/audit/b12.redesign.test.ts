@@ -1,10 +1,11 @@
+import { describe, it, expect } from "vite-plus/test"
 import { syncClone } from "json-crawl"
 
-import { createMerger, createResolutionIndex, jsonSchemaMergeRules, openApiMergeRules } from "../../src"
-import { ErrorMessage } from "../../src/errors"
-import { merge, clone, compile, deepFreeze, expectIdempotent, expectSameValidation, hasNoAllOf, mergeReport } from "./helpers"
+import { createMerger, createResolutionIndex, jsonSchemaMergeRules, openApiMergeRules } from "../../src/index.ts"
+import { ErrorMessage } from "../../src/errors.ts"
+import { merge, clone, compile, deepFreeze, expectIdempotent, expectSameValidation, hasNoAllOf, mergeReport } from "./helpers.ts"
 
-// B12 - additive API of the 1.0.0 redesign (see docs/DESIGN_PROPOSALS.md §8 and §9)
+// B12 - additive API of the 1.0.0 redesign
 
 describe("B12.1 unsatisfiable option", () => {
   it("B12.1.1 writes contradictions as false by default", () => {

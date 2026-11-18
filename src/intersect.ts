@@ -1,13 +1,13 @@
 import { type JsonPath, getNodeRules } from "json-crawl"
 
-import type { GroupContext, KeywordGroup, MergeContext, MergeOptions, MergeResolver, MergeRule, MergeRules, ResolvedMergeSettings, SimplifyOptions } from "./types"
-import { countCombinations, dedupeValues, fragmentsOf, fragmentsValue, isFragments, isPlainObject } from "./utils"
-import { last, mergeArray, mergeSchemas, singleValueValidators } from "./resolvers/basic"
-import { keywordGroups } from "./groups"
-import { isAllOfMergeRule, jsonSchemaMergeResolver } from "./resolvers/conjunction"
-import { ErrorMessage } from "./errors"
-import { hasOwn, safeSet } from "./safe"
-import type { IssueHint, MergeIssue } from "./issues"
+import type { GroupContext, KeywordGroup, MergeContext, MergeOptions, MergeResolver, MergeRule, MergeRules, ResolvedMergeSettings, SimplifyOptions } from "./types.ts"
+import { countCombinations, dedupeValues, fragmentsOf, fragmentsValue, isFragments } from "./utils.ts"
+import { last, mergeArray, mergeSchemas, singleValueValidators } from "./resolvers/basic.ts"
+import { keywordGroups } from "./groups/index.ts"
+import { isAllOfMergeRule, jsonSchemaMergeResolver } from "./resolvers/conjunction.ts"
+import { ErrorMessage } from "./errors.ts"
+import { hasOwn, safeSet } from "./safe.ts"
+import type { IssueHint, MergeIssue } from "./issues.ts"
 
 // key -> the group that owns it (built once)
 const groupOfKey = new Map<string, KeywordGroup>()
