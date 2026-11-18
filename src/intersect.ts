@@ -110,21 +110,43 @@ export const findKeyRule = (rules: MergeRules, key: string, path: JsonPath, valu
   return rule && typeof rule === "object" && "$" in rule ? rule : UNKNOWN_KEY_RULE
 }
 
-// key -> values of that key in every item that carries it (item order); a null-prototype map, so that
-// `__proto__` / `constructor` are ordinary keys (VR-21)
-const itemsMap = (items: Record<string, any>[]): Record<string, any[]> => {
-  const map: Record<string, any[]> = Object.create(null)
-  for (const item of items) {
-    for (const key of Object.keys(item)) {
-      const list = map[key]
+// key -> values of that key in every item that carries it (item order of first appearance); a Map, so that
+// `__proto__` / `constructor` are ordinary keys (VR-21). Integer-like keys come first in ascending order, as in the
+// key order of an object
+const itemsMap = (items: Record<string, any>[]): Map<string, any[]> => {
+  const map = new Map<string, any[]>()
+  let integerLike = false
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    const keys = Object.keys(item)
+    for (let k = 0; k < keys.length; k++) {
+      const key = keys[k]
+      const list = map.get(key)
       if (list) {
         list.push(item[key])
       } else {
-        map[key] = [item[key]]
+        map.set(key, [item[key]])
+        if (!integerLike && isIntegerKey(key)) { integerLike = true }
       }
     }
   }
-  return map
+  return integerLike ? integerKeysFirst(map) : map
+}
+
+// an array-index-like key ("0", "12"; not "01" or "-1"): object key order lists them first, in ascending order
+const isIntegerKey = (key: string): boolean => {
+  const code = key.charCodeAt(0)
+  return code >= 48 && code <= 57 && String(Number(key) >>> 0) === key && key !== "4294967295"
+}
+
+const integerKeysFirst = (map: Map<string, any[]>): Map<string, any[]> => {
+  const integers = [...map.keys()].filter(isIntegerKey).sort((a, b) => Number(a) - Number(b))
+  const ordered = new Map<string, any[]>()
+  for (const key of integers) { ordered.set(key, map.get(key)!) }
+  for (const [key, list] of map) {
+    if (!ordered.has(key)) { ordered.set(key, list) }
+  }
+  return ordered
 }
 
 /**
@@ -146,29 +168,31 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
   const report: GroupContext["report"] = (message, values, hint) => ctx.report(values, message, hint ?? { code: "merge-conflict" })
   const map = itemsMap(items)
   const result: Record<string, any> = {}
-  const allOfFragments: unknown[] = []
+  let allOfFragments: unknown[] | undefined
   // grouped keys a custom `$` handed back to the per-key table: their resolver runs even for a single value
   let handedBack: Set<string> | undefined
 
   // groups that own at least one present key, in group order
   let groups: KeywordGroup[] | undefined
-  for (const key in map) {
+  for (const key of map.keys()) {
     const group = groupOfKey.get(key)
     if (group && !(groups ??= []).includes(group)) { groups.push(group) }
   }
 
   for (const group of groups ?? []) {
     const present: string[] = []
-    const values: Record<string, any[]> = Object.create(null)
+    // group keys are keyword names, never prototype members
+    const values: Record<string, any[]> = {}
     let owned = true
     for (const key of group.keys) {
-      if (!(key in map)) { continue }
-      const rule = knownKeyRule(mergeRules, key, path, map[key][0])
+      const list = map.get(key)
+      if (list === undefined) { continue }
+      const rule = knownKeyRule(mergeRules, key, path, list[0])
       // a key the rule set has no rule for is an unknown keyword there (e.g. `prefixItems` under draft-07, D-18): it
       // is left to the `/?` fallback instead of taking the group away from the other keys
       if (!rule) { continue }
       present.push(key)
-      values[key] = map[key]
+      values[key] = list
       if (rule.group !== group.name) { owned = false }
     }
     if (!present.length) { continue }
@@ -178,7 +202,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
       continue
     }
 
-    for (const key of present) { delete map[key] }
+    for (const key of present) { map.delete(key) }
     const merged = group.resolve({ items, values, mergeRules, path, settings, report })
     if (merged === undefined) {
       ctx.report(present.length === 1 ? values[present[0]] : present.flatMap((key) => values[key]), undefined, { code: "unsatisfiable", keyword: present.length === 1 ? present[0] : undefined, reason: groupReason(group, values) })
@@ -186,15 +210,15 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
     }
     for (const key of Object.keys(merged)) {
       if (key === "allOf") {
-        if (Array.isArray(merged.allOf)) { allOfFragments.push(...merged.allOf) }
+        if (Array.isArray(merged.allOf)) { (allOfFragments ??= []).push(...merged.allOf) }
       } else {
         safeSet(result, key, merged[key])
       }
     }
   }
 
-  for (const key of Object.keys(map)) {
-    let values = map[key]
+  for (const [key, list] of map) {
+    let values = list
 
     const rule = findKeyRule(mergeRules, key, path, values[0])
     // a rule whose `$` is not a function falls back to last-wins as well
@@ -270,7 +294,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
 
     // per-key resolvers may hand back fragments that cannot be merged into one keyword (they end up in `allOf`)
     if (isFragments(merged)) {
-      allOfFragments.push(...fragmentsOf(merged))
+      (allOfFragments ??= []).push(...fragmentsOf(merged))
       const kept = fragmentsValue(merged)
       if (kept) { safeSet(result, key, kept.value) }
       continue
@@ -283,7 +307,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
     safeSet(result, key, merged)
   }
 
-  if (allOfFragments.length) {
+  if (allOfFragments?.length) {
     // A ∧ A ≡ A: identical kept parts once
     safeSet(result, "allOf", settings.dedupeFragments ? dedupeValues(allOfFragments) : allOfFragments)
   }
