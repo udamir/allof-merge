@@ -1,6 +1,7 @@
 import { type JsonSchemaVersion, freezeRules, jsonSchemaMergeRules } from "./jsonschema.ts"
 import type { MergeRules } from "../types.ts"
 import * as resolvers from "../resolvers/index.ts"
+import { keyOnlyRule } from "../rule-lookup.ts"
 
 export const openApiVersion = ["3.0.x", "3.1.x"] as const
 
@@ -28,7 +29,7 @@ const cached = (cache: Map<string, WeakMap<object, MergeRules>>, version: string
 
 const customJsonSchemaMergeRules = (version: JsonSchemaVersion, customRules: MergeRules): MergeRules => {
   let rules: MergeRules
-  const child = () => rules
+  const child = keyOnlyRule(() => rules)
   rules = jsonSchemaMergeRules(version, {
     ...freezeRules({
       // OpenAPI 3.0 `nullable` is merged with `type` by the type group (D-1): absent on a typed item = false, an
@@ -109,7 +110,7 @@ const buildOpenApiMergeRules = (version: OpenApiVersion, customRules: MergeRules
     "/responses": responses,
     "/callbacks": {
       "/*": {
-        "/*": () => pathItem,
+        "/*": keyOnlyRule(() => pathItem),
       },
     },
   }

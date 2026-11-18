@@ -1,4 +1,4 @@
-import { type JsonPath, getNodeRules } from "json-crawl"
+import type { JsonPath } from "json-crawl"
 
 import type { GroupContext, KeywordGroup, MergeContext, MergeOptions, MergeResolver, MergeRule, MergeRules, ResolvedMergeSettings, SimplifyOptions } from "./types.ts"
 import { countCombinations, dedupeValues, fragmentsOf, fragmentsValue, isFragments } from "./utils.ts"
@@ -8,6 +8,7 @@ import { isAllOfMergeRule, jsonSchemaMergeResolver } from "./resolvers/conjuncti
 import { ErrorMessage } from "./errors.ts"
 import { hasOwn, safeSet } from "./safe.ts"
 import type { IssueHint, MergeIssue } from "./issues.ts"
+import { EMPTY_PATH, isKeyOnlyRule, lazyPath, nodeRule, pathOfSource, type PathSource } from "./rule-lookup.ts"
 
 // key -> the group that owns it (built once)
 const groupOfKey = new Map<string, KeywordGroup>()
@@ -72,7 +73,10 @@ const groupReason = (group: KeywordGroup, values: Record<string, any[]>): string
 
 export interface IntersectContext {
   mergeRules: MergeRules
-  path: JsonPath
+  // the node's path; or `at`, whose `path` is read only when a rule or resolver needs it (the crawl context of a deep
+  // node, whose path json-crawl would build on every first read)
+  path?: JsonPath
+  at?: PathSource
   // max number of combinations of one oneOf/anyOf product (used when `budget` is absent)
   branchBudget: number
   // budget shared by every product of one merge() call; decremented by each product
@@ -90,24 +94,76 @@ export interface IntersectContext {
 
 export { isAllOfMergeRule }
 
+const asKnownRule = (rule: any): MergeRule | undefined => rule && typeof rule === "object" && "$" in rule ? rule : undefined
+
 // the rule the rule set defines for a key (json-crawl precedence: exact key > longest `"/<prefix>*"` prefix > `/*`; function
 // rules are invoked with the crawl context), or undefined when it defines none with a `$` (an unknown keyword)
-export const knownKeyRule = (rules: MergeRules, key: string, path: JsonPath, value: unknown): MergeRule | undefined => {
-  const rule: any = getNodeRules(rules as any, key, path, value)
-  return rule && typeof rule === "object" && "$" in rule ? rule : undefined
-}
+export const knownKeyRule = (rules: MergeRules, key: string, path: JsonPath, value: unknown): MergeRule | undefined =>
+  asKnownRule(nodeRule(rules, key, () => path, value))
 
 // last-wins: the resolver of an unknown keyword when the rule set has no `/?` fallback either (D-19; 0.6.8 threw)
 const UNKNOWN_KEY_RULE: MergeRule = Object.freeze({ $: last })
 
 // rule of a key: the rule the rule set defines for it (exact > longest prefix > `/*`), else the `/?` fallback, else
 // last-wins (D-19)
-export const findKeyRule = (rules: MergeRules, key: string, path: JsonPath, value: unknown): MergeRule | undefined => {
-  const known = knownKeyRule(rules, key, path, value)
+export const findKeyRule = (rules: MergeRules, key: string, path: JsonPath, value: unknown): MergeRule | undefined =>
+  findRule(rules, key, () => path, value)
+
+const findRule = (rules: MergeRules, key: string, pathOf: () => JsonPath, value: unknown): MergeRule => {
+  const known = asKnownRule(nodeRule(rules, key, pathOf, value))
   if (known) { return known }
   let rule: any = (rules as any)["/?"]
-  rule = typeof rule === "function" ? rule({ key, path, value }) : rule
+  if (typeof rule === "function") { rule = rule({ key, path: isKeyOnlyRule(rule) ? EMPTY_PATH : pathOf(), value }) }
   return rule && typeof rule === "object" && "$" in rule ? rule : UNKNOWN_KEY_RULE
+}
+
+// the context of a keyword group; `path` is read from the node on first access
+class NodeGroupContext implements GroupContext {
+  declare items: Record<string, any>[]
+  declare values: Record<string, any[]>
+  declare mergeRules: MergeRules
+  declare path: JsonPath
+  declare settings: ResolvedMergeSettings
+  declare report: GroupContext["report"]
+  #source: PathSource
+  static #path = lazyPath<NodeGroupContext>((self) => pathOfSource(self.#source))
+
+  constructor(items: Record<string, any>[], values: Record<string, any[]>, mergeRules: MergeRules, source: PathSource, settings: ResolvedMergeSettings, report: GroupContext["report"]) {
+    this.#source = source
+    this.items = items
+    this.values = values
+    this.mergeRules = mergeRules
+    Object.defineProperty(this, "path", NodeGroupContext.#path)
+    this.settings = settings
+    this.report = report
+  }
+}
+
+// the context of a keyword's resolver; `path` is read from the node on first access
+class NodeMergeContext implements MergeContext {
+  declare allOfItems: Record<string, any>[]
+  declare mergeRules: MergeRules
+  declare path: JsonPath
+  declare settings: ResolvedMergeSettings
+  declare key: string
+  declare mergeError: MergeContext["mergeError"]
+  declare report: NonNullable<MergeContext["report"]>
+  declare forward: MergeContext["forward"]
+  #source: PathSource
+  static #path = lazyPath<NodeMergeContext>((self) => pathOfSource(self.#source))
+
+  constructor(items: Record<string, any>[], mergeRules: MergeRules, source: PathSource, settings: ResolvedMergeSettings, key: string, ctx: IntersectContext) {
+    this.#source = source
+    this.allOfItems = items
+    this.mergeRules = mergeRules
+    Object.defineProperty(this, "path", NodeMergeContext.#path)
+    this.settings = settings
+    this.key = key
+    // `mergeError` is a custom resolver's conflict, `report` carries an issue code
+    this.mergeError = (conflict) => ctx.report(conflict, undefined, { code: "merge-conflict", keyword: key })
+    this.report = (code, conflict, details) => ctx.report(conflict, details?.message ?? (code === "malformed-value" ? ErrorMessage.malformedValue(key) : undefined), { code, keyword: details?.keyword ?? key, reason: details?.reason })
+    this.forward = ctx.forward
+  }
 }
 
 // key -> values of that key in every item that carries it (item order of first appearance); a Map, so that
@@ -162,7 +218,12 @@ const integerKeysFirst = (map: Map<string, any[]>): Map<string, any[]> => {
  * The items must not carry `allOf` (the caller flattens them). The engine never returns `undefined`.
  */
 export const intersect = (items: Record<string, any>[], ctx: IntersectContext): Record<string, any> | false | typeof UNCHANGED => {
-  const { mergeRules, path } = ctx
+  const { mergeRules } = ctx
+  // a given path is handed to the groups and resolvers as it is; a path read from `at` is built only when a rule or
+  // resolver reads it (contexts with a lazy `path`)
+  const eagerPath = ctx.path
+  const source: PathSource = ctx.at ?? ctx
+  const pathOf = () => pathOfSource(source)
   const settings = ctx.settings ?? DEFAULT_SETTINGS
   // a group report without a hint is a custom group's conflict
   const report: GroupContext["report"] = (message, values, hint) => ctx.report(values, message, hint ?? { code: "merge-conflict" })
@@ -187,7 +248,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
     for (const key of group.keys) {
       const list = map.get(key)
       if (list === undefined) { continue }
-      const rule = knownKeyRule(mergeRules, key, path, list[0])
+      const rule = asKnownRule(nodeRule(mergeRules, key, pathOf, list[0]))
       // a key the rule set has no rule for is an unknown keyword there (e.g. `prefixItems` under draft-07, D-18): it
       // is left to the `/?` fallback instead of taking the group away from the other keys
       if (!rule) { continue }
@@ -203,7 +264,9 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
     }
 
     for (const key of present) { map.delete(key) }
-    const merged = group.resolve({ items, values, mergeRules, path, settings, report })
+    const merged = group.resolve(eagerPath
+      ? { items, values, mergeRules, path: eagerPath, settings, report }
+      : new NodeGroupContext(items, values, mergeRules, source, settings, report))
     if (merged === undefined) {
       ctx.report(present.length === 1 ? values[present[0]] : present.flatMap((key) => values[key]), undefined, { code: "unsatisfiable", keyword: present.length === 1 ? present[0] : undefined, reason: groupReason(group, values) })
       return false
@@ -220,7 +283,7 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
   for (const [key, list] of map) {
     let values = list
 
-    const rule = findKeyRule(mergeRules, key, path, values[0])
+    const rule = findRule(mergeRules, key, pathOf, values[0])
     // a rule whose `$` is not a function falls back to last-wins as well
     const resolver: MergeResolver = rule && typeof rule.$ === "function" ? rule.$ : last
 
@@ -264,17 +327,18 @@ export const intersect = (items: Record<string, any>[], ctx: IntersectContext): 
       if (ctx.budget) { ctx.budget.remaining -= count }
     }
 
-    // the context of the key's resolver: `mergeError` is a custom resolver's conflict, `report` carries an issue code
-    const mergeContext: MergeContext = {
-      allOfItems: items,
-      mergeRules,
-      path,
-      settings,
-      key,
-      mergeError: (conflict) => ctx.report(conflict, undefined, { code: "merge-conflict", keyword: key }),
-      report: (code, conflict, details) => ctx.report(conflict, details?.message ?? (code === "malformed-value" ? ErrorMessage.malformedValue(key) : undefined), { code, keyword: details?.keyword ?? key, reason: details?.reason }),
-      forward: ctx.forward,
-    }
+    const mergeContext: MergeContext = eagerPath
+      ? {
+          allOfItems: items,
+          mergeRules,
+          path: eagerPath,
+          settings,
+          key,
+          mergeError: (conflict) => ctx.report(conflict, undefined, { code: "merge-conflict", keyword: key }),
+          report: (code, conflict, details) => ctx.report(conflict, details?.message ?? (code === "malformed-value" ? ErrorMessage.malformedValue(key) : undefined), { code, keyword: details?.keyword ?? key, reason: details?.reason }),
+          forward: ctx.forward,
+        }
+      : new NodeMergeContext(items, mergeRules, source, settings, key, ctx)
 
     let merged: unknown
     if (resolver === jsonSchemaMergeResolver || resolver === mergeSchemas) {

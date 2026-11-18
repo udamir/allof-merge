@@ -4,7 +4,7 @@ import type { GroupContext, MergeContext, MergeResolver } from "../types.ts"
 import { ErrorMessage } from "../errors.ts"
 import { ISSUE_MESSAGES } from "../issues.ts"
 import { getOwn, hasOwn, safeSet } from "../safe.ts"
-import { getNodeRules } from "json-crawl"
+import { EMPTY_PATH, nodeRule } from "../rule-lookup.ts"
 import { mergeMultipleOfValues, mergeNumericBounds } from "../groups/numeric.ts"
 import { mergeFormats } from "../groups/format.ts"
 
@@ -115,7 +115,7 @@ const draft04Flag = (boundKey: "minimum" | "maximum", flagKey: "exclusiveMinimum
   }
   if (!bounded.length || !ctx?.mergeRules) { return fallback() }
   const bounds = bounded.map((item) => getOwn(item, boundKey) as number)
-  const rule: any = getNodeRules(ctx.mergeRules as any, boundKey, ctx.path ?? [], bounds[0])
+  const rule: any = nodeRule(ctx.mergeRules, boundKey, () => ctx.path ?? EMPTY_PATH, bounds[0])
   const resolver: MergeResolver | undefined = rule && typeof rule === "object" && typeof rule.$ === "function" ? rule.$ : undefined
   if (!resolver) { return fallback() }
   // a resolver that reports is not asked twice for the same malformed values: bounds are finite numbers here

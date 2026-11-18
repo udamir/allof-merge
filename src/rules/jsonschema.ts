@@ -1,6 +1,7 @@
 import type { MergeRules } from "../types.ts"
 import * as resolvers from "../resolvers/index.ts"
 import { engine } from "../engine.ts"
+import { keyOnlyRule } from "../rule-lookup.ts"
 
 export const jsonSchemaVersion = ["draft-04", "draft-06", "draft-07", "2020-12"] as const
 
@@ -36,13 +37,13 @@ const buildJsonSchemaMergeRules = (draft: JsonSchemaVersion, customRules: MergeR
   // `rules` is reassigned once to the final frozen object below; the thunks close over the variable
   let rules: Record<string, any>
   // every schema-valued child shares the same (this) rules object
-  const child = () => rules
+  const child = keyOnlyRule(() => rules)
   // a schema-valued child whose node needs its own `$`/group: built once on first use, after `rules` is complete
   const derive = (extra: Record<string, unknown>) => {
     let derived: MergeRules | undefined
-    return () => derived ?? (derived = fastFrozen({ ...rules, ...extra }) as MergeRules)
+    return keyOnlyRule(() => derived ?? (derived = fastFrozen({ ...rules, ...extra }) as MergeRules))
   }
-  const itemsChild = ({ key }: { key: string | number }) => typeof key === "number" ? rules : EMPTY_RULES
+  const itemsChild = keyOnlyRule(({ key }: { key: string | number }) => typeof key === "number" ? rules : EMPTY_RULES)
 
   // draft-04 has its own keyword table (boolean exclusive bounds, no const/propertyNames/contains/$defs);
   // draft-06, draft-07 and 2020-12 share one table that is the superset of their keywords, so a document

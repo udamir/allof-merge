@@ -1,5 +1,5 @@
 import type { GroupContext, KeywordGroup } from "../types.ts"
-import { getNodeRules } from "json-crawl"
+import { EMPTY_PATH, nodeRule } from "../rule-lookup.ts"
 import { conjunctPatterns, isUnsafePattern, mergeOpenApiFormat } from "../resolvers/basic.ts"
 import { ISSUE_MESSAGES } from "../issues.ts"
 import { mergeFormats } from "./format.ts"
@@ -36,7 +36,8 @@ export const stringGroup: KeywordGroup = {
   // two different formats make the conjunction impossible (user decision Q1)
   name: "string",
   keys: ["minLength", "maxLength", "pattern", "format"],
-  resolve: ({ values, report, mergeRules, path }) => {
+  resolve: (ctx) => {
+    const { values, report, mergeRules } = ctx
     const result: Record<string, unknown> = {}
     const fragments: unknown[] = []
 
@@ -74,7 +75,7 @@ export const stringGroup: KeywordGroup = {
 
     if (hasOwn(values, "format")) {
       // the numeric lattice applies when the location's `format` rule is `mergeOpenApiFormat` (OpenAPI rule sets, D-14)
-      const rule: any = mergeRules ? getNodeRules(mergeRules as any, "format", path ?? [], values.format[0]) : undefined
+      const rule: any = mergeRules ? nodeRule(mergeRules, "format", () => ctx.path ?? EMPTY_PATH, values.format[0]) : undefined
       const format = mergeFormats(values.format, report, !!rule && rule.$ === mergeOpenApiFormat)
       if (!format) { return undefined }
       if (hasOwn(format, "format")) {

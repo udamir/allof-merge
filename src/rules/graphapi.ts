@@ -1,6 +1,7 @@
 import { freezeRules, jsonSchemaMergeRules } from "./jsonschema.ts"
 import type { MergeRules } from "../types.ts"
 import * as resolvers from "../resolvers/index.ts"
+import { keyOnlyRule } from "../rule-lookup.ts"
 
 const NO_CUSTOM_RULES: MergeRules = Object.freeze({})
 const cache = new WeakMap<object, MergeRules>()
@@ -11,7 +12,7 @@ const buildGraphapiMergeRules = (customRules: MergeRules): MergeRules => {
   // GraphApi keeps its own nullable semantics (OR, untagged: `type` is merged per key whenever nullable is present)
   const graphSchemaMergeRules: MergeRules = jsonSchemaMergeRules("draft-06", {
     ...freezeRules({
-      "/args": () => graphSchemaMergeRules,
+      "/args": keyOnlyRule(() => graphSchemaMergeRules),
       "/nullable": { $: resolvers.alternative },
       "/specifiedByURL": { $: resolvers.last },
       "/values": {
@@ -31,10 +32,10 @@ const buildGraphapiMergeRules = (customRules: MergeRules): MergeRules => {
       },
       "/directives": {
         $: resolvers.mergeObjects,
-        "/*": () => directiveRules ?? (directiveRules = Object.freeze({
+        "/*": keyOnlyRule(() => directiveRules ?? (directiveRules = Object.freeze({
           ...graphSchemaMergeRules,
           "/meta": Object.freeze({ $: resolvers.mergeObjects })
-        }))
+        })))
       },
     }),
     // the caller's schema rules win over the GraphApi ones (same convention as jsonSchemaMergeRules); they belong to
@@ -44,13 +45,13 @@ const buildGraphapiMergeRules = (customRules: MergeRules): MergeRules => {
 
   return freezeRules({
     "/queries": {
-      "/*": () => graphSchemaMergeRules
+      "/*": keyOnlyRule(() => graphSchemaMergeRules)
     },
     "/mutations": {
-      "/*": () => graphSchemaMergeRules
+      "/*": keyOnlyRule(() => graphSchemaMergeRules)
     },
     "/subscriptions": {
-      "/*": () => graphSchemaMergeRules
+      "/*": keyOnlyRule(() => graphSchemaMergeRules)
     },
     "/components": {
       "/*": {
@@ -58,7 +59,7 @@ const buildGraphapiMergeRules = (customRules: MergeRules): MergeRules => {
       },
       "/directives": {
         "/*": {
-          "/args": () => graphSchemaMergeRules,
+          "/args": keyOnlyRule(() => graphSchemaMergeRules),
         },
       },
     }

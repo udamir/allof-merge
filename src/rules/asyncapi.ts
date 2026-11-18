@@ -4,6 +4,7 @@ import type { MergeRules } from "../types.ts"
 import * as resolvers from "../resolvers/index.ts"
 import { hasOwn } from "../safe.ts"
 import { ErrorMessage } from "../errors.ts"
+import { keyOnlyRule } from "../rule-lookup.ts"
 
 export const asyncApiVersion = ["2.x", "3.0"] as const
 
@@ -56,7 +57,7 @@ export const asyncApiBindingSchemaFields: Readonly<Record<string, readonly strin
 // `externalDocs` and `deprecated` (both already in the draft-07 table)
 const buildAsyncApiSchemaRules = (customRules: MergeRules): MergeRules => {
   let rules: MergeRules
-  const child = () => rules
+  const child = keyOnlyRule(() => rules)
   rules = jsonSchemaMergeRules("draft-07", {
     ...freezeRules({
       "/discriminator": { $: resolvers.last },

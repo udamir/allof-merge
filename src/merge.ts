@@ -301,6 +301,9 @@ interface DoneEntry {
 
 const NOT_DONE: unique symbol = Symbol("not done")
 
+// depth up to which json-crawl stores a node's path as an array; deeper paths are rebuilt from parent links when read
+const EAGER_PATH_DEPTH = 128
+
 // subtreeHeight of a subtree that needs work
 const DIRTY = -1
 
@@ -1764,7 +1767,9 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         ? safeClone(schemas[0] as Record<string, any>)
         : intersect(schemas, {
             mergeRules: rules,
-            path: ctx.path,
+            // json-crawl keeps paths up to this depth as arrays (free to read); deeper ones are built on first read
+            path: frame.depth <= EAGER_PATH_DEPTH ? ctx.path : undefined,
+            at: frame.depth <= EAGER_PATH_DEPTH ? undefined : ctx,
             branchBudget: settings.branchBudget,
             budget: c.budget,
             settings,
