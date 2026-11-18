@@ -23,7 +23,7 @@ Merge schemas with allOf into a more readable composed schema free from allOf.
 - Always-safe simplifications of the merged output (duplicate `anyOf` branches, duplicate kept `allOf` parts, repeated `oneOf`/`anyOf` groups, impossible branches), each switchable, plus opt-in exact `simplify` rules (enum filtered by type, typed bound contradictions, redundant bounds, …)
 - Reusable merger (`createMerger`) that shares the resolution index and merged results between calls
 - Typescript syntax support out of the box
-- No dependencies (except json-crawl `^0.6.0`, inlined in the bundles), can be used in nodejs or browser
+- No dependencies (except json-crawl 1.0, inlined in the bundles), can be used in nodejs or browser
 
 ## Works perfectly with specifications:
 
@@ -102,12 +102,25 @@ Reference `allof-merge.min.js` in your HTML and use the global variable `AllOfMe
 ## Documentation
 
 ### `merge(data: any, options?: MergeOptions)`
-Create a copy of `data` with merged allOf schemas. Rules are selected from the input (`openapi: 3.x` → OpenAPI rules, `asyncapi: 2.x` / `3.x` → AsyncAPI rules, `graphapi` → GraphApi rules, otherwise JSON Schema draft-06 rules) unless `options.rules` is given.
+Create a copy of `data` with merged allOf schemas. Rules are selected from the input unless `options.rules` is given (`selectMergeRules`): `openapi: "3.0"` / `"3.0.x"` → OpenAPI 3.0 rules, `openapi: "3.1.x"` or a later 3.x → OpenAPI 3.1 rules (with the draft named by `jsonSchemaDialect` for the schemas, 2020-12 by default), `asyncapi: 2.x` / `3.x` → AsyncAPI rules, `graphapi` → GraphApi rules, otherwise JSON Schema rules of the draft named by `$schema` (draft-04, draft-06, draft-07, 2019-09 and 2020-12 → the 2020-12 rules; draft-06 when `$schema` is absent or unknown). Version strings are matched exactly: `openapi: "13.0"` is not OpenAPI 3.
 
-### `createMerger(options?: MergeOptions): { merge, hook }`
-Creates a reusable merger. `merger.merge(data, { rules?, source? })` behaves like `merge`, and `merger.hook` is the json-crawl clone hook (same as `allOfResolverHook(options)`). The merger keeps its resolution index (per `source` instance), the memo of merged conjunctions (per rules object) and the sibling-spread cache for its lifetime, so calling it for many nodes of one document (or for several documents sharing `$ref` targets) costs about one merge of the whole document.
+### `mergeWithIssues(data: any, options?: MergeOptions): { result, issues }`
+`merge` that also returns the issues of the merge (see "Issues"), at or above `options.issueLevel`.
 
-- Merged conjunctions of the same item instances share their output instance between calls (and within one result), so do not mutate results in place when you reuse a merger, or pass `freezeOutput: true` to get deep-frozen results. A server that caches one merger for documents of different tenants should use `freezeOutput: true` or a merger per tenant.
+```ts
+import { mergeWithIssues } from 'allof-merge'
+
+const { result, issues } = mergeWithIssues(document)
+for (const issue of issues) {
+  console.log(issue.severity, issue.code, issue.sourcePointer ?? issue.path.join("/"), issue.message)
+}
+if (issues.some((issue) => issue.severity === "error")) { process.exit(1) }
+```
+
+### `createMerger(options?: MergeOptions): { merge, hook, needsMerge }`
+Creates a reusable merger. `merger.merge(data, { rules?, source?, onIssue? })` behaves like `merge` (`onIssue` replaces the merger's sink for that call, so one cached merger can serve callers with different contexts), and `merger.hook` is the json-crawl clone hook (same as `allOfResolverHook(options)`). `merger.needsMerge(value)` tells whether merging `value` can produce anything but a plain copy: false for a subtree without `allOf` and without the forms the merger's options rewrite (a `$ref` with siblings under `mergeRefSibling`, a `oneOf`/`anyOf` with siblings under `mergeCombinarySibling`, a literal `false` branch under `dropFalseBranches`, duplicate `anyOf` branches under `dedupeAnyOf`), so a consumer can skip the call. The merger keeps its resolution index (per `source` instance), the memo of merged conjunctions (per rules object) and the sibling-spread cache for its lifetime, so calling it for many nodes of one document (or for several documents sharing `$ref` targets) costs about one merge of the whole document.
+
+- Merged conjunctions of the same item instances share their output instance between calls (and within one result), and so do copies of subtrees that need no merging; a repeated `merger.merge(node, { source })` call returns the result of the first call (and reports the same issues). Do not mutate results in place when you reuse a merger, or pass `freezeOutput: true` to get deep-frozen results. A server that caches one merger for documents of different tenants should use `freezeOutput: true` or a merger per tenant.
 - The input documents must not be mutated while a merger is in use: the resolution index and the memo are keyed by object identity and are not invalidated (create a new merger after changing a document).
 - When the raw `hook` (or `allOfResolverHook`) is used with json-crawl's `syncClone`, pass `{ circular: false }` (as `merge` does): the hook keeps its own identity memo and cycle detection, and json-crawl's identity memo would otherwise reintroduce shared cyclic instances. The raw hook runs one clone pass: it rewrites links (D-22, see Output contract) when the root is finished, but it does not apply the D-17 fallback re-merge; use `merge`/`merger.merge` for whole documents.
 
@@ -143,6 +156,14 @@ interface MergeOptions {
 
   // Ref resolve error hook, called on broken ref
   onRefResolveError?: (message: string, path: JsonPath, ref: string) => void
+
+  // every issue of the merge (see "Issues"): parts the merge drops, ignores or keeps unmerged,
+  // invalid input, contradictions, limits; reported on every call of a merger
+  onIssue?: (issue: MergeIssue) => void
+
+  // minimum severity delivered to onIssue / mergeWithIssues
+  // (optional) default = "warning" (every issue)
+  issueLevel?: "error" | "warning"
 
   // representation of a contradictory (unsatisfiable) schema in the output:
   // "false" writes the boolean schema false, "not-empty" writes { not: {} }
@@ -217,6 +238,58 @@ A merger's options are fixed for its lifetime, so its memo and caches never mix 
 
 The limits keep the work and the output size bounded for hostile input (exponential `$ref` fan-out, deep nesting, huge `oneOf` products). The defaults are far above what real documents need: the GitHub REST (14 MB), Stripe, Asana, Kubernetes and Bitbucket specifications inline one target at most 111 times and copy at most 4 777 nodes in total.
 
+### Issues
+
+Every place where the output is not "each keyword of each `allOf` item merged into one equivalent keyword" is reported as an issue, unless an option asked for it (`refAnnotations: "omit"`, `dropFalseBranches: false`, …) or a merge rule defines the outcome (last-wins annotations and vendor keys, the OpenAPI numeric format lattice, duplicates removed by the dedupe options, links rewritten to their merged location, identity keywords of inlined targets): those are not issues.
+
+```ts
+interface MergeIssue {
+  code: MergeIssueCode              // stable identifier, table below (MERGE_ISSUES)
+  severity: "error" | "warning"
+  category: "input" | "unresolved" | "contradiction" | "kept" | "limit" | "removed" | "rewritten"
+  message: string                   // the onMergeError / onRefResolveError message where one exists
+  path: JsonPath                    // output location relative to the merged value (what onMergeError receives)
+  sourcePointer?: string            // "#/components/schemas/Pet": the input node in `source` where the issue surfaces
+  keyword?: string                  // the keyword concerned ("format", "oneOf", "allOf", …)
+  values?: unknown[]                // the values involved
+  ref?: string                      // the $ref concerned
+  reason?: string                   // sub-cause (unsatisfiable, object-shape-kept)
+}
+```
+
+| Code | Severity | When | Legacy callback |
+|---|---|---|---|
+| `malformed-value` | error | a keyword value of the wrong type is ignored (`required: true`, `enum: null`, `minLength: -1`, …), also a lone one | onMergeError |
+| `malformed-allof` | error | `allOf` is not an array (ignored, the rest of the node is kept) | onMergeError |
+| `malformed-allof-item` | error | an `allOf` item that is not a schema | onMergeError |
+| `broken-ref` | error | a local `$ref` that does not resolve (the node keeps it) | onRefResolveError |
+| `ref-cycle` | error | a `$ref` → `$ref` chain that comes back to itself | onRefResolveError |
+| `cyclic-value` | error | a cyclic JavaScript value outside `source`, replaced by `{}` | onMergeError |
+| `pattern-invalid` | error | an invalid regular expression, kept as a `pattern` part | onMergeError |
+| `unsatisfiable` | error | no value satisfies the conjunction, the schema is `false`; `reason`: `type`, `enum`, `const`, `bounds`, `format`, `false-item`, `simplify` (not raised inside a `oneOf`/`anyOf` branch) | onMergeError (not for `false-item`) |
+| `unsatisfiable-combinator` | error | every `oneOf`/`anyOf` branch became impossible | onMergeError |
+| `external-ref` | warning | an external `$ref` in `allOf` (or next to siblings under `mergeRefSibling`) is kept | onRefResolveError (in `allOf` only) |
+| `branch-removed` | warning | an impossible `oneOf`/`anyOf` branch is removed (`path` is its index before removal) | — |
+| `branch-kept-for-link` | warning | an impossible branch is kept because a pointer of the output targets a later branch | — |
+| `pattern-kept` | warning | patterns with backreferences / named groups kept as `allOf` parts | — |
+| `contains-kept` | warning | different `contains` kept as `allOf` parts | — |
+| `conditional-kept` | warning | several `if`/`then`/`else` kept as `allOf` parts | — |
+| `unevaluated-kept` | warning | an item with its own `unevaluatedProperties`/`unevaluatedItems` kept as an `allOf` part | — |
+| `object-shape-kept` | warning | object shapes kept as `allOf` parts; `reason`: `pattern-interaction`, `match-limit`, `nested-quantifier`, `invalid-pattern`, `test-budget` | — |
+| `multipleof-kept` | warning | `multipleOf` values without an exact least common multiple | onMergeError |
+| `tuple-kept` | warning | 2020-12: an array-valued `items` kept as an `allOf` part | onMergeError |
+| `schema-format-kept` | warning | AsyncAPI 3: a `$ref` to a schema in a non-JSON-Schema format kept as an `allOf` part | onMergeError |
+| `kept-for-link` | warning | a node kept unmerged because a `$ref` of the output points through it (D-17) | — |
+| `branch-budget` | warning | `oneOf`/`anyOf` combinations over `branchBudget` | onMergeError |
+| `ref-expansion-limit` | warning | a `$ref` target inlined more than `maxRefExpansion` times (once per target) | onMergeError |
+| `expansion-budget` | warning | `expansionBudget` exhausted (once per call) | onMergeError |
+| `max-depth` | warning | nodes deeper than `maxDepth` copied without merging (once per call) | onMergeError |
+| `nullable-overridden` | warning | OpenAPI 3.0: `nullable: true` has no effect because another item with a `type` forbids `null` | — |
+| `link-copied` | warning | a `$ref` replaced by a copy of its original target (the merged location holds a different value, D-22) | — |
+| `merge-conflict` | warning | a custom resolver called `ctx.mergeError(values)` or a custom group reported without a code | onMergeError |
+
+`onMergeError` and `onRefResolveError` keep their signatures and fire for the codes in the last column with the same messages as before; new codes never reach them. A merger reports the same issues on every call: issues are recorded with the output that raised them and replayed (with the current location) when a memoized output is reused. Within one call an issue is delivered once per code, node and keyword. Custom resolvers can report with a code: `ctx.report?.(code, values, { message, keyword, reason })`; custom groups pass a hint as the third argument of `report(message, values, { code })`.
+
 ### Annotations inherited through `$ref` (`refAnnotations`)
 By default the merged node of `{ allOf: [{ $ref: Base }, …] }` gets every keyword of `Base`, annotations included, so a code generator that names classes by `title` sees `Derived` titled `Base` (#222). `refAnnotations: "omit"` drops `title`, `description` and `$comment` that arrive only through a `$ref` (also through the target's own `allOf` members); a list such as `["title", "x-*"]` drops exactly those keys (`*` at the end is a prefix). The rest of the target is merged as before.
 
@@ -260,7 +333,8 @@ Never applied, because they are not equivalences: deduplicating `oneOf` branches
 - An impossible `oneOf`/`anyOf` branch is removed (`dropFalseBranches`, default); when every branch is impossible the node is a contradiction and `onMergeError` is called once for the combinary (not when the input combinary was already impossible). With `dropFalseBranches: false` impossible branches stay in the array as `false` (the earlier 1.0.0 contract). Identical `anyOf` branches are kept once (`dedupeAnyOf`), see "Simplifications".
 - `enum` and `required` keep the first-seen order without duplicates; the `allOf` items come first, then the node's own (sibling) keywords: `{ required: ["a"], allOf: [{ required: ["b"] }] }` → `["b", "a"]`.
 - Several `pattern`s are conjoined into one expression (`^(?=[\s\S]*?(?:p1))(?=[\s\S]*?(?:p2))[\s\S]*$`); when that is not possible (backreferences, named groups) they are kept as `allOf: [{ pattern }, …]`. Several different `contains` and several `if`/`then`/`else` are kept as `allOf` fragments as well, because they have no single-keyword form.
-- Keywords that have no single-keyword form are kept as `allOf` fragments next to the merged keywords (always equivalent): differing `format`s (reported through `onMergeError`; only the OpenAPI rule sets apply the numeric lattice `int32 ∧ int64` → `int32`, `float ∧ double` → `float`, the JSON Schema and GraphApi rule sets treat every pair of different formats as a conflict), legacy array-valued `items` under the 2020-12 rules (see Supported rules), `multipleOf` values whose least common multiple cannot be computed exactly, object shapes whose `patternProperties`/`additionalProperties` interaction has no exact merged form (or whose names cannot be matched within the `matchPatterns` limits), items carrying their own `unevaluatedProperties`/`unevaluatedItems` (a `$ref` item stays `{ $ref }`), different `contains`, `if`/`then`/`else`, patterns with backreferences.
+- Two different `format`s in one conjunction are a contradiction: the schema is `false` (`unsatisfiable`, `reason: "format"`), also for overlapping pairs (`uri` ∧ `uri-reference`) and unknown formats. Only the OpenAPI rule sets apply the numeric lattice `int32 ∧ int64` → `int32`, `float ∧ double` → `float` (not an issue). Note that `format` constrains strings only, so for a validator that asserts formats `{ allOf: [{ format: date }, { format: email }] }` without a `type` still accepts numbers, which `false` does not.
+- Keywords that have no single-keyword form are kept as `allOf` fragments next to the merged keywords (always equivalent, reported as `*-kept` warnings): legacy array-valued `items` under the 2020-12 rules (see Supported rules), `multipleOf` values whose least common multiple cannot be computed exactly, object shapes whose `patternProperties`/`additionalProperties` interaction has no exact merged form (or whose names cannot be matched within the `matchPatterns` limits), items carrying their own `unevaluatedProperties`/`unevaluatedItems` (a `$ref` item stays `{ $ref }`), different `contains`, `if`/`then`/`else`, patterns with backreferences.
 - A contradiction next to container siblings (`definitions`, `$defs`, `components`, `$id`, `id`, `$anchor`, `$dynamicAnchor`, `$schema`, `$vocabulary`) keeps them: `{ allOf: [false], $defs: … }`, so refs into them stay valid; without such siblings it is plain `false`.
 - A broken or external `$ref` inside `allOf` leaves the node in place (siblings untouched, resolvable items resolved, the broken ones kept as `{ $ref }`) and calls `onRefResolveError` (broken local refs only). An empty or non-string `$ref` inside `allOf` is a broken ref. With `mergeRefSibling`, a broken or external `$ref` with siblings is left as it is. A ref -> ref cycle and a ref to an inherited member (`#/constructor`, `#/__proto__`) are broken refs.
 - Links stay links (D-22, D-23): every `$ref` that resolves in the input still resolves after a whole-document merge (`merge(doc)`, or `source` is the merged value) and keeps its meaning. A `$ref` outside `allOf` is not touched unless its pointer runs through a node the merge rewrites (a node with its own `allOf`; with `mergeRefSibling` also a `$ref` with siblings, with `mergeCombinarySibling` also a `oneOf`/`anyOf` with siblings; with `dropFalseBranches` / `dedupeAnyOf` also a node with `oneOf` / `anyOf` branches, whose indexes may shift); a pointer to the rewritten node itself and pointers into its `definitions` / `$defs` / `components` stay as they are. Such a `$ref` (bare or with siblings) is:
@@ -272,7 +346,7 @@ Never applied, because they are not equivalences: deduplicating `oneOf` branches
 - Fallback (D-17): a `$ref` left in the output that can be neither linked nor copied — one kept by `maxRefExpansion` / `expansionBudget` / `maxDepth`, one outside a schema location, one inside the siblings of a link — and whose pointer runs through a node the merge rewrote keeps that node unmerged (its members are still merged) and the document is merged again, so every output `$ref` resolves to what it meant in the input.
 - `$ref` siblings apply in every draft (D-24, author intent): `{ $ref: Name, maxLength: 3 }` means "`Name` and at most 3 characters" under every rule set, also under draft-04/06/07, OpenAPI 3.0 and GraphApi rules, whose validators would ignore every sibling of `$ref`. This is an intentional deviation from those drafts: authors write siblings next to `$ref` because they mean them. Example with the default (draft-06) rules: `{ definitions: { Name: { type: string } }, allOf: [{ $ref: "#/definitions/Name", maxLength: 3 }, { minLength: 1 }] }` → `{ definitions: …, type: string, minLength: 1, maxLength: 3 }` (a draft-07 validator would accept `"abcd"` for the input, the merged schema rejects it). The same holds for a node with both `$ref` and `allOf` (the `allOf` applies), for `mergeRefSibling`, and for the copies the link rules make. A `$ref` with siblings outside `allOf` is left as it is unless `mergeRefSibling` is set (or the link rules copy it).
 - Identity keywords (`$id`, `id`, `$anchor`, `$dynamicAnchor`, `$schema`, `$vocabulary`) of `$ref`-inlined items are not copied into the merged node (they would duplicate ids/anchors); the node's own identity keywords stay.
-- Malformed keyword values (`required: true`, `enum: null`, `anyOf: {}`, non-object `allOf` items, `multipleOf: "abc"`, …) are ignored, the valid parts are merged and `onMergeError` is called; the merge never throws on them.
+- Malformed keyword values (`required: true`, `enum: null`, `anyOf: {}`, non-object `allOf` items, `multipleOf: "abc"`, …) are ignored, the valid parts are merged and `onMergeError` is called; the merge never throws on them. A lone malformed value is dropped too (`{ allOf: [{ required: true }, { type: object }] }` → `{ type: object }`).
 - Every usage of one `$ref` target (and every repeated conjunction of the same items) shares the merged output instance; use `freezeOutput: true` if the result is post-processed by code that might mutate it. One input instance used at locations with different rules (a YAML alias or a JS-built document using the same object under `info` and under `components/schemas`) is cloned once per rule set: it is merged only where schema rules apply.
 - Property names such as `__proto__`, `constructor` and `prototype` are ordinary own keys of the output; output objects always have `Object.prototype` as their prototype.
 
@@ -293,8 +367,9 @@ A wrapper without `schema` is not a schema either (`$ref` kept and reported). `a
 
 ### Supported rules
 You can find supported rules in the src/rules directory of this repository:
-- `jsonSchemaMergeRules(version: "draft-04" | "draft-06" | "draft-07" | "2020-12", customRules?)` — default `"draft-06"`; draft-06, draft-07 and 2020-12 share one keyword table (a superset incl. `dependentRequired`, `dependentSchemas`, `unevaluatedProperties`, `unevaluatedItems`, `minContains`/`maxContains`, `if`/`then`/`else`), draft-04 has boolean exclusive bounds and no `const`/`propertyNames`/`contains`/`$defs`. The tuple keywords are read per draft (D-18): under draft-04/06/07 an array `items` (with `additionalItems`) is the tuple and `prefixItems` is an unknown keyword (last-wins); under 2020-12 `prefixItems` (with an `items` schema as the rest) is the tuple, an array-valued `items` is legacy and is kept as an `allOf` fragment `{ items, additionalItems? }` with `onMergeError` when it has to be combined with other array shapes (a single one is copied as is), and a stray `additionalItems` is last-wins. Formats: different formats are a conflict (fragments + `onMergeError`), no numeric lattice.
-- `openApiMergeRules(version: "3.0.x" | "3.1.x", customRules?)` — 3.0.x schemas follow draft-04 (array `items` is the tuple), 3.1.x schemas follow 2020-12 (`prefixItems` is the tuple); `format` uses the numeric lattice `int32 ⊂ int64`, `float ⊂ double` (D-14). `openApiJsonSchemaMergeRules(version, customRules?)` returns the schema rules alone.
+- `jsonSchemaMergeRules(version: "draft-04" | "draft-06" | "draft-07" | "2020-12", customRules?)` — default `"draft-06"`; draft-06, draft-07 and 2020-12 share one keyword table (a superset incl. `dependentRequired`, `dependentSchemas`, `unevaluatedProperties`, `unevaluatedItems`, `minContains`/`maxContains`, `if`/`then`/`else`), draft-04 has boolean exclusive bounds and no `const`/`propertyNames`/`contains`/`$defs`. The tuple keywords are read per draft (D-18): under draft-04/06/07 an array `items` (with `additionalItems`) is the tuple and `prefixItems` is an unknown keyword (last-wins); under 2020-12 `prefixItems` (with an `items` schema as the rest) is the tuple, an array-valued `items` is legacy and is kept as an `allOf` fragment `{ items, additionalItems? }` with `onMergeError` when it has to be combined with other array shapes (a single one is copied as is), and a stray `additionalItems` is last-wins. Formats: different formats are a contradiction (`false`), no numeric lattice.
+- `openApiMergeRules(version: "3.0.x" | "3.1.x", customRules?, dialect?)` — 3.0.x schemas follow draft-04 (array `items` is the tuple), 3.1.x schemas follow 2020-12 (`prefixItems` is the tuple) or the draft `dialect` names (`jsonSchemaDialect`); `format` uses the numeric lattice `int32 ⊂ int64`, `float ⊂ double` (D-14). `openApiJsonSchemaMergeRules(version, customRules?, dialect?)` returns the schema rules alone.
+- `schemaMergeRulesFor(dialect)` — the schema-level rules allof-merge uses at a schema location of a dialect: `"draft-04"`, `"draft-06"`, `"draft-07"`, `"2019-09"`, `"2020-12"`, a `$schema` URI, `"openapi-3.0"`, `"openapi-3.1"`, `"asyncapi-schema"` or an AsyncAPI `schemaFormat` string (`undefined` for a format that is not JSON Schema). For consumers that merge single schemas; `jsonSchemaDraftOf(uri)` maps a `$schema` URI to its draft.
 - `graphapiMergeRules`, and `createGraphapiMergeRules(customRules?)` for GraphApi rules with custom schema rules (draft-06 based, no format lattice).
 - `asyncApiMergeRules(version: "2.x" | "3.0", customRules?)` — AsyncAPI document rules (see "AsyncAPI"); `asyncApiSchemaMergeRules(schemaFormat?, customRules?)` the rules of one schema format.
 
