@@ -612,3 +612,11 @@ Implemented in this repository (steps 1–8 of §7; the api-smart-diff steps 9�
 Measurements (esbuild bundles of `src`, Node 26.13, min of 15, the asd bench fixtures): GraphApi github whole document 46 → 17 ms (target ≤ 24.5), oas-github 232 → 120 ms (target ≤ 150), js-allof-200 per node 6.5 → 3.6 ms (the target 3.4 ms was set on a machine where the baseline was 4.8–5.1 ms; relative to the baseline the target is met), 200 warm per-node calls 1.2 → 0.04 ms; identical outputs on all three documents.
 
 Deviation to note: `format` constrains strings only, so with a format-asserting validator the Q1 output `false` rejects non-string instances that `{ allOf: [{ format: date }, { format: email }] }` accepts when no `type` excludes them. The fuzz oracle skips such cases (`decidedFormatDeviation` in `test/fuzz/oracle.ts`).
+
+User decisions after the implementation (2026-11-18):
+
+| Question | Decision |
+|---|---|
+| Two different formats without a string-only `type` (the deviation above) | Always `false`, as implemented (no `{ not: { type: string } }` form, no kept parts). |
+| Outputs shared between calls of one merger (clean-subtree copies, fragment-mode result cache) | Keep, documented: do not mutate results of a reused merger, or use `freezeOutput`; `merge()` creates a fresh merger per call. |
+| Plain-schema speed against @fastify/merge-json-schemas and @x0k/json-schema-merge | Design first: `docs/PERFORMANCE_DESIGN.md`. |
