@@ -70,15 +70,18 @@ export const resolvePointer = (data: unknown, pointer: string): any => {
 
 // structural equality (zero dependencies); key order of objects is not significant. Iterative (no stack overflow
 // on deeply nested values) and cycle safe (a pair of objects already being compared is assumed equal)
-export const deepEqual = (a: any, b: any): boolean => {
-  if (a === b) { return true }
+export const deepEqual = (a: any, b: any): boolean => equalValues(a, b, false)
+
+// deepEqual; with `sameNaN`, NaN equals NaN (as in canonicalKey)
+const equalValues = (a: any, b: any, sameNaN: boolean): boolean => {
+  if (a === b || (sameNaN && a !== a && b !== b)) { return true }
   if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) { return false }
   const stack: any[] = [a, b]
   let seen: Map<object, Set<object>> | undefined
   while (stack.length) {
     const y = stack.pop()
     const x = stack.pop()
-    if (x === y) { continue }
+    if (x === y || (sameNaN && x !== x && y !== y)) { continue }
     if (typeof x !== "object" || typeof y !== "object" || x === null || y === null) { return false }
     seen ??= new Map()
     let pairs = seen.get(x)
@@ -452,8 +455,12 @@ export const isFragments = (value: unknown): value is Fragments => typeof value 
 export const fragmentsOf = (value: Fragments): unknown[] => value[FRAGMENTS]
 
 // the values without structural duplicates (deepEqual), first-seen order; the input array when nothing is removed
+// values compared pairwise before canonical keys are built (the usual case: two or three values, no duplicate)
+const PAIRWISE_LIMIT = 8
+
 export const dedupeValues = <T>(values: T[]): T[] => {
   if (values.length < 2) { return values }
+  if (values.length <= PAIRWISE_LIMIT && !mayHaveDuplicates(values)) { return values }
   const keys = new Set<string>()
   const unkeyed: T[] = []
   const result: T[] = []
@@ -469,4 +476,15 @@ export const dedupeValues = <T>(values: T[]): T[] => {
     result.push(value)
   }
   return result.length === values.length ? values : result
+}
+
+// false when no two values can be duplicates for dedupeValues: values with equal canonical keys are equalValues-equal
+// (NaN included), and so are unkeyable values that deepEqual finds equal
+const mayHaveDuplicates = (values: unknown[]): boolean => {
+  for (let i = 1; i < values.length; i++) {
+    for (let j = 0; j < i; j++) {
+      if (equalValues(values[i], values[j], true)) { return true }
+    }
+  }
+  return false
 }
