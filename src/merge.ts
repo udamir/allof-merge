@@ -14,6 +14,7 @@ import { ErrorMessage } from "./errors.ts"
 import { simplifySchema } from "./simplify.ts"
 import { engine } from "./engine.ts"
 import { hasOwn, safeClone, safeSet } from "./safe.ts"
+import { LazyWeakMap, LazyWeakSet } from "./lazy.ts"
 
 export { DEFAULT_BRANCH_BUDGET } from "./intersect.ts"
 
@@ -132,7 +133,7 @@ const UNAFFECTED_MEMBERS = new Set(["definitions", "$defs", "components"])
 
 // every distinct local $ref string of `output` (iterative, each instance visited once); `skip` holds $ref nodes the
 // merge emitted itself (cycle re-entries to output locations, rewritten links), which are valid by construction
-const collectLocalRefs = (output: unknown, skip?: WeakSet<object>): Set<string> => {
+const collectLocalRefs = (output: unknown, skip?: { has(value: object): boolean }): Set<string> => {
   const refs = new Set<string>()
   if (typeof output !== "object" || output === null) { return refs }
   const seen = new Set<object>()
@@ -258,39 +259,81 @@ interface Site {
                                                 // and its matching location (allOf member segments removed)
 }
 
-interface CallState {
-  index: ResolutionIndex
-  memo: TupleMemo
-  budget: { remaining: number }
-  stack: Frame[]
-  active: Map<object, Frame>                    // input nodes of the frames (the current path) -> their first frame
-  done: WeakMap<object, DoneEntry>              // input node -> finished output per rules (shared, like json-crawl's
+// the state of one merge call. Collections that only some merges need (whole-document link bookkeeping, $ref inlining,
+// issue de-duplication) are created on first use, so a small merge allocates little
+class CallState {
+  readonly index: ResolutionIndex
+  readonly memo: TupleMemo
+  readonly budget: { remaining: number }
+  readonly stack: Frame[] = []
+  readonly active = new Map<object, Frame>()    // input nodes of the frames (the current path) -> their first frame
+  readonly done = new WeakMap<object, DoneEntry>() // input node -> finished output per rules (shared, like json-crawl's
                                                 // safe clone; the same instance under other rules is merged again)
-  outputCounts: WeakMap<object, Map<object, number>>
-  finished: WeakSet<object>                     // outputs already finished by the frame that created them
-  inlined: Map<object, number>                  // $ref target -> logical inlinings in this call
-  expanded: number                              // schema nodes copied in by $ref inlining in this call (expansionBudget)
-  reported: Set<unknown>
-  rewritten: Set<object>                        // input nodes the merge rewrote: allOf merged, $ref sibling merged,
-                                                // oneOf/anyOf sibling distributed (D-17, D-20, D-21)
-  ownerRefs: boolean                            // a $ref whose pointer runs through a rewritable node was met or written
-  owners: Map<string, object[]>                 // $ref -> the rewritable nodes its pointer runs through (memo)
-  wholeDocument: boolean                        // refs resolve against the value being cloned (no other source)
-  sites: Map<object, Site>                      // output copy -> its site (D-22)
-  siteNodes: Map<object, Site>                  // input $ref node -> its site
-  sitePositions: { holder: Record<string | number, unknown>, key: string | number, site: Site }[] // non-object copies
-  asyncApi3: boolean                            // AsyncAPI 3.x source: $ref targets that are Multi Format Schema
-                                                // Objects are unwrapped or kept (Q2-4)
-  shifts: WeakMap<object, Partial<Record<"oneOf" | "anyOf", (number | undefined)[]>>> // output node -> old branch
-                                                // index -> new index, for branches dropFalseBranches / dedupeAnyOf
-                                                // moved (undefined: removed), D-27
-  issueKeys: Set<string>                        // issues delivered in this call (de-duplication)
-  seen: Set<string>                             // issues raised in this call (and in its earlier D-17 rounds)
-  prior?: Set<string>                           // issues raised by the earlier rounds of this merge (D-17)
-  issues: MergeIssue[]                          // every issue raised or replayed in this call (result cache)
-  verified: WeakSet<object>                     // clean subtrees whose $refs keep their meaning (rule 6)
-  unclean: WeakSet<object>                      // clean subtrees holding a $ref through a rewritten node (rule 6)
+  expanded = 0                                  // schema nodes copied in by $ref inlining in this call (expansionBudget)
+  ownerRefs = false                             // a $ref whose pointer runs through a rewritable node was met or written
+  wholeDocument = false                         // refs resolve against the value being cloned (no other source)
+  readonly prior?: Set<string>                  // issues raised by the earlier rounds of this merge (D-17)
+  readonly issues: MergeIssue[] = []            // every issue raised or replayed in this call (result cache)
+  #carried?: { seen: Set<string>, reported: Set<unknown> }
+  #outputCounts?: WeakMap<object, Map<object, number>>
+  #finished?: WeakSet<object>
+  #inlined?: Map<object, number>
+  #reported?: Set<unknown>
+  #rewritten?: Set<object>
+  #owners?: Map<string, object[]>
+  #sites?: Map<object, Site>
+  #siteNodes?: Map<object, Site>
+  #sitePositions?: { holder: Record<string | number, unknown>, key: string | number, site: Site }[]
+  #asyncApi3?: boolean
+  #shifts?: WeakMap<object, Partial<Record<"oneOf" | "anyOf", (number | undefined)[]>>>
+  #issueKeys?: Set<string>
+  #seen?: Set<string>
+  #verified?: WeakSet<object>
+  #unclean?: WeakSet<object>
+
+  constructor(index: ResolutionIndex, memo: TupleMemo, branchBudget: number, carried?: { seen: Set<string>, reported: Set<unknown> }) {
+    this.index = index
+    this.memo = memo
+    this.budget = { remaining: branchBudget }
+    this.prior = carried?.seen
+    this.#carried = carried
+  }
+
+  get outputCounts(): WeakMap<object, Map<object, number>> { return this.#outputCounts ??= new WeakMap() }
+  // outputs already finished by the frame that created them
+  get finished(): WeakSet<object> { return this.#finished ??= new WeakSet() }
+  // $ref target -> logical inlinings in this call
+  get inlined(): Map<object, number> { return this.#inlined ??= new Map() }
+  get reported(): Set<unknown> { return this.#reported ??= new Set(this.#carried?.reported) }
+  // input nodes the merge rewrote: allOf merged, $ref sibling merged, oneOf/anyOf sibling distributed (D-17, D-20, D-21)
+  get rewritten(): Set<object> { return this.#rewritten ??= new Set() }
+  get hasRewritten(): boolean { return !!this.#rewritten?.size }
+  // $ref -> the rewritable nodes its pointer runs through (memo)
+  get owners(): Map<string, object[]> { return this.#owners ??= new Map() }
+  // output copy -> its site (D-22)
+  get sites(): Map<object, Site> { return this.#sites ??= new Map() }
+  // input $ref node -> its site
+  get siteNodes(): Map<object, Site> { return this.#siteNodes ??= new Map() }
+  // non-object copies
+  get sitePositions(): { holder: Record<string | number, unknown>, key: string | number, site: Site }[] { return this.#sitePositions ??= [] }
+  // AsyncAPI 3.x source: $ref targets that are Multi Format Schema Objects are unwrapped or kept (Q2-4)
+  get asyncApi3(): boolean { return this.#asyncApi3 ??= detectAsyncApiVersion(this.index.source) === "3.0" }
+  // output node -> old branch index -> new index, for branches dropFalseBranches / dedupeAnyOf moved (undefined:
+  // removed), D-27
+  get shifts(): WeakMap<object, Partial<Record<"oneOf" | "anyOf", (number | undefined)[]>>> { return this.#shifts ??= new WeakMap() }
+  // issues delivered in this call (de-duplication)
+  get issueKeys(): Set<string> { return this.#issueKeys ??= new Set(this.#carried?.seen) }
+  // issues raised in this call (and in its earlier D-17 rounds)
+  get seen(): Set<string> { return this.#seen ??= new Set(this.#carried?.seen) }
+  // clean subtrees whose $refs keep their meaning (rule 6)
+  get verified(): WeakSet<object> { return this.#verified ??= new WeakSet() }
+  // clean subtrees holding a $ref through a rewritten node (rule 6)
+  get unclean(): WeakSet<object> { return this.#unclean ??= new WeakSet() }
+  get hasUnclean(): boolean { return this.#unclean !== undefined }
 }
+
+// the call state of a merger before its first clone pass (never written to)
+const IDLE_CALL = new CallState(createResolutionIndex(undefined), new TupleMemo(), 0)
 
 // finished outputs of one input node, per rules identity (usually one)
 interface DoneEntry {
@@ -412,7 +455,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   const issueLevel: MergeIssueSeverity = options.issueLevel === "error" ? "error" : "warning"
   // output -> the issues raised while it was created: replayed (with the current location as path prefix) whenever
   // the output is reused, by this call or a later one, so every call reports the same issues
-  const recorded = new WeakMap<object, RecordedIssues>()
+  const recorded = new LazyWeakMap<object, RecordedIssues>()
   // a whole-document merge that re-merges (D-17 fallback) carries the issues and once-tokens of its earlier rounds into
   // the next one: an issue (and its legacy callback) is delivered once, whichever round raised it
   let carry: { seen: Set<string>, reported: Set<unknown> } | undefined
@@ -430,7 +473,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
   // the source pointer is computed when a sink listens (pointerOf indexes the whole source once); otherwise the node
   // is remembered, so that a later replay to a sink (memo hit, result cache) can still compute it
-  const pendingPointers = new WeakMap<MergeIssue, { index: ResolutionIndex, node: unknown }>()
+  const pendingPointers = new LazyWeakMap<MergeIssue, { index: ResolutionIndex, node: unknown }>()
 
   const setPointer = (issue: MergeIssue, index: ResolutionIndex, node: unknown) => {
     if (activeSink()) {
@@ -567,12 +610,12 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   // rules -> memo (VR-33: a memo never answers for other rules). Merged conjunctions are shared across documents
   // (D-11), except outputs holding a cycle `$ref` into their own document (`tainted`)
   let memos = new WeakMap<object, TupleMemo>()
-  const tainted = new WeakSet<object>()
+  const tainted = new LazyWeakSet<object>()
   // outputs holding a pointer into their own call's output (a cycle re-entry to an output location, a D-22 site):
   // never reused by another call
-  const localOwner = new WeakMap<object, CallState>()
+  const localOwner = new LazyWeakMap<object, CallState>()
   // $ref nodes the merge emitted that are valid by construction (rule 3 / D-17 does not look at them)
-  const ownRefs = new WeakSet<object>()
+  const ownRefs = new LazyWeakSet<object>()
 
   // a finished output (memo entry, container cache) may be written into the current call's output
   const reusable = (c: CallState, output: unknown, source: unknown): boolean => {
@@ -581,22 +624,22 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return owner ? owner === c : source === c.index.source
   }
   // finished output of a `properties`-like container, per input container (for copies made by the groups)
-  let containerOutput = new WeakMap<object, { output: object, source: unknown, rules: unknown }>()
+  let containerOutput = new LazyWeakMap<object, { output: object, source: unknown, rules: unknown }>()
   // whole-document merge (D-17): rewritable nodes kept unmerged because a $ref of the output points through them
   let keepUnmerged: Set<object> | undefined
-  const splitCache = new WeakMap<object, SplitNode>()
-  const refRestCache = new WeakMap<object, Record<string, any> | null>()
+  const splitCache = new LazyWeakMap<object, SplitNode>()
+  const refRestCache = new LazyWeakMap<object, Record<string, any> | null>()
   const inProgress = new Set<MemoEntry>()
   // $ref-inlined item -> its copy without identity keywords (stable, so memo keys stay stable), and back
-  const identityFree = new WeakMap<object, Record<string, any>>()
-  const identityOrigin = new WeakMap<object, object>()
+  const identityFree = new LazyWeakMap<object, Record<string, any>>()
+  const identityOrigin = new LazyWeakMap<object, object>()
 
   // refAnnotations (#222): $ref-inlined item -> its copy without identity keywords and without the inherited
   // annotations (stable, like identityFree)
   const dropInherited = inheritedKeyFilter(options.refAnnotations)
-  const inheritedFree = new WeakMap<object, Record<string, any>>()
+  const inheritedFree = new LazyWeakMap<object, Record<string, any>>()
   // allOf nodes made by distributing oneOf/anyOf siblings -> the branch they hold (its $ref target keeps its annotations)
-  const distributedBranch = new WeakMap<object, unknown>()
+  const distributedBranch = new LazyWeakMap<object, unknown>()
 
   const withoutInherited = (item: Record<string, any>): Record<string, any> => {
     if (!dropInherited) { return withoutIdentity(item) }
@@ -629,7 +672,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
   // number of object / array nodes of an input subtree: what one inlining of it copies at most (expansionBudget).
   // Iterative, cycle safe, memoized per target, counting stops just above the budget
-  const weights = new WeakMap<object, number>()
+  const weights = new LazyWeakMap<object, number>()
   const weightOf = (target: object): number => {
     let weight = weights.get(target)
     if (weight !== undefined) { return weight }
@@ -683,36 +726,11 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     inProgress.clear()
   }
 
-  const newCall = (index: ResolutionIndex, rules: unknown): CallState => ({
-    index,
-    memo: memoFor(rules),
-    budget: { remaining: settings.branchBudget },
-    stack: [],
-    active: new Map(),
-    done: new WeakMap(),
-    outputCounts: new WeakMap(),
-    finished: new WeakSet(),
-    inlined: new Map(),
-    expanded: 0,
-    reported: new Set(carry?.reported),
-    rewritten: new Set(),
-    ownerRefs: false,
-    owners: new Map(),
-    wholeDocument: false,
-    sites: new Map(),
-    siteNodes: new Map(),
-    sitePositions: [],
-    asyncApi3: detectAsyncApiVersion(index.source) === "3.0",
-    shifts: new WeakMap(),
-    issueKeys: new Set(carry?.seen),
-    seen: new Set(carry?.seen),
-    prior: carry?.seen,
-    issues: [],
-    verified: new WeakSet(),
-    unclean: new WeakSet(),
-  })
+  const newCall = (index: ResolutionIndex, rules: unknown): CallState => new CallState(index, memoFor(rules), settings.branchBudget, carry)
 
-  let call: CallState = newCall(createResolutionIndex(undefined), undefined)
+
+  // replaced by the state of a merge call when the clone pass visits the root
+  let call: CallState = IDLE_CALL
 
   const split = (node: Record<string, any>): SplitNode => {
     let cached = splitCache.get(node)
@@ -1489,7 +1507,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     // fast path: a subtree that needs no work is copied without frames, rule resolution or link checks; one
     // output instance per input instance (D-11)
     if (!rewalk && !forceNoMerge && !parent?.noMerge && engine.fastPath !== false) {
-      if (!c.unclean.has(value)) {
+      if (!c.hasUnclean || !c.unclean.has(value)) {
         const height = subtreeHeight(value)
         if (height !== DIRTY && depth + height <= settings.maxDepth) {
           const copy = cleanCopy(c, value)
@@ -2040,7 +2058,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
   // fragment mode: (source, value, rules) -> finished output and its issues. A merger's options are fixed and inputs
   // must not change while it is in use, so a repeated call returns the same output and replays the issues
-  const results = new WeakMap<object, WeakMap<object, Map<unknown, { output: unknown, issues: MergeIssue[] }>>>()
+  const results = new LazyWeakMap<object, WeakMap<object, Map<unknown, { output: unknown, issues: MergeIssue[] }>>>()
 
   const cachedResult = (source: unknown, value: unknown, rules: unknown) => {
     if (typeof source !== "object" || source === null || typeof value !== "object" || value === null) { return undefined }
@@ -2098,7 +2116,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         result = syncClone(value, hook, { rules, circular: false })
         // finish the frames of the last path (done memo, inlining counts, cycle-$ref taint)
         popFrames(call, FLUSH)
-        if (!wholeDocument || !call.ownerRefs || !call.rewritten.size) { break }
+        if (!wholeDocument || !call.ownerRefs || !call.hasRewritten) { break }
         // D-17 fallback: a $ref left in the output that D-22 could neither link nor copy (kept by maxRefExpansion /
         // expansionBudget / maxDepth, outside a schema location, inside the siblings of a link) whose pointer runs
         // through a node the merge rewrote would dangle or resolve to the merged value: keep those nodes unmerged and
@@ -2115,7 +2133,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         carry = { seen: call.seen, reported: call.reported }
         // the memo and the container cache hold outputs merged without the kept nodes
         memos = new WeakMap()
-        containerOutput = new WeakMap()
+        containerOutput = new LazyWeakMap()
       }
       // the nodes the D-17 fallback kept unmerged (their members are merged)
       for (const node of keepUnmerged ?? []) {
@@ -2131,7 +2149,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         // outputs merged with kept nodes are not shared with later calls
         keepUnmerged = undefined
         memos = new WeakMap()
-        containerOutput = new WeakMap()
+        containerOutput = new LazyWeakMap()
       }
       configuredSource = previousSource
       hasConfiguredSource = previousHasSource
