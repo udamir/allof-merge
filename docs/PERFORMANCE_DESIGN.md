@@ -127,3 +127,11 @@ P1. **Raw `hook` / `allOfResolverHook`.** With the walker, `merge` no longer run
 P2. **Timing.** Phase 1 changes no behaviour and can ship in 1.0.x; phase 2 is a larger internal change. Options: (a) phase 1 before the 1.0.0 release, phase 2 in 1.1.0; (b) both before 1.0.0; (c) only phase 1. Recommendation: (a).
 
 P3. **Gate on wide-2000.** ≤ 18 ms is "about @x0k's speed with $ref resolution, rule sets and issues". Is that the right bar, or should the target be relative (e.g. 2× faster than 1.0.0 on every plain-schema workload)?
+
+## 9. User decisions (2026-11-18)
+
+| Question | Decision |
+|---|---|
+| P1 raw hook | Keep `hook` / `allOfResolverHook` on the json-crawl implementation in 1.x; `merge` / `merger.merge` move to the walker; adapter or removal is decided for 2.0. |
+| P2 timing | Phase 1 before the 1.0.0 release, phase 2 (the walker) in 1.1.0. |
+| P3 gate | Best effort: no hard numbers; the §1 gates stay as targets to report against, the hard constraints (identical output and issues, no regression on the document workloads) still apply. |
