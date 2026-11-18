@@ -238,8 +238,8 @@ Compared with allof-merge 0.6.8 and the other popular `allOf` mergers on npm (fu
 |---|---:|---:|---:|---:|---:|---:|
 | Equivalent result, 968 test cases without `$ref` | 99.2 % | 78.9 % | 80.9 % | 72.7 % | 90.8 % | 68.7 % |
 | Equivalent result, 218 test cases with `$ref` | 100 % | 82.6 % | 85.8 % | 94.0 % | 93.6 % | 86.2 % |
-| GitHub REST API (12 MB OpenAPI), ms | 120 | 1 464 | 580 | n/a | n/a | n/a |
-| 586 small real-world schemas, ms | 11.5 | 79 | 84 | 39 | 9.3 | 42 |
+| GitHub REST API (12 MB OpenAPI), ms | 100 | 1 462 | 559 | n/a | n/a | n/a |
+| 586 small real-world schemas, ms | 9.0 | 79 | 83 | 37 | 8.6 | 39 |
 
 Libraries without `$ref` resolution cannot merge OpenAPI documents (n/a). @fastify/merge-json-schemas and @x0k/json-schema-merge are faster on large synthetic schemas without `$ref`, but they throw on 23 % and 5 % of the cases.
 

@@ -18,13 +18,13 @@ Milliseconds per merge, min (median); a fresh copy of the input per run, not tim
 
 | Workload | allof-merge 1.0 (this branch) | allof-merge 0.6.8 (released) | @redocly/allof-merge | json-schema-merge-allof | @stoplight/json-schema-merge-allof | @x0k/json-schema-merge | @fastify/merge-json-schemas |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| data.json | 0.77 (1.00) ◐ | 1.57 (1.75) | 1.16 (1.33) | 4.17 (4.46) | 3.11 (3.36) | throws | throws |
-| wide-2000 | 44.5 (50.3) | 149 (152) | 91.7 (95.4) | 222 (227) | 170 (175) | 16.5 (18.2) | 5.58 (6.59) |
-| deep-200 | 3.48 (3.82) | 85.1 (89.1) | 14.6 (15.7) | 9111 (9205) | 524 (537) | 3.67 (4.19) | 0.41 (0.43) |
-| combinators-100 | 8.33 (10.7) ◐ | 36.7 (38.5) | 22.8 (24.4) | 64.7 (67.0) | 56.0 (59.3) | 4.33 (4.50) | 1.13 (1.22) |
-| js-allof-200 | 3.48 (3.71) | 19.4 (20.3) | 14.4 (15.0) | n/a | n/a | n/a | n/a |
-| github-rest | 120 (132) | 1464 (1520) | 580 (593) | n/a | n/a | n/a | n/a |
-| corpus-586 | 11.5 (13.9) | 79.2 (81.9) | 83.9 (89.1) | 39.0 (41.0) | 30.1 (31.7) | 9.32 (10.0) | 41.7 (44.1) |
+| data.json | 0.65 (1.00) ◐ | 1.66 (1.91) | 1.10 (1.31) | 3.79 (4.36) | 2.88 (3.34) | throws | throws |
+| wide-2000 | 31.5 (40.1) | 146 (152) | 87.5 (90.4) | 207 (212) | 161 (167) | 15.5 (17.4) | 5.52 (6.93) |
+| deep-200 | 2.85 (3.40) | 85.7 (89.9) | 14.9 (15.7) | 8869 (8887) | 502 (520) | 3.66 (3.87) | 0.41 (0.42) |
+| combinators-100 | 5.83 (7.30) ◐ | 36.4 (38.3) | 21.6 (22.7) | 60.3 (63.2) | 52.8 (55.3) | 4.11 (4.30) | 1.05 (1.11) |
+| js-allof-200 | 3.65 (4.26) | 17.9 (19.4) | 13.6 (14.6) | n/a | n/a | n/a | n/a |
+| github-rest | 99.9 (112) | 1462 (1489) | 559 (584) | n/a | n/a | n/a | n/a |
+| corpus-586 | 8.97 (11.7) | 78.5 (79.7) | 82.6 (85.4) | 37.0 (38.6) | 28.6 (30.8) | 8.58 (9.13) | 38.5 (40.2) |
 
 - `data.json`: the repository's benchmark schema: 56 allOf over most keywords (6.5 KB)
 - `wide-2000`: 2 000 properties, each an allOf of two object fragments

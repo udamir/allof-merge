@@ -2,7 +2,7 @@
 
 ## 1.0.0
 
-A new merge engine. Merged schemas now accept exactly the values the input accepts in far more cases (99 % of the benchmark's test cases, 0.6.8: 79 %), whole documents merge 4–12× faster, and problems are reported as issues instead of being dropped silently. `merge`, `allOfResolverHook`, the rule factories, `onMergeError` and `onRefResolveError` keep their signatures.
+A new merge engine. Merged schemas now accept exactly the values the input accepts in far more cases (99 % of the benchmark's test cases, 0.6.8: 79 %), whole documents merge 5–15× faster, and problems are reported as issues instead of being dropped silently. `merge`, `allOfResolverHook`, the rule factories, `onMergeError` and `onRefResolveError` keep their signatures.
 
 ### Breaking changes
 
@@ -61,4 +61,4 @@ A new merge engine. Merged schemas now accept exactly the values the input accep
 
 ### Performance
 
-- Whole documents merge 4–12× faster than 0.6.8 (GitHub REST API, 12 MB: 1.46 s → 0.12 s), in linear time in document depth and in the number of `$ref` usages.
+- Whole documents merge 5–15× faster than 0.6.8 (GitHub REST API, 12 MB: 1.46 s → 0.10 s), small schemas about 9× faster, in linear time in document depth and in the number of `$ref` usages.
