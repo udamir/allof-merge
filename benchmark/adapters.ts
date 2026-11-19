@@ -20,7 +20,7 @@ import * as x0kArray from "@x0k/json-schema-merge/lib/array"
 import * as allofMerge06 from "allof-merge-0.6"
 import * as redocly from "@redocly/allof-merge"
 
-// allof-merge 1.0: the build of this repository, linked as a dependency (`pnpm start` builds it first)
+// allof-merge: the build of this repository, linked as a dependency (`pnpm start` builds it first)
 import * as allofMerge10 from "allof-merge"
 import pkg from "allof-merge/package.json" with { type: "json" }
 
@@ -69,7 +69,7 @@ const fastifyDeep = deepAllOf((schemas) => fastifyMergeSchemas(schemas as any[])
 
 export const ADAPTERS: Adapter[] = [
   {
-    name: "allof-merge 1.0 (this branch)",
+    name: `allof-merge ${pkg.version} (this branch)`,
     version: `${pkg.version} (this repository)`,
     mergeSchema: (schema, profile) => allofMerge10.merge(schema, { rules: allofMerge10.jsonSchemaMergeRules(profile) }),
     mergeDocument: (document) => allofMerge10.merge(document),
