@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0
+## 1.0.1
 
 A new merge engine. Merged schemas now accept exactly the values the input accepts in far more cases (99 % of the benchmark's test cases, 0.6.8: 79 %), whole documents merge 5–15× faster, and problems are reported as issues instead of being dropped silently. `merge`, `allOfResolverHook`, the rule factories, `onMergeError` and `onRefResolveError` keep their signatures.
 
@@ -10,7 +10,7 @@ A new merge engine. Merged schemas now accept exactly the values the input accep
 
 - Node.js 22 or later.
 - ESM and CommonJS builds only (`dist/index.js`, `dist/index.cjs`); the browser bundle `allof-merge.min.js` (global `AllofMerge`) is no longer published. In browsers, use a bundler or an ESM CDN.
-- `json-crawl` 1.x is a regular dependency instead of being inlined. If you call `syncClone` with `allOfResolverHook` yourself, pass `{ circular: false }`. Custom prefix rules are written `"/x-*"` (0.6: `"/^"`).
+- `json-crawl` 1.2 with its lazy paths (`lazyPath: true`). If you call `syncClone` with `allOfResolverHook` yourself, pass `{ circular: false }`. Custom prefix rules are written `"/x-*"` (0.6: `"/^"`).
 - Removed unused helpers: `MapArray`, `isEqual` (use `deepEqual`), `getPropertiesForMerge`, `getPatternPropertiesForMerge`, the types `AllOfRef` and `NormalizeResponse`, and the ignored third parameter of `resolvePointer`.
 
 **Output**

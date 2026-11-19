@@ -368,7 +368,8 @@ interface DoneEntry {
 
 const NOT_DONE: unique symbol = Symbol("not done")
 
-// depth up to which json-crawl stores a node's path as an array; deeper paths are rebuilt from parent links when read
+// depth up to which a merged node's path is read and handed to intersect; deeper paths take O(depth) to build, so
+// intersect gets the context and reads the path only if a rule or resolver needs it
 const EAGER_PATH_DEPTH = 128
 
 // subtreeHeight of a subtree that needs work
@@ -849,7 +850,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   }
 
   // pops the frames of finished nodes: the parent of the visited node is the frame whose clone is `container`
-  // (the state.node json-crawl hands to the children); no path is read (json-crawl builds deep paths lazily)
+  // (the state.node json-crawl hands to the children); no path is read (json-crawl builds paths lazily)
   const popFrames = (c: CallState, container: unknown) => {
     const { stack } = c
     while (stack.length) {
@@ -1807,7 +1808,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         ? safeClone(schemas[0] as Record<string, any>)
         : intersectIn(c, schemas, {
             mergeRules: rules,
-            // json-crawl keeps paths up to this depth as arrays (free to read); deeper ones are built on first read
+            // a path up to this depth is cheap to build and lets intersect use plain contexts; deeper ones stay lazy
             path: frame.depth <= EAGER_PATH_DEPTH ? ctx.path : undefined,
             at: frame.depth <= EAGER_PATH_DEPTH ? undefined : ctx,
             branchBudget: settings.branchBudget,
@@ -2134,8 +2135,9 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       }
       let result: unknown
       for (;;) {
-        // circular: false: the hook keeps its own identity memo (shared outputs) and cycle detection
-        result = syncClone(value, hook, { rules, circular: false })
+        // circular: false: the hook keeps its own identity memo (shared outputs) and cycle detection; lazyPath: a
+        // node's path is built only when it is read (an issue, a $ref site, a merged allOf), most nodes never read it
+        result = syncClone(value, hook, { rules, circular: false, lazyPath: true })
         // finish the frames of the last path (done memo, inlining counts, cycle-$ref taint)
         popFrames(call, FLUSH)
         if (!wholeDocument || !call.ownerRefs || !call.hasRewritten) { break }

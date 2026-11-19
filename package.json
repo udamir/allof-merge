@@ -1,6 +1,6 @@
 {
   "name": "allof-merge",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Merge allOf in JSON Schema, OpenAPI, AsyncAPI and GraphApi documents into equivalent schemas without allOf",
   "keywords": [
     "json",
@@ -57,7 +57,7 @@
     "prepublishOnly": "pnpm run check && pnpm test && pnpm run build"
   },
   "dependencies": {
-    "json-crawl": "^1.0.0"
+    "json-crawl": "^1.2.0"
   },
   "devDependencies": {
     "@cfworker/json-schema": "^4.1.6",
