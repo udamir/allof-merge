@@ -31,6 +31,9 @@ export interface MergeOptions {
   maxDepth?: number               // max nesting depth that is merged; deeper nodes are copied without merging (default 2000)
   freezeOutput?: boolean          // deep-freeze the merged output (default false)
   refAnnotations?: RefAnnotations // annotations inherited through $ref: "merge" (default), "omit" or a key list (#222)
+  keepSourceOrder?: boolean       // keys, properties and enum / required members of a merged node in the order they are
+                                  // first written in the source (default false: allOf members, then the $ref target,
+                                  // then the node's own keywords); which value wins is unchanged
   // always-safe simplifications of merged nodes (equivalences; each default true)
   dedupeAnyOf?: boolean           // identical anyOf branches of a merged node are kept once (never oneOf)
   dedupeFragments?: boolean       // identical allOf parts kept in a merged node are kept once

@@ -3,7 +3,7 @@ import { JSON_ROOT_KEY, type JsonPath, type SyncCloneHook, syncClone } from "jso
 import type { MergeOptions, MergeRule, MergeRules, Merger, RefAnnotations } from "./types.ts"
 import { type IssueHint, type MergeIssue, type MergeIssueCode, type MergeIssueSeverity, ISSUE_MESSAGES, MERGE_ISSUES, atLevel } from "./issues.ts"
 import { type JsonSchemaVersion, asyncApiMergeRules, asyncApiSchemaMergeRules, detectAsyncApiVersion, graphapiMergeRules, jsonSchemaMergeRules, openApiJsonSchemaMergeRules, openApiMergeRules, unwrapSchemaFormat } from "./rules/index.ts"
-import { dedupeValues, deepEqual, isAnchorPointer, isAnyOfNode, isEmptyObject, isOneOfNode, isPlainObject, isRefNode, parseRef } from "./utils.ts"
+import { canonicalKey, dedupeValues, deepEqual, isAnchorPointer, isAnyOfNode, isEmptyObject, isOneOfNode, isPlainObject, isRefNode, parseRef } from "./utils.ts"
 import { buildPointer, parsePointer } from "./pointer.ts"
 import { type ResolutionIndex, type ResolveResult, createResolutionIndex } from "./resolve.ts"
 import { mergeCombinarySibling } from "./resolvers/combinary.ts"
@@ -241,6 +241,8 @@ const FLUSH = Object.freeze({})
 
 // separates the merged items from the kept (unevaluated*) fragments in a memo key
 const FRAGMENT_MARK = Object.freeze({})
+// separates the items of a memo key from the same items in source order (keepSourceOrder)
+const ORDER_MARK = Object.freeze({})
 
 // one object node on the current clone path
 interface Frame {
@@ -368,7 +370,8 @@ interface DoneEntry {
 
 const NOT_DONE: unique symbol = Symbol("not done")
 
-// depth up to which json-crawl stores a node's path as an array; deeper paths are rebuilt from parent links when read
+// depth up to which a merged node's path is read and handed to intersect; deeper paths take O(depth) to build, so
+// intersect gets the context and reads the path only if a rule or resolver needs it
 const EAGER_PATH_DEPTH = 128
 
 // subtreeHeight of a subtree that needs work
@@ -407,6 +410,118 @@ interface Collected {
   unmergeable: { message: string, ref: string }[] // $refs to schemas in a format that is not JSON Schema (kept)
   limited?: InlinedTarget & { budget: boolean } // a target already inlined maxRefExpansion times, or the expansion
                                                 // budget is spent (collecting stopped)
+  written?: Written[]            // keepSourceOrder: every key of every item, in the order the source writes them
+  interleaved?: boolean          // keepSourceOrder: the keys of an item are placed among the parts of another object
+}
+
+// keepSourceOrder: where a part of a merged node is written. A number: a part of its own at that key position of the
+// object that holds it (allOf members at the position of `allOf`, in member order); an object: content of that
+// object, whose keys are placed by its key order among its other parts (the sibling content of a node)
+type Placement = number | object
+
+// the placements of the items handed to collectItems, and of the sibling content (by its own key order when undefined)
+interface ItemsOrder {
+  placements: Placement[]
+  sibling?: object
+}
+
+// a part in source order: the collected items whose keys are placed in it, and the parts written inside it
+interface OrderPart {
+  items: { index: number, source: object | undefined }[]
+  parts: { at: number, sub: number, part: OrderPart }[]
+}
+
+// a part written at key position `at` (allOf members: `sub` is the member index) of `place`
+const partOf = (place: OrderPart, at: number, sub: number): OrderPart => {
+  const part: OrderPart = { items: [], parts: [] }
+  place.parts.push({ at, sub, part })
+  return part
+}
+
+// where an item with `placement` in `place` is collected: a part of its own, or `place` with the given key order
+const placed = (place: OrderPart, placement: Placement, sub: number): { place: OrderPart, src: object | undefined } => {
+  return typeof placement === "number" ? { place: partOf(place, placement, sub), src: undefined } : { place, src: placement }
+}
+
+// a key of a collected item
+interface Written {
+  index: number                  // the item
+  key: string
+}
+
+// a key position after every position of the source (a part whose place is unknown)
+const LAST_POSITION = Number.MAX_SAFE_INTEGER
+
+// objects merged from several sources (`mergeObjects`) nested deeper than this keep their order
+const MAX_ORDER_DEPTH = 64
+
+// `map` with its keys in order of first appearance in `maps` (keys that are in none of them last), and so are the
+// objects in it that were merged from several of their values; the same object when that is its order
+const keysInOrder = (map: Record<string, unknown>, maps: Record<string, unknown>[], depth = 0): Record<string, unknown> => {
+  // key -> its object values in `maps`, in order (the key's order is the order of this map)
+  const order = new Map<string, Record<string, unknown>[]>()
+  for (const source of maps) {
+    for (const key of Object.keys(source)) {
+      let nested = order.get(key)
+      if (!nested) { order.set(key, nested = []) }
+      if (isPlainObject(source[key])) { nested.push(source[key]) }
+    }
+  }
+  const places = new Map<string, number>()
+  for (const key of order.keys()) { places.set(key, places.size) }
+  const keys = Object.keys(map)
+  const sorted = [...keys].sort((a, b) => (places.get(a) ?? LAST_POSITION) - (places.get(b) ?? LAST_POSITION))
+  let changed = sorted.some((key, i) => key !== keys[i])
+  const values: Record<string, unknown> = {}
+  for (const key of keys) {
+    let value = map[key]
+    if (isPlainObject(value) && depth < MAX_ORDER_DEPTH) {
+      const nested = order.get(key)
+      if (nested && nested.length > 1 && !nested.includes(value)) { value = keysInOrder(value, nested, depth + 1) }
+    }
+    if (value !== map[key]) { changed = true }
+    safeSet(values, key, value)
+  }
+  if (!changed) { return map }
+  const result: Record<string, unknown> = {}
+  for (const key of sorted) { safeSet(result, key, values[key]) }
+  return result
+}
+
+// `members` in order of first appearance in `lists` (members that are in none of them last, objects compared
+// structurally); the same array when that is its order
+const membersInOrder = (members: unknown[], lists: unknown[][]): unknown[] => {
+  if (lists.length < 2 || members.length < 2) { return members }
+  // member -> first index: primitives by value, objects by canonical key (structural); objects without a key by deepEqual
+  const primitives = new Map<unknown, number>()
+  const keyed = new Map<string, number>()
+  const unkeyed: { value: unknown, index: number }[] = []
+  let index = 0
+  for (const list of lists) {
+    for (const member of list) {
+      if (typeof member !== "object" || member === null) {
+        if (!primitives.has(member)) { primitives.set(member, index) }
+      } else {
+        const key = canonicalKey(member)
+        if (key === undefined) {
+          unkeyed.push({ value: member, index })
+        } else if (!keyed.has(key)) {
+          keyed.set(key, index)
+        }
+      }
+      index++
+    }
+  }
+  const placeOf = (member: unknown): number => {
+    if (typeof member !== "object" || member === null) { return primitives.get(member) ?? LAST_POSITION }
+    const key = canonicalKey(member)
+    if (key !== undefined) { return keyed.get(key) ?? LAST_POSITION }
+    return unkeyed.find((entry) => deepEqual(entry.value, member))?.index ?? LAST_POSITION
+  }
+  const places = members.map(placeOf)
+  if (places.every((place, i) => !i || places[i - 1] <= place)) { return members }
+  const indexes = members.map((_, i) => i).sort((a, b) => places[a] - places[b])
+  return indexes.map((i) => members[i])
 }
 
 type RefOrigin = { $ref: string }
@@ -425,6 +540,8 @@ interface Work {
                            // annotations listed by refAnnotations are not copied (#222)
   resolution?: boolean     // a $ref item whose target is read as the item's own content (a copy, a oneOf/anyOf
                            // branch distributed by mergeCombinarySibling): its target keeps its annotations
+  place?: OrderPart        // keepSourceOrder: the part the item's keys are placed in
+  src?: object             // keepSourceOrder: the object whose key order places the item's keys (default: the item)
 }
 
 // identity keywords: only the merged node's own survive; those of $ref-inlined items would duplicate ids/anchors
@@ -467,6 +584,7 @@ const deepFreeze = <T>(value: T): T => {
  */
 export const createMerger = (options: MergeOptions = {}): Merger => {
   const { mergeRefSibling, mergeCombinarySibling: mergeCombinary, onMergeError, onRefResolveError } = options
+  const keepSourceOrder = options.keepSourceOrder === true
   const settings = resolveMergeSettings(options)
   const notEmpty = settings.unsatisfiable === "not-empty"
 
@@ -665,6 +783,22 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   // allOf nodes made by distributing oneOf/anyOf siblings -> the branch they hold (its $ref target keeps its annotations)
   const distributedBranch = new LazyWeakMap<object, unknown>()
 
+  // keepSourceOrder: `{ allOf }` nodes the engine created -> where their members are written in the source, when that
+  // is not the order of the members (which decides which value wins)
+  const freshOrder = new LazyWeakMap<object, Placement[]>()
+  // object -> position of each of its keys
+  const keyPositions = new LazyWeakMap<object, Map<string, number>>()
+  const positionIn = (source: object, key: string): number => {
+    let positions = keyPositions.get(source)
+    if (!positions) {
+      positions = new Map()
+      const keys = Object.keys(source)
+      for (let i = 0; i < keys.length; i++) { positions.set(keys[i], i) }
+      keyPositions.set(source, positions)
+    }
+    return positions.get(key) ?? LAST_POSITION
+  }
+
   const withoutInherited = (item: Record<string, any>): Record<string, any> => {
     if (!dropInherited) { return withoutIdentity(item) }
     let cached = inheritedFree.get(item)
@@ -849,7 +983,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
   }
 
   // pops the frames of finished nodes: the parent of the visited node is the frame whose clone is `container`
-  // (the state.node json-crawl hands to the children); no path is read (json-crawl builds deep paths lazily)
+  // (the state.node json-crawl hands to the children); no path is read (json-crawl builds paths lazily)
   const popFrames = (c: CallState, container: unknown) => {
     const { stack } = c
     while (stack.length) {
@@ -1323,6 +1457,13 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       c.budget.remaining -= cost
     }
     const result = mergeCombinarySibling(node as any, combinaryKey, rule)
+    if (keepSourceOrder && result !== node) {
+      // each branch is `{ allOf: [sibling content, branch] }`: in source order the branch comes where the node writes
+      // its oneOf/anyOf, the sibling content keys where the node writes them
+      const at = positionIn(node, combinaryKey)
+      const branches = (result as Record<string, any>)[combinaryKey] as object[]
+      for (const branch of branches) { freshOrder.set(branch, [node, at]) }
+    }
     if (dropInherited && result !== node) {
       // the branch keeps the annotations of its $ref target (doc viewers label branches by them, #222)
       for (const branch of (result as Record<string, any>)[combinaryKey] as { allOf: unknown[] }[]) {
@@ -1332,14 +1473,150 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     return result
   }
 
+  // keepSourceOrder: every key of the collected items in the order the source writes them: the parts are walked in
+  // source order, each part's keys and inner parts by key position. Iterative (long $ref / allOf chains)
+  const writtenOrder = (root: OrderPart, items: unknown[]): { written: Written[], interleaved: boolean } => {
+    type Slot = { at: number, sub: number, index: number, key: string, part?: OrderPart }
+    let interleaved = false
+    const slotsOf = (part: OrderPart): Slot[] => {
+      const slots: Slot[] = []
+      for (const { index, source } of part.items) {
+        const item = items[index]
+        if (!isPlainObject(item)) { continue }
+        if (source) { interleaved = true }
+        const keys = Object.keys(item)
+        for (let k = 0; k < keys.length; k++) {
+          slots.push({ at: source ? positionIn(source, keys[k]) : k, sub: -1, index, key: keys[k] })
+        }
+      }
+      for (const { at, sub, part: inner } of part.parts) { slots.push({ at, sub, index: -1, key: "", part: inner }) }
+      return slots.sort((a, b) => a.at - b.at || a.sub - b.sub)
+    }
+    const written: Written[] = []
+    const stack: { slots: Slot[], next: number }[] = [{ slots: slotsOf(root), next: 0 }]
+    while (stack.length) {
+      const top = stack[stack.length - 1]
+      if (top.next === top.slots.length) {
+        stack.pop()
+        continue
+      }
+      const slot = top.slots[top.next++]
+      if (slot.part) {
+        stack.push({ slots: slotsOf(slot.part), next: 0 })
+      } else {
+        written.push({ index: slot.index, key: slot.key })
+      }
+    }
+    return { written, interleaved }
+  }
+
+  // keepSourceOrder: the items in the order they are first written in the source, or undefined when that is their order
+  const inWrittenOrder = <T>(items: T[], written: Written[]): T[] | undefined => {
+    const order: number[] = []
+    const placed = new Set<number>()
+    for (const { index } of written) {
+      if (!placed.has(index)) {
+        placed.add(index)
+        order.push(index)
+      }
+    }
+    for (let i = 0; i < items.length; i++) {
+      if (!placed.has(i)) { order.push(i) }
+    }
+    return order.some((index, i) => index !== i) ? order.map((index) => items[index]) : undefined
+  }
+
+  // keepSourceOrder: the merged node with its keys, the members of its merged maps (`properties`, `$defs`, ...) and of
+  // its `required` / `enum` in the order they are first written in the source. Which value wins is already decided (by
+  // the order of the items). The `{ allOf }` nodes the merge created for its schema-valued keys get the source order of
+  // their members, so that their merge follows it too.
+  // `simple`: the items are in source order and none is placed among the parts of another object
+  const inSourceOrder = (c: CallState, merged: Record<string, any>, items: Record<string, any>[], written: Written[], simple: boolean): Record<string, any> => {
+    if (simple) {
+      // every item is placed after the previous one: the merged maps, required / enum and the members of the created
+      // nodes already follow the source, only the keys of the node may not (keyword groups set their keys first)
+      return keysInOrder(merged, items.filter(isPlainObject), MAX_ORDER_DEPTH)
+    }
+
+    // key -> its values in source order (the key's order is its first appearance)
+    const byKey = new Map<string, unknown[]>()
+    for (const { index, key } of written) {
+      let values = byKey.get(key)
+      if (!values) { byKey.set(key, values = []) }
+      values.push(items[index][key])
+    }
+    const valuesOf = (key: string): unknown[] => byKey.get(key) ?? []
+
+    // input value -> its first place in `written` (values of the items' keys and their members)
+    let places: Map<object, number> | undefined
+    const placeOf = (value: unknown): number => {
+      if (!places) {
+        places = new Map()
+        for (let n = 0; n < written.length; n++) {
+          const value = items[written[n].index][written[n].key]
+          if (typeof value !== "object" || value === null) { continue }
+          if (!places.has(value)) { places.set(value, n) }
+          for (const member of Array.isArray(value) ? value : isPlainObject(value) ? Object.values(value) : []) {
+            if (typeof member === "object" && member !== null && !places.has(member)) { places.set(member, n) }
+          }
+        }
+      }
+      return typeof value === "object" && value !== null ? places.get(value) ?? LAST_POSITION : LAST_POSITION
+    }
+    // an engine-made `{ allOf }` node: the source order of its members, when it is not their order
+    const placeMembers = (node: unknown) => {
+      if (!isPlainObject(node) || !c.fresh.has(node) || !Array.isArray(node.allOf)) { return }
+      const at = node.allOf.map(placeOf)
+      if (at.every((place, i) => !i || at[i - 1] <= place)) { return }
+      freshOrder.set(node, at)
+    }
+
+    let changed = false
+    const values: Record<string, unknown> = {}
+    for (const key of Object.keys(merged)) {
+      let value = merged[key]
+      if (Array.isArray(value)) {
+        if (key === "required" || key === "enum") {
+          value = membersInOrder(value, valuesOf(key).filter(Array.isArray))
+        } else {
+          for (const member of value) { placeMembers(member) }
+        }
+      } else if (isPlainObject(value)) {
+        if (c.fresh.has(value)) {
+          placeMembers(value)
+        } else {
+          // a map merged from several items (a value of one item is kept as it is)
+          const maps = valuesOf(key).filter(isPlainObject)
+          if (maps.length > 1 && !maps.includes(value)) { value = keysInOrder(value, maps) }
+          for (const member of Object.values(value)) { placeMembers(member) }
+        }
+      }
+      if (value !== merged[key]) { changed = true }
+      safeSet(values, key, value)
+    }
+
+    // the keys of the node in order of first appearance; keys the merge made (kept `allOf` parts) come last
+    const first = new Map<string, number>()
+    for (const key of byKey.keys()) { first.set(key, first.size) }
+    const keys = Object.keys(merged)
+    const sorted = [...keys].sort((a, b) => (first.get(a) ?? LAST_POSITION) - (first.get(b) ?? LAST_POSITION))
+    if (!changed && sorted.every((key, i) => key === keys[i])) { return merged }
+    const result: Record<string, any> = {}
+    for (const key of sorted) { safeSet(result, key, values[key]) }
+    return result
+  }
+
   // expands the allOf items of `node`: $ref items are replaced from the index, nested allOf is flattened,
   // `true` and empty schemas are dropped, `false` is kept, duplicates and the node itself are skipped.
   // Iterative. Items carrying their own unevaluated* are kept whole as fragments.
   // `ownItem`: an item whose $ref target is read as the node's own content (true: every item, a copy; an object:
   // that item, the branch of a distributed oneOf/anyOf), whose annotations refAnnotations keeps
-  const collectItems = (c: CallState, items: unknown[], node: object, sibling?: Record<string, any>, ownItem?: unknown): Collected => {
+  // `order` (keepSourceOrder): where `items` and the sibling content are written in the node
+  const collectItems = (c: CallState, items: unknown[], node: object, sibling?: Record<string, any>, ownItem?: unknown, order?: ItemsOrder): Collected => {
     const seen = new Set<object>([node])
     const out: any[] = []
+    // keepSourceOrder: the parts of the node in source order, built while collecting (the merged node is the root)
+    const root: OrderPart | undefined = order ? { items: [], parts: [] } : undefined
     const broken: Collected["broken"] = []
     const unevaluated: object[] = []
     const fragments: object[] = []
@@ -1368,8 +1645,9 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
 
     const run = () => {
       while (work.length) {
-        const { item, nodeLevel, chain, origin, via, inlined, inherited, resolution } = work.pop() as Work
+        const { item, nodeLevel, chain, origin, via, inlined, inherited, resolution, place, src } = work.pop() as Work
         if (item === false) {
+          if (place) { place.items.push({ index: out.length, source: undefined }) }
           out.push(false)
           continue
         }
@@ -1389,6 +1667,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         if (hasOwn(item, "$ref") && !isRefNode(item)) {
           // an empty or non-string $ref cannot be resolved: a broken ref, the node is kept
           broken.push({ ref: typeof item.$ref === "string" ? item.$ref : String(item.$ref), code: "broken-ref" })
+          if (place) { place.items.push({ index: out.length, source: undefined }) }
           out.push(origin ?? item)
           continue
         }
@@ -1400,6 +1679,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
           if (!resolved.ok || target === item || (isRefNode(target) && chain?.has(target))) {
             const code = resolved.ok || resolved.reason === "cycle" ? "ref-cycle" : resolved.reason === "external" ? "external-ref" : "broken-ref"
             broken.push({ ref: item.$ref, code })
+            if (place) { place.items.push({ index: out.length, source: undefined }) }
             out.push(origin ?? item)
             continue
           }
@@ -1414,16 +1694,19 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
               fragments.push({ $ref: (origin ?? item).$ref })
               unmergeable.push({ message: unwrapped.message, ref: (origin ?? item).$ref })
               const rest = refRest(item)
-              if (rest) { work.push({ item: rest, nodeLevel, inlined, inherited }) }
+              if (rest) { work.push({ item: rest, nodeLevel, inlined, inherited, place, src: place ? src ?? item : undefined }) }
               continue
             }
             target = unwrapped.schema
           }
           const rest = refRest(item)
-          if (rest) { work.push({ item: rest, nodeLevel, inlined, inherited }) }
+          // keepSourceOrder: the sibling content stays in the item's part (its keys are placed by the item's key order),
+          // the target is a part written where the item writes its $ref
+          if (rest) { work.push({ item: rest, nodeLevel, inlined, inherited, place, src: place ? src ?? item : undefined }) }
           const followed = chain ?? new Set<object>()
           followed.add(item)
-          work.push({ item: target, nodeLevel: false, chain: followed, origin: origin ?? (item as RefOrigin), via: item.$ref, inlined: true, inherited: resolution ? inherited : true, resolution })
+          const targetPlace = place ? partOf(place, positionIn(src ?? item, "$ref"), 0) : undefined
+          work.push({ item: target, nodeLevel: false, chain: followed, origin: origin ?? (item as RefOrigin), via: item.$ref, inlined: true, inherited: resolution ? inherited : true, resolution, place: targetPlace })
           continue
         }
 
@@ -1431,12 +1714,19 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
           if (via && !inline(item, via)) { break }
           const parts = split(item)
           if (!parts.allOf) { malformed.push(item.allOf) }
-          if (parts.hasSibling) { work.push({ item: parts.sibling, nodeLevel, inlined, inherited }) }
+          if (parts.hasSibling) { work.push({ item: parts.sibling, nodeLevel, inlined, inherited, place, src: place ? src ?? item : undefined }) }
           if (parts.allOf) {
             // the components of a oneOf/anyOf product branch are branches themselves: a $ref component keeps its target's
             // annotations
             const components = productBranches.has(item) || undefined
-            for (let i = parts.allOf.length - 1; i >= 0; i--) { work.push({ item: parts.allOf[i], nodeLevel: false, inlined, inherited, resolution: components }) }
+            // keepSourceOrder: the members are placed where the item writes its allOf (or in the source order of an
+            // engine-made node)
+            const nested = place ? freshOrder.get(item) : undefined
+            const at = place && !nested ? positionIn(src ?? item, "allOf") : 0
+            for (let i = parts.allOf.length - 1; i >= 0; i--) {
+              const member = place ? placed(place, nested ? nested[i] : at, i) : undefined
+              work.push({ item: parts.allOf[i], nodeLevel: false, inlined, inherited, resolution: components, place: member?.place, src: member?.src })
+            }
           }
           continue
         }
@@ -1447,22 +1737,24 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
           break
         }
         if (empty || (via && !inline(item, via))) { continue }
+        if (place) { place.items.push({ index: out.length, source: src }) }
         out.push(inherited ? withoutInherited(item) : inlined ? withoutIdentity(item) : item)
       }
     }
 
     for (let i = items.length - 1; i >= 0; i--) {
       const item = items[i]
-      work.push({ item, nodeLevel: false, resolution: ownItem === true || (ownItem !== undefined && ownItem === item) })
+      const member = root ? placed(root, order!.placements[i], i) : undefined
+      work.push({ item, nodeLevel: false, resolution: ownItem === true || (ownItem !== undefined && ownItem === item), place: member?.place, src: member?.src })
     }
     run()
     const withoutSibling = out.length
     // the sibling content is one more item (a $ref sibling is resolved like any other item)
     if (sibling && !limited) {
-      work.push({ item: sibling, nodeLevel: true })
+      work.push({ item: sibling, nodeLevel: true, place: root, src: order?.sibling })
       run()
     }
-    return { items: out, broken, unevaluated, withoutSibling, fragments, targets, malformed, unmergeable, limited }
+    return { items: out, broken, unevaluated, withoutSibling, fragments, targets, malformed, unmergeable, limited, ...(root && writtenOrder(root, out)) }
   }
 
   const commitTargets = (c: CallState, frame: Frame, targets: InlinedTarget[]) => {
@@ -1600,6 +1892,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
     let items: unknown[]
     let sibling: Record<string, any> | undefined
     let ownItem: unknown
+    // keepSourceOrder: where the items and the sibling content are written in the node
+    let order: ItemsOrder | undefined
 
     if (hasOwn(node, "allOf")) {
       // a $ref of the output points through this allOf, the node is kept unmerged (its members are merged)
@@ -1616,6 +1910,10 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       // a oneOf/anyOf product branch: every component is a branch whose $ref target keeps its annotations;
       // a branch distributed by mergeCombinarySibling: that branch
       ownItem = productBranches.has(node) || distributedBranch.get(node)
+      if (keepSourceOrder) {
+        const at = positionIn(node, "allOf")
+        order = { placements: freshOrder.get(node) ?? items.map(() => at), sibling: node }
+      }
     } else if (c.wholeDocument && isRefNode(node) && !(mergeRefSibling && refRest(node)) && ownersOf(c, node.$ref).length) {
       // a $ref whose pointer runs through a node the merge rewrites would dangle (through an allOf member,
       // into a member a contradiction drops) or silently mean the merged, stricter value (a sibling member of a merged
@@ -1636,6 +1934,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       sibling = undefined
       // a reference resolution, not a merge: the target keeps its annotations (refAnnotations, #222)
       ownItem = true
+      // the `{ $ref }` item is placed by the node's key order (its target where the node writes $ref)
+      if (keepSourceOrder) { order = { placements: [node], sibling: node } }
       // the siblings apply next to the reference in every draft (author intent; draft-04/06/07 and OpenAPI 3.0
       // validators would ignore them): the copy is the conjunction of the target and the siblings
       if (rest) { sibling = rest }
@@ -1655,6 +1955,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         commitTargets(c, frame, [{ target, ref }])
         items = []
         sibling = withoutIdentity(target)
+        if (order) { order = { placements: [] } }
       }
     } else if (mergeRefSibling && isRefNode(node)) {
       const rest = refRest(node)
@@ -1671,6 +1972,8 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       c.rewritten.add(node)
       items = [{ $ref: node.$ref }]
       sibling = rest
+      // the `{ $ref }` item is placed by the node's key order (its target where the node writes $ref)
+      if (keepSourceOrder) { order = { placements: [node], sibling: node } }
     } else if (mergeCombinary) {
       // a $ref of the output points through this node, its siblings are not distributed
       if (keepUnmerged?.has(node)) { return }
@@ -1684,7 +1987,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       return pruneOnly(c, frame, node, state.node, nodeKey, rules)
     }
 
-    const collected = collectItems(c, items, node, sibling, ownItem)
+    const collected = collectItems(c, items, node, sibling, ownItem, order)
 
     if (collected.malformed.length) {
       emit(c, "malformed-allof-item", ctx, { message: ErrorMessage.malformedValue("allOf item"), values: collected.malformed, keyword: "allOf" })
@@ -1764,7 +2067,10 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       return { value: single, exitHook: () => simplifyMerged(c, frame, state.node, nodeKey, rules, report) }
     }
 
-    const memoKey: object[] = fragments.length ? [...schemas, FRAGMENT_MARK, ...fragments] : schemas
+    let memoKey: object[] = fragments.length ? [...schemas, FRAGMENT_MARK, ...fragments] : schemas
+    // keepSourceOrder: the same items written in another order give another output
+    const reordered = collected.written && inWrittenOrder(schemas, collected.written)
+    if (reordered) { memoKey = [...memoKey, ORDER_MARK, ...reordered] }
     let entry = c.memo.get(memoKey)
     // an output with a cycle $ref into another document is not reused for this one
     // an output with a cycle $ref into another document (or into another call's output) is not reused here
@@ -1803,11 +2109,11 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       const kept = settings.dedupeFragments ? dedupeValues(fragments) : fragments
       result = kept.length === 1 ? kept[0] : { allOf: [...kept] }
     } else {
-      const merged = schemas.length === 1
+      let merged = schemas.length === 1
         ? safeClone(schemas[0] as Record<string, any>)
         : intersectIn(c, schemas, {
             mergeRules: rules,
-            // json-crawl keeps paths up to this depth as arrays (free to read); deeper ones are built on first read
+            // a path up to this depth is cheap to build and lets intersect use plain contexts; deeper ones stay lazy
             path: frame.depth <= EAGER_PATH_DEPTH ? ctx.path : undefined,
             at: frame.depth <= EAGER_PATH_DEPTH ? undefined : ctx,
             branchBudget: settings.branchBudget,
@@ -1822,6 +2128,7 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
         return
       }
       if (merged === false) { return { value: contradiction(sibling) } }
+      if (collected.written) { merged = inSourceOrder(c, merged, schemas, collected.written, !reordered && !collected.interleaved) }
       if (fragments.length) {
         const allOf = Array.isArray(merged.allOf) ? [...merged.allOf, ...fragments] : [...fragments]
         safeSet(merged, "allOf", settings.dedupeFragments ? dedupeValues(allOf) : allOf)
@@ -2134,8 +2441,9 @@ export const createMerger = (options: MergeOptions = {}): Merger => {
       }
       let result: unknown
       for (;;) {
-        // circular: false: the hook keeps its own identity memo (shared outputs) and cycle detection
-        result = syncClone(value, hook, { rules, circular: false })
+        // circular: false: the hook keeps its own identity memo (shared outputs) and cycle detection; lazyPath: a
+        // node's path is built only when it is read (an issue, a $ref site, a merged allOf), most nodes never read it
+        result = syncClone(value, hook, { rules, circular: false, lazyPath: true })
         // finish the frames of the last path (done memo, inlining counts, cycle-$ref taint)
         popFrames(call, FLUSH)
         if (!wholeDocument || !call.ownerRefs || !call.hasRewritten) { break }

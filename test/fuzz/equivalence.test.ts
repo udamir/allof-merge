@@ -12,7 +12,7 @@ import { jsonSchemaMergeRules } from "../../src/index.ts"
 import { maxValue } from "../../src/resolvers/index.ts"
 import { caseArbitrary } from "./arbitraries.ts"
 import { KNOWN_AJV_ISSUES, PROFILES, ajvValidator, cfValidator, checkCase } from "./oracle.ts"
-import { formatAjvDisagreements, runProperty } from "./property.ts"
+import { formatAjvDisagreements, fuzzSettings, fuzzTimeout, runProperty } from "./property.ts"
 
 const countAllOf = (value: unknown): number => {
   if (!value || typeof value !== "object") { return 0 }
@@ -31,7 +31,7 @@ describe("fuzz: merged ≡ allOf (cfworker oracle)", () => {
       if (outcome.failed) { throw new Error(outcome.report) }
       // discarded cases (cfworker cannot load the original) must stay rare, or the property silently loses coverage
       expect(outcome.oracleErrors).toBeLessThan(outcome.numRuns * 0.02)
-    })
+    }, fuzzTimeout(fuzzSettings(profile).numRuns))
   }
 })
 
@@ -53,7 +53,7 @@ describe("fuzz: oracle and harness self-tests", () => {
     expect(JSON.stringify(schema)).toContain("maxLength")
     expect(JSON.stringify(schema).length).toBeLessThan(120)
     expect(outcome.report).toMatch(/seed: 42, path: /)
-  })
+  }, fuzzTimeout(1000))
 
   it("the same seed generates the same cases", () => {
     for (const profile of PROFILES) {

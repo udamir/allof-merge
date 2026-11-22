@@ -19,6 +19,10 @@ export default defineConfig({
   },
   test: {
     include: ["test/**/*.test.ts"],
+    // one worker per physical core on SMT machines: a worker is a whole V8 process with its own GC and compiler
+    // threads, and with the default (logical CPUs - 1) the CPU-bound files of the first wave ran 2.5-4x slower than
+    // alone, which pushed the fuzz property past its timeout; the suite takes as long either way
+    maxWorkers: "50%",
     setupFiles: ["test/setup/refIntegrity.ts"],
   },
 })

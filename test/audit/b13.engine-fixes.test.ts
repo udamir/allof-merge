@@ -371,7 +371,7 @@ describe("B13.6 resource limits", () => {
     expect(refErrors).toEqual([])
     expect(result).toMatchObject({ type: "string", minLength: 1 })
     expect(createResolutionIndex(chain).resolvePointer("/definitions/d0")).toEqual({ $ref: "#/definitions/d1" })
-  })
+  }, 30_000)
 })
 
 describe("B13.7 merger memo and output sharing", () => {

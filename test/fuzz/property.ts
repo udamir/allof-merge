@@ -22,6 +22,10 @@ const envNumber = (name: string): number | undefined => {
   return n
 }
 
+// a timeout for a property of `numRuns` cases: about 2 ms per case alone, so 20 ms per case (at least 30 s) only
+// catches a hang, not a slow or busy machine (FUZZ_RUNS raises the workload)
+export const fuzzTimeout = (numRuns: number): number => Math.max(30_000, numRuns * 20)
+
 export const fuzzSettings = (profile: Profile) => ({
   seed: envNumber("FUZZ_SEED") ?? DEFAULT_SEEDS[profile],
   numRuns: envNumber("FUZZ_RUNS") ?? DEFAULT_RUNS,

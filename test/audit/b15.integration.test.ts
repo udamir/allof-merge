@@ -142,13 +142,14 @@ describe("B15.5 expansionBudget: total schema nodes copied in by $ref inlining p
   it("B15.5.1 a fat target fanned out below maxRefExpansion is still bounded by the default budget, reported once", () => {
     const start = performance.now()
     const { result, mergeErrors } = mergeReport(fatDocument())
-    expect(performance.now() - start).toBeLessThan(5000)
+    // about 1.2 s alone: a bound against a blow-up, with room for a busy machine
+    expect(performance.now() - start).toBeLessThan(15_000)
     expect(JSON.stringify(result).length).toBeLessThan(100_000_000)
     const budgetErrors = mergeErrors.filter((e) => e.message.includes("expansionBudget"))
     expect(budgetErrors).toHaveLength(1)
     // the kept nodes are the original allOf with the $ref
     expect(JSON.stringify(result)).toContain('"$ref":"#/definitions/L')
-  })
+  }, 30_000)
 
   it("B15.5.2 a small budget keeps the $ref of the node that would exceed it", () => {
     const doc = { definitions: { S: { type: "object", properties: { a: { type: "string" } } } }, properties: {
