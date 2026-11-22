@@ -117,6 +117,7 @@ merge(value, options?: MergeOptions)
 | `onMergeError`, `onRefResolveError` | | Callbacks of 0.x, still called for merge conflicts and broken `$ref`s |
 | `unsatisfiable` | `"false"` | How a contradiction is written: `false` or `{ not: {} }` (`"not-empty"`, for draft-04 consumers) |
 | `refAnnotations` | `"merge"` | `"omit"` drops `title`, `description` and `$comment` that a schema gets only through a `$ref`; or a list of keys (`["title", "x-*"]`) |
+| `keepSourceOrder` | `false` | Keys, properties and `enum` / `required` members appear in the order they are written in the source, see [Key order](#key-order); which value wins is unchanged |
 | `dropFalseBranches` | `true` | Remove impossible `oneOf` / `anyOf` branches |
 | `dedupeAnyOf` | `true` | Keep identical `anyOf` branches once (never `oneOf`) |
 | `dedupeFragments` | `true` | Keep identical parts left in `allOf` once |
@@ -136,6 +137,7 @@ The limits only protect against hostile input: real-world specifications stay fa
 - **Contradictions** become `false`: `{ allOf: [{ type: "string" }, { type: "number" }] }` → `false`. A property with an impossible schema stays in `properties` as `false`.
 - **Impossible `oneOf` / `anyOf` branches** are removed. If every branch is impossible, the schema is `false`.
 - **`enum` and `required`** keep the order of first appearance, without duplicates.
+- **Key order**: properties and `enum` / `required` members appear in the order they are first met when the merged parts are read as `allOf` members first, then the `$ref` target, then the schema's own keywords. With `keepSourceOrder: true` the parts are read in the order the schema writes them instead, and the schema's keys follow that order too, see [Key order](#key-order).
 - **Several `pattern`s** are combined into one regular expression. Patterns with backreferences or named groups stay in `allOf`.
 - **Different `format`s** are a contradiction (`false`). The OpenAPI rules narrow `int32 ∧ int64` → `int32` and `float ∧ double` → `float`.
 - **Kept in `allOf`** because they have no exact merged form: different `contains`, several `if` / `then` / `else`, `multipleOf` values without an exact least common multiple, items with their own `unevaluatedProperties` / `unevaluatedItems`, and some combinations of `patternProperties` with `additionalProperties`. Each is reported as a `*-kept` warning.
@@ -146,6 +148,24 @@ The limits only protect against hostile input: real-world specifications stay fa
 - **Unknown and vendor keywords**: the last value wins, unless a rule says otherwise.
 - **Malformed values** (`required: true`, `enum: null`, …) are dropped and reported.
 - Uses of the same `$ref` target share one output object; use `freezeOutput: true` if code downstream might mutate it.
+
+### Key order
+
+`keepSourceOrder: true` reads each schema key by key: an own keyword where the schema writes it, the `$ref` target where it writes `$ref`, the `allOf` members where it writes `allOf`. Keys, properties (also of nested merged schemas, `$defs` and other merged objects) and `enum` / `required` members then appear in the order they are first written. Only the order changes: the same values win (the schema's own keywords over its `$ref` target and `allOf` members), and custom rules receive the values in the default order.
+
+```js
+const doc = { openapi: "3.1.0", components: { schemas: {
+  Base: { properties: { id: { type: "string" } } },
+  Pet: { properties: { name: {} }, $ref: "#/components/schemas/Base", allOf: [{ properties: { tag: {} } }] },
+} } }
+
+Object.keys(merge(doc, { mergeRefSibling: true }).components.schemas.Pet.properties)
+// ["tag", "id", "name"]
+Object.keys(merge(doc, { mergeRefSibling: true, keepSourceOrder: true }).components.schemas.Pet.properties)
+// ["name", "id", "tag"]
+```
+
+Property names that look like array indexes (`"200"`) always come first: JavaScript objects order them before other keys.
 
 ### Simplifications
 
