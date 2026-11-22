@@ -1,6 +1,6 @@
 {
   "name": "allof-merge",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "description": "Merge allOf in JSON Schema, OpenAPI, AsyncAPI and GraphApi documents into equivalent schemas without allOf",
   "keywords": [
     "json",
