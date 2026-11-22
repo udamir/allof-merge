@@ -7,7 +7,7 @@
 import { describe, it, expect } from "vite-plus/test"
 import { checkCase } from "./oracle.ts"
 import { loadCorpus } from "./corpus.ts"
-import { formatFailure } from "./property.ts"
+import { formatFailure, fuzzTimeout } from "./property.ts"
 
 describe("fuzz corpus replay (cfworker oracle)", () => {
   for (const { file, cases } of loadCorpus()) {
@@ -19,6 +19,6 @@ describe("fuzz corpus replay (cfworker oracle)", () => {
         if (failure) { failures.push(formatFailure(c, failure, [`case: ${file} ${c.id} (${c.source})`])) }
       }
       if (failures.length) { throw new Error(`${failures.length} corpus case(s) failed:\n\n${failures.slice(0, 5).join("\n\n")}`) }
-    })
+    }, fuzzTimeout(cases.length))
   }
 })
